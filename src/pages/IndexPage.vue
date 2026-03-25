@@ -20,14 +20,28 @@
               </h1>
             </div>
 
-            <nav class="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto no-scrollbar backdrop-blur-md">
+            <nav class="flex items-center gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-xl overflow-x-auto no-scrollbar">
               <button 
-                v-for="f in 5" :key="f"
-                @click="currentFloor = f"
-                class="px-4 py-2 rounded-lg text-xs font-black transition-all duration-300"
-                :class="currentFloor === f ? 'bg-white text-slate-900 shadow-xl' : 'text-white/30 hover:text-white/60'"
+                v-for="f in floorHeatData" :key="f.floor"
+                @click="currentFloor = f.floor"
+                class="relative px-4 py-3 rounded-xl transition-all duration-500 group overflow-hidden"
+                :class="currentFloor === f.floor ? 'bg-white shadow-2xl scale-105' : 'hover:bg-white/5'"
               >
-                {{ f }}F
+                <div 
+                  class="absolute bottom-0 left-0 w-full transition-all duration-1000 opacity-20"
+                  :class="getHeatColor(f.occupancy)"
+                  :style="{ height: `${f.occupancy}%` }"
+                ></div>
+
+                <div class="relative z-10 flex flex-col items-center">
+                  <span 
+                    class="text-xs font-black tracking-tighter"
+                    :class="currentFloor === f.floor ? 'text-slate-900' : 'text-white/30 group-hover:text-white/60'"
+                  >
+                    {{ f.floor }}F
+                  </span>
+                  <div class="mt-1 h-1 w-1 rounded-full animate-pulse" :class="getHeatColor(f.occupancy)"></div>
+                </div>
               </button>
             </nav>
           </header>
@@ -41,7 +55,7 @@
                 class="pb-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative group flex-shrink-0"
                 :class="activeZoneId === zone.id ? 'text-amber-400' : 'text-white/20 hover:text-white/40'"
               >
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2" :class="getZoneHeatTextClass(zone.occupancy)">
                   {{ zone.name }}
                   <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 group-hover:border-amber-400/30">
                     {{ zone.occupancy }}
@@ -81,7 +95,7 @@
             <div v-if="isLoading" class="absolute inset-x-0 bottom-0 top-32 px-4 sm:px-10 flex items-center justify-center pointer-events-none">
                <div class="flex flex-col items-center gap-4">
                   <div class="h-12 w-12 border-4 border-amber-400/20 border-t-amber-400 rounded-full animate-spin"></div>
-                  <p class="text-amber-400/60 font-black text-[10px] tracking-[0.4em] uppercase">Syncing Library Data...</p>
+                  <p class="text-amber-400/60 font-black text-[10px] tracking-[0.4em] uppercase">Syncing Floor {{ currentFloor }}...</p>
                </div>
             </div>
           </section>
@@ -124,7 +138,7 @@
 import { ref, computed, watch } from 'vue';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 
-// --- 型別定義 (Types) ---
+// --- 型別與介面 ---
 interface Zone {
   id: string;
   name: string;
@@ -144,7 +158,21 @@ interface Seat {
   available: boolean;
 }
 
+interface FloorHeat {
+  floor: number;
+  occupancy: number; // 0-100
+}
+
 const store = usePomodoroStore();
+
+// --- 樓層熱度數據 (未來由 API 定時更新) ---
+const floorHeatData = ref<FloorHeat[]>([
+  { floor: 1, occupancy: 88 },
+  { floor: 2, occupancy: 35 },
+  { floor: 3, occupancy: 12 },
+  { floor: 4, occupancy: 55 },
+  { floor: 5, occupancy: 95 },
+]);
 
 // --- 狀態控制 ---
 const currentFloor = ref(2);
@@ -163,24 +191,45 @@ const currentZone = computed<Zone | undefined>(() =>
   floorZones.find(z => z.id === activeZoneId.value)
 );
 
-// --- 座位動態生成邏輯 ---
+// --- 核心邏輯：熱度顏色判斷 ---
+function getHeatColor(percent: number) {
+  if (percent > 80) return 'bg-rose-500';
+  if (percent > 50) return 'bg-orange-400';
+  if (percent > 20) return 'bg-teal-400';
+  return 'bg-slate-500';
+}
+
+function getZoneHeatTextClass(occupancyStr: string) {
+  const [currentRaw = '0', totalRaw = '1'] = (occupancyStr ?? '0/1').split('/');
+  const current = Number(currentRaw);
+  const total = Number(totalRaw);
+
+  if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
+    return 'text-white/20';
+  }
+
+  const ratio = current / total;
+  if (ratio > 0.7) return 'text-rose-400';
+  if (ratio > 0.3) return 'text-teal-400';
+  return 'text-white/20';
+}
+
+// --- 座位生成與同步模擬 ---
 const currentSeats = computed(() => {
   const prefix = `${currentFloor.value}${activeZoneId.value}`;
   return Array.from({ length: 24 }, (_, i) => ({
     id: `${prefix}-${i + 1}`,
     icon: i % 3 === 0 ? '📚' : i % 3 === 1 ? '💻' : '✍️',
-    available: i !== 11, // 模擬 A-12 座位維修中
+    available: i !== 11,
   }));
 });
 
-// --- 模擬在線讀者 ---
 const readers = ref<Reader[]>([
   { name: 'Lead_Viberse', seatId: '2A-3', state: 'FOCUS' },
   { name: 'Alex', seatId: '2A-8', state: 'BREAK' },
   { name: 'Sarah', seatId: '2B-1', state: 'FOCUS' },
 ]);
 
-// --- 核心方法 ---
 const getMateAtSeat = (seatId: string) => readers.value.find(r => r.seatId === seatId);
 
 const formattedTime = computed(() => {
@@ -194,6 +243,7 @@ const selectedSeatLabel = computed(() => {
   return selectedSeatId.value ? `Reserved Seat ${selectedSeatId.value}` : 'Please Select a Seat';
 });
 
+// --- 動作方法 ---
 function selectSeat(id: string) {
   if (getMateAtSeat(id)) return;
   selectedSeatId.value = id;
@@ -215,13 +265,27 @@ function seatButtonClass(seat: Seat) {
   return 'border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10';
 }
 
-// 監聽樓層切換
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// --- 監聽器 ---
 watch([currentFloor, activeZoneId], () => {
   isLoading.value = true;
   selectedSeatId.value = null; 
-  // 模擬網路延遲請求分區數據
   setTimeout(() => { isLoading.value = false; }, 500);
 });
+
+watch(
+  () => store.timeLeft,
+  (newTime) => {
+    const status = store.isRunning ? '專注中' : '待命中';
+    document.title = `${formatTime(newTime)} | ${status}`;
+  },
+  { immediate: true },
+);
 </script>
 
 <style scoped>

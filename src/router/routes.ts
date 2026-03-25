@@ -13,6 +13,15 @@ const routes: RouteRecordRaw[] = [
     path: '/:catchAll(.*)*',
     component: () => import('pages/ErrorNotFound.vue'),
   },
+  {
+    path: '/',
+    component: () => import('layouts/MainLayout.vue'),
+    children: [
+      { path: '', component: () => import('pages/IndexPage.vue') },
+      // 🆕 新增測試頁面
+      { path: 'test-ws', component: () => import('pages/TestWSPage.vue') } 
+    ],
+  },
 ];
 
 export default routes;
