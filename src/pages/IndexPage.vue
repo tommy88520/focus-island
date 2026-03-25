@@ -1,59 +1,232 @@
 <template>
-  <q-page class="flex flex-center bg-slate-900">
-    <div
-      class="p-8 md:p-12 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl text-center transform hover:scale-105 transition-all duration-300"
-    >
-      <h1
-        class="text-4xl md:text-6xl font-black bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-4"
-      >
-        Tailwind v4 + Quasar
-      </h1>
+  <div class="relative min-h-[calc(100vh-80px)] px-4 py-4 sm:px-6 lg:py-8">
+    <div class="relative z-10 mx-auto max-w-7xl">
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        
+        <main class="lg:col-span-8 space-y-6">
+          <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div class="flex items-center gap-3 mb-2">
+                <div class="px-2 py-0.5 rounded-md bg-amber-400 text-amber-950 text-[10px] font-black tracking-widest uppercase shadow-lg shadow-amber-400/20">
+                  Floor {{ currentFloor }}
+                </div>
+                <div class="h-1 w-1 rounded-full bg-white/20"></div>
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                  {{ currentZone?.name }} · {{ currentZone?.description }}
+                </p>
+              </div>
+              <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">
+                {{ store.isRunning ? '深度專注中' : '挑個好位子，入座。' }}
+              </h1>
+            </div>
 
-      <p class="text-slate-300 text-lg mb-8">
-        如果看到藍色漸層文字、磨砂玻璃背景與縮放動畫，代表設定成功！
-      </p>
+            <nav class="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto no-scrollbar backdrop-blur-md">
+              <button 
+                v-for="f in 5" :key="f"
+                @click="currentFloor = f"
+                class="px-4 py-2 rounded-lg text-xs font-black transition-all duration-300"
+                :class="currentFloor === f ? 'bg-white text-slate-900 shadow-xl' : 'text-white/30 hover:text-white/60'"
+              >
+                {{ f }}F
+              </button>
+            </nav>
+          </header>
 
-      <div class="flex gap-4 justify-center">
-        <q-btn unelevated color="primary" label="Quasar Button" class="px-6 py-2" />
-        <button
-          class="px-6 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-full font-bold shadow-lg shadow-rose-500/30 transition-colors"
-        >
-          Tailwind Button
-        </button>
+          <section class="rounded-[40px] border border-white/10 bg-slate-900/40 p-4 sm:p-10 backdrop-blur-md shadow-2xl relative min-h-[550px]">
+            
+            <div class="flex items-center gap-6 mb-10 border-b border-white/5 overflow-x-auto no-scrollbar">
+              <button 
+                v-for="zone in floorZones" :key="zone.id"
+                @click="activeZoneId = zone.id"
+                class="pb-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative group flex-shrink-0"
+                :class="activeZoneId === zone.id ? 'text-amber-400' : 'text-white/20 hover:text-white/40'"
+              >
+                <div class="flex items-center gap-2">
+                  {{ zone.name }}
+                  <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 group-hover:border-amber-400/30">
+                    {{ zone.occupancy }}
+                  </span>
+                </div>
+                <div v-if="activeZoneId === zone.id" class="absolute bottom-0 left-0 w-full h-1 bg-amber-400 rounded-full"></div>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 sm:gap-6 relative transition-all duration-500" :class="{ 'opacity-0 scale-95': isLoading }">
+              <div v-for="seat in currentSeats" :key="seat.id" class="relative">
+                <button
+                  :disabled="!seat.available || store.isRunning"
+                  @click="selectSeat(seat.id)"
+                  class="w-full aspect-square rounded-2xl sm:rounded-3xl border-2 flex flex-col items-center justify-center transition-all duration-500 relative overflow-hidden group"
+                  :class="seatButtonClass(seat)"
+                >
+                  <template v-if="!getMateAtSeat(seat.id)">
+                    <span class="text-xl sm:text-2xl mb-1 group-hover:scale-110 transition-transform">{{ seat.icon }}</span>
+                    <span class="text-[8px] font-black opacity-30 tracking-tighter">{{ seat.id }}</span>
+                  </template>
+
+                  <div v-else class="flex flex-col items-center">
+                    <div class="relative">
+                      <div class="h-9 w-9 sm:h-12 sm:w-12 rounded-full bg-slate-800 border-2 border-teal-500/30 flex items-center justify-center text-xs sm:text-sm font-black text-teal-100 shadow-inner">
+                        {{ getMateAtSeat(seat.id)?.name[0] }}
+                      </div>
+                      <div class="absolute -bottom-0.5 -right-0.5 h-3 w-3 sm:h-4 sm:w-4 rounded-full border-2 border-slate-900 bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.6)]"></div>
+                    </div>
+                  </div>
+
+                  <div v-if="selectedSeatId === seat.id" class="absolute inset-0 border-2 border-amber-400 bg-amber-400/10 animate-pulse pointer-events-none"></div>
+                </button>
+              </div>
+            </div>
+
+            <div v-if="isLoading" class="absolute inset-x-0 bottom-0 top-32 px-4 sm:px-10 flex items-center justify-center pointer-events-none">
+               <div class="flex flex-col items-center gap-4">
+                  <div class="h-12 w-12 border-4 border-amber-400/20 border-t-amber-400 rounded-full animate-spin"></div>
+                  <p class="text-amber-400/60 font-black text-[10px] tracking-[0.4em] uppercase">Syncing Library Data...</p>
+               </div>
+            </div>
+          </section>
+        </main>
+
+        <aside class="lg:col-span-4 space-y-6">
+          <div class="rounded-[40px] border border-white/10 bg-slate-900/60 p-8 text-center shadow-2xl backdrop-blur-xl relative overflow-hidden">
+             <div class="absolute -top-24 -right-24 h-48 w-48 bg-amber-400/5 blur-[80px] rounded-full"></div>
+
+             <div class="mb-10 h-56 w-56 mx-auto rounded-full border-[12px] border-white/5 flex flex-col items-center justify-center relative shadow-[inset_0_0_40px_rgba(0,0,0,0.3)]">
+                <div class="absolute inset-[-12px] rounded-full border-[12px] border-transparent border-t-amber-400 animate-spin-slow" v-if="store.isRunning"></div>
+                <div class="text-[10px] font-black text-amber-200/40 tracking-[0.5em] mb-2 uppercase">Remaining</div>
+                <div class="text-6xl font-mono font-black text-white tracking-tighter">{{ formattedTime }}</div>
+             </div>
+
+             <div class="space-y-4 relative z-10">
+                <button 
+                  @click="toggleFocus" 
+                  :disabled="!selectedSeatId && !store.isRunning" 
+                  class="w-full py-5 rounded-3xl font-black tracking-[0.2em] transition-all active:scale-95 shadow-2xl"
+                  :class="store.isRunning ? 'bg-rose-500 text-white shadow-rose-500/20' : 'bg-white text-slate-900 shadow-white/10 hover:bg-amber-50'"
+                >
+                  {{ store.isRunning ? 'LEAVE SESSION' : 'CLAIM YOUR SEAT' }}
+                </button>
+                <div class="py-3 px-4 rounded-2xl bg-white/5 border border-white/10">
+                  <p class="text-[10px] text-white/40 font-bold uppercase tracking-widest">
+                    {{ selectedSeatLabel }}
+                  </p>
+                </div>
+             </div>
+          </div>
+        </aside>
+
       </div>
     </div>
-  </q-page>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import type { Todo, Meta } from 'components/models';
-import ExampleComponent from 'components/ExampleComponent.vue';
+import { ref, computed, watch } from 'vue';
+import { usePomodoroStore } from 'src/stores/pomodoro';
 
-const todos = ref<Todo[]>([
-  {
-    id: 1,
-    content: 'ct1',
-  },
-  {
-    id: 2,
-    content: 'ct2',
-  },
-  {
-    id: 3,
-    content: 'ct3',
-  },
-  {
-    id: 4,
-    content: 'ct4',
-  },
-  {
-    id: 5,
-    content: 'ct5',
-  },
+// --- 型別定義 (Types) ---
+interface Zone {
+  id: string;
+  name: string;
+  description: string;
+  occupancy: string;
+}
+
+interface Reader {
+  name: string;
+  seatId: string;
+  state: 'FOCUS' | 'BREAK' | 'READY';
+}
+
+interface Seat {
+  id: string;
+  icon: string;
+  available: boolean;
+}
+
+const store = usePomodoroStore();
+
+// --- 狀態控制 ---
+const currentFloor = ref(2);
+const activeZoneId = ref('A');
+const isLoading = ref(false);
+const selectedSeatId = ref<string | null>(null);
+
+const floorZones: Zone[] = [
+  { id: 'A', name: 'Silent Forest', description: '完全靜音深度專注', occupancy: '12/24' },
+  { id: 'B', name: 'Urban Cafe', description: '環境音輕柔交流', occupancy: '18/24' },
+  { id: 'C', name: 'Deep Sea', description: '封閉式專注座艙', occupancy: '4/24' },
+  { id: 'D', name: 'Sky Lounge', description: '開放式景觀座位', occupancy: '0/24' },
+];
+
+const currentZone = computed<Zone | undefined>(() => 
+  floorZones.find(z => z.id === activeZoneId.value)
+);
+
+// --- 座位動態生成邏輯 ---
+const currentSeats = computed(() => {
+  const prefix = `${currentFloor.value}${activeZoneId.value}`;
+  return Array.from({ length: 24 }, (_, i) => ({
+    id: `${prefix}-${i + 1}`,
+    icon: i % 3 === 0 ? '📚' : i % 3 === 1 ? '💻' : '✍️',
+    available: i !== 11, // 模擬 A-12 座位維修中
+  }));
+});
+
+// --- 模擬在線讀者 ---
+const readers = ref<Reader[]>([
+  { name: 'Lead_Viberse', seatId: '2A-3', state: 'FOCUS' },
+  { name: 'Alex', seatId: '2A-8', state: 'BREAK' },
+  { name: 'Sarah', seatId: '2B-1', state: 'FOCUS' },
 ]);
 
-const meta = ref<Meta>({
-  totalCount: 1200,
+// --- 核心方法 ---
+const getMateAtSeat = (seatId: string) => readers.value.find(r => r.seatId === seatId);
+
+const formattedTime = computed(() => {
+  const m = Math.floor(store.timeLeft / 60);
+  const s = store.timeLeft % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+});
+
+const selectedSeatLabel = computed(() => {
+  if (store.isRunning && selectedSeatId.value) return `Currently Sitting At ${selectedSeatId.value}`;
+  return selectedSeatId.value ? `Reserved Seat ${selectedSeatId.value}` : 'Please Select a Seat';
+});
+
+function selectSeat(id: string) {
+  if (getMateAtSeat(id)) return;
+  selectedSeatId.value = id;
+}
+
+function toggleFocus() {
+  if (store.isRunning) {
+    store.stopTimer();
+  } else {
+    store.startTimer();
+  }
+}
+
+function seatButtonClass(seat: Seat) {
+  const isTaken = getMateAtSeat(seat.id);
+  if (!seat.available) return 'opacity-10 grayscale cursor-not-allowed border-transparent';
+  if (isTaken) return 'border-teal-500/30 bg-teal-500/5 cursor-default';
+  if (selectedSeatId.value === seat.id) return 'border-amber-400 bg-amber-400/20 shadow-[0_0_20px_rgba(251,191,36,0.2)] scale-105 z-10';
+  return 'border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10';
+}
+
+// 監聽樓層切換
+watch([currentFloor, activeZoneId], () => {
+  isLoading.value = true;
+  selectedSeatId.value = null; 
+  // 模擬網路延遲請求分區數據
+  setTimeout(() => { isLoading.value = false; }, 500);
 });
 </script>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.animate-spin-slow { animation: spin 12s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
