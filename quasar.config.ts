@@ -82,7 +82,11 @@ export default defineConfig((/* ctx */) => {
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#framework
     framework: {
-      config: {},
+      config: {notify: {
+          position: 'top-right',
+          timeout: 2500,
+          textColor: 'white'
+        }},
 
       // iconSet: 'material-icons', // Quasar icon set
       // lang: 'en-US', // Quasar language pack
@@ -95,7 +99,9 @@ export default defineConfig((/* ctx */) => {
       // directives: [],
 
       // Quasar plugins
-      plugins: []
+      plugins: [
+        'Notify' // 👈 就是這行！沒加它，$q.notify 永遠是空的
+      ]
     },
 
     // animations: 'all', // --- includes all animations
