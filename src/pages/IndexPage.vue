@@ -436,6 +436,7 @@ import {
   fetchSeatSnapshotAction,
   type SeatSnapshotItem,
 } from 'src/pages/index/actions/seatSnapshotActions';
+import { fetchWebSocketTokenAction } from 'src/pages/index/actions/webSocketTokenActions';
 const $q = useQuasar();
 
 // --- 型別與介面 ---
@@ -486,8 +487,14 @@ const isSwitching = ref(false);
 
 let socket: WebSocket | null = null;
 let floorHeatTimer: number | null = null;
+let reconnectTimer: number | null = null;
+let heartbeatTimer: number | null = null;
+let connectionVersion = 0;
+let socketCloseWasIntentional = false;
 const FLOOR_POLL_INTERVAL_ACTIVE_MS = 8000;
 const FLOOR_POLL_INTERVAL_BACKGROUND_MS = 30000;
+const WS_HEARTBEAT_INTERVAL_MS = 25000;
+const WS_RECONNECT_DELAY_MS = 3000;
 
 const userId = ref(localStorage.getItem('lib_uid') || `使用者_${Math.floor(Math.random() * 1000)}`);
 localStorage.setItem('lib_uid', userId.value);
@@ -646,6 +653,68 @@ function syncCurrentRoomInfo() {
 
   localStorage.setItem(CURRENT_ROOM_INFO_KEY, JSON.stringify(payload));
   window.dispatchEvent(new CustomEvent('focus-room-updated', { detail: payload }));
+}
+
+function clearReconnectTimer() {
+  if (reconnectTimer !== null) {
+    window.clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
+
+function clearHeartbeatTimer() {
+  if (heartbeatTimer !== null) {
+    window.clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
+function stopWebSocketConnection(intentional = true) {
+  socketCloseWasIntentional = intentional;
+  clearReconnectTimer();
+  clearHeartbeatTimer();
+
+  if (socket) {
+    const currentSocket = socket;
+    socket = null;
+    try {
+      currentSocket.close();
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function startHeartbeat() {
+  clearHeartbeatTimer();
+  heartbeatTimer = window.setInterval(() => {
+    if (socket?.readyState !== WebSocket.OPEN) return;
+
+    socket.send(
+      JSON.stringify({
+        type: 'HEARTBEAT',
+        userId: userId.value,
+        roomID: roomID.value,
+        timestamp: Date.now(),
+      }),
+    );
+  }, WS_HEARTBEAT_INTERVAL_MS);
+}
+
+async function requestWebSocketToken() {
+  try {
+    const apiBaseUrl = import.meta.env.VITE_BACKEND_API_URL as string | undefined;
+    const wsBaseUrl = import.meta.env.VITE_BACKEND_WS_URL as string | undefined;
+    return await fetchWebSocketTokenAction({
+      roomID: roomID.value,
+      userId: userId.value,
+      ...(apiBaseUrl ? { apiBaseUrl } : {}),
+      ...(wsBaseUrl ? { wsBaseUrl } : {}),
+      clientNonce: `${userId.value}-${Date.now()}`,
+    });
+  } catch {
+    return null;
+  }
 }
 
 function logSeatIdNormalization(
@@ -1195,37 +1264,42 @@ function handleVisibilityChange() {
   startFloorPollingTimer();
 }
 
-const initWebSocket = () => {
-  if (socket) {
-    socket.close();
-  }
+function connectWebSocket(token: string, version: number) {
   const baseUrl = import.meta.env.VITE_BACKEND_WS_URL || 'ws://localhost:8080';
-  const url = `${baseUrl}/api/v1/library/ws?floor=${currentFloor.value}&zone=${activeZoneId.value}&userId=${userId.value}`;
-  socket = new WebSocket(url);
+  const url = `${baseUrl}/api/v1/library/ws?floor=${currentFloor.value}&zone=${activeZoneId.value}&userId=${userId.value}&token=${encodeURIComponent(token)}`;
+  const currentSocket = new WebSocket(url);
+  socket = currentSocket;
 
-  // --- 1. 連線成功：發送進場訊號 ---
-  socket.onopen = () => {
-    socket?.send(
+  currentSocket.onopen = () => {
+    if (socket !== currentSocket || version !== connectionVersion) return;
+
+    socketCloseWasIntentional = false;
+    clearReconnectTimer();
+    startHeartbeat();
+
+    currentSocket.send(
       JSON.stringify({
         type: 'JOIN',
         userId: userId.value,
         payload: {
           state: 'READY',
           username: displayName.value,
-          seatId: selectedSeatId.value, // 如果重整前有選位，帶入原本的位置
+          seatId: selectedSeatId.value,
         },
       }),
     );
+
+    isLoading.value = false;
   };
 
-  // --- 2. 接收訊息：數據更新與廣播邏輯 ---
-  socket.onmessage = (event) => {
+  currentSocket.onmessage = (event) => {
+    if (socket !== currentSocket || version !== connectionVersion) return;
+
     try {
       const msg = JSON.parse(event.data);
 
       switch (msg.type) {
         case 'SYNC_ALL': {
-          // 初始同步：取得目前房間裡所有人的狀態
           const synchronizedReaders: Reader[] = [];
           Object.keys(msg.data).forEach((uid) => {
             const payload =
@@ -1259,7 +1333,6 @@ const initWebSocket = () => {
         }
 
         case 'JOIN': {
-          // 有人進場邏輯
           const joinIdx = readers.value.findIndex((r) => r.userId === msg.userId);
           const previousSeatId = joinIdx !== -1 ? readers.value[joinIdx]?.seatId : undefined;
           const normalizedJoinSeatId = normalizeSeatId(msg.payload?.seatId);
@@ -1275,7 +1348,6 @@ const initWebSocket = () => {
             state: msg.payload?.state || '待命',
           };
 
-          // 更新數據
           if (joinIdx !== -1) readers.value[joinIdx] = joinReader;
           else readers.value.push(joinReader);
 
@@ -1290,7 +1362,6 @@ const initWebSocket = () => {
             };
           }
 
-          // 廣播通知：只有別人進場時才顯示提示
           if (msg.userId !== userId.value) {
             $q.notify({
               message: `👋 新同學 ${joinReader.displayName} 進入了圖書館`,
@@ -1316,11 +1387,10 @@ const initWebSocket = () => {
           const isTargetingMySeat =
             normalizedIncomingSeatId === normalizeSeatId(selectedSeatId.value);
 
-          // 核心邏輯：如果別人占據了我的位子
           if (isSomeoneElse && isTargetingMySeat) {
-            isShake.value = true; // 觸發震動
+            isShake.value = true;
             selectedSeatId.value = null;
-            setTimeout(() => (isShake.value = false), 500); // 結束震動
+            setTimeout(() => (isShake.value = false), 500);
             $q.notify({
               message: '🛑 哎呀！這個位子剛剛被搶先入座了',
               color: 'negative',
@@ -1331,7 +1401,6 @@ const initWebSocket = () => {
             });
           }
 
-          // 原有的 readers 更新邏輯保持不變...
           const moveIdx = readers.value.findIndex((r) => r.userId === msg.userId);
           const moveReader: Reader = {
             userId: msg.userId,
@@ -1363,7 +1432,6 @@ const initWebSocket = () => {
         }
 
         case 'LEAVE': {
-          // 有人離座邏輯
           const leavingReader = readers.value.find((r) => r.userId === msg.userId);
           logSeatIdNormalization(
             'ws:LEAVE',
@@ -1380,25 +1448,18 @@ const initWebSocket = () => {
           }
           readers.value = readers.value.filter((r) => r.userId !== msg.userId);
           updateCurrentFloorHeatByReaders();
-          // 如果需要在有人離開時顯示通知，可以在此添加 $q.notify
           break;
         }
 
         case 'ERROR': {
-          // 判斷是否為搶位失敗
           if (msg.message === 'SEAT_TAKEN') {
-            // 啟動震動效果
             isShake.value = true;
-
-            // 重置本地選擇
             selectedSeatId.value = null;
 
-            // 500ms 後移除震動狀態
             setTimeout(() => {
               isShake.value = false;
             }, 500);
 
-            // 顯示提示讓使用者知道原因
             $q.notify({
               message: '🛑 慢了一步！這個位子剛剛被別人搶走了',
               color: 'negative',
@@ -1416,14 +1477,73 @@ const initWebSocket = () => {
     }
   };
 
-  socket.onclose = () => {
-    console.log('WebSocket 連線已斷開');
+  currentSocket.onclose = () => {
+    if (socket === currentSocket) {
+      socket = null;
+    }
+
+    clearHeartbeatTimer();
+
+    if (version !== connectionVersion) return;
+
+    if (socketCloseWasIntentional) {
+      socketCloseWasIntentional = false;
+      return;
+    }
+
+    isLoading.value = false;
+    clearReconnectTimer();
+    reconnectTimer = window.setTimeout(() => {
+      if (version !== connectionVersion) return;
+      isLoading.value = true;
+      void reconnectRoomSession();
+    }, WS_RECONNECT_DELAY_MS);
   };
 
-  socket.onerror = (error) => {
+  currentSocket.onerror = (error) => {
+    if (socket !== currentSocket || version !== connectionVersion) return;
+
     console.error('WebSocket 發生錯誤:', error);
+    $q.notify({
+      message: '連線發生錯誤，正在嘗試重新連線',
+      color: 'negative',
+      icon: 'wifi_off',
+      position: 'top',
+      timeout: 1800,
+    });
   };
-};
+}
+
+async function reconnectRoomSession() {
+  const version = ++connectionVersion;
+  stopWebSocketConnection(true);
+  selectedSeatId.value = null;
+  seatSnapshotMap.value = {};
+  syncCurrentRoomInfo();
+
+  void fetchFloorTraffic();
+
+  await fetchSeatSnapshot();
+
+  if (version !== connectionVersion) return;
+
+  const tokenPayload = await requestWebSocketToken();
+  if (version !== connectionVersion) return;
+
+  if (!tokenPayload?.token) {
+    isLoading.value = false;
+    $q.notify({
+      message: '無法取得安全連線權杖，請稍後再試',
+      color: 'negative',
+      icon: 'vpn_key_off',
+      position: 'top',
+      timeout: 2200,
+    });
+    return;
+  }
+
+  connectWebSocket(tokenPayload.token, version);
+}
 
 const formattedTime = computed(() => {
   const m = Math.floor(store.timeLeft / 60);
@@ -1564,15 +1684,7 @@ function formatTime(seconds: number): string {
 
 watch([currentFloor, activeZoneId], () => {
   isLoading.value = true;
-  selectedSeatId.value = null;
-  seatSnapshotMap.value = {};
-  syncCurrentRoomInfo();
-  void fetchSeatSnapshot();
-  initWebSocket();
-  void fetchFloorTraffic();
-  setTimeout(() => {
-    isLoading.value = false;
-  }, 500);
+  void reconnectRoomSession();
 });
 
 watch(
@@ -1603,10 +1715,7 @@ watch(
 onMounted(() => {
   loadAudioPreferences();
   loadFocusPreferences();
-  syncCurrentRoomInfo();
-  void fetchSeatSnapshot();
-  initWebSocket();
-  void fetchFloorTraffic();
+  void reconnectRoomSession();
   startFloorPollingTimer();
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -1616,7 +1725,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  socket?.close();
+  stopWebSocketConnection(true);
   saveAudioPreferences();
   saveFocusPreferences();
   stopAudioPlayback();
