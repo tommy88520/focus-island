@@ -175,32 +175,35 @@
 
         <aside class="lg:col-span-4 space-y-6">
           <div
-            class="rounded-[40px] border border-white/10 bg-slate-900/60 p-8 text-center shadow-2xl backdrop-blur-xl relative overflow-hidden"
+            class="rounded-[36px] border border-white/10 bg-slate-900/60 p-5 text-center shadow-2xl backdrop-blur-xl relative overflow-hidden sm:p-7"
           >
             <div
               class="absolute -top-24 -right-24 h-48 w-48 bg-amber-400/5 blur-[80px] rounded-full"
             ></div>
+            <div
+              class="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-teal-400/5 blur-[90px]"
+            ></div>
 
             <div
-              class="mb-10 h-40 w-40 sm:h-56 sm:w-56 mx-auto rounded-full border-[12px] border-white/5 flex flex-col items-center justify-center relative shadow-[inset_0_0_40px_rgba(0,0,0,0.3)]"
+              class="mb-7 h-44 w-44 sm:mb-8 sm:h-56 sm:w-56 mx-auto rounded-full border-[10px] border-white/10 bg-slate-950/35 flex flex-col items-center justify-center relative shadow-[inset_0_0_46px_rgba(0,0,0,0.34)]"
             >
               <div
-                class="absolute inset-[-12px] rounded-full border-[12px] border-transparent border-t-amber-400 animate-spin-slow"
+                class="absolute inset-[-10px] rounded-full border-[10px] border-transparent border-t-amber-400 animate-spin-slow"
                 v-if="store.isRunning"
               ></div>
               <div
-                class="text-[9px] sm:text-[10px] font-black text-amber-300 tracking-[0.5em] mb-2 uppercase drop-shadow-lg"
+                class="text-[9px] sm:text-[10px] font-black text-amber-300/90 tracking-[0.28em] mb-2 uppercase"
               >
                 剩餘時間
               </div>
               <div
-                class="text-4xl sm:text-6xl font-mono font-black text-amber-50 tracking-tighter drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+                class="text-[2.3rem] leading-none sm:text-6xl font-mono font-black text-amber-50 tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.42)]"
               >
                 {{ formattedTime }}
               </div>
             </div>
 
-            <div class="space-y-4 relative z-10">
+            <div class="space-y-3.5 relative z-10">
               <div class="rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-left">
                 <label
                   for="display-name"
@@ -238,7 +241,7 @@
               <button
                 @click="toggleFocus"
                 :disabled="!selectedSeatId && !store.isRunning"
-                class="w-full py-5 rounded-3xl font-black tracking-[0.2em] transition-all active:scale-95 shadow-2xl"
+                class="w-full py-4 rounded-2xl text-sm font-black tracking-[0.14em] transition-all active:scale-95 shadow-2xl"
                 :class="
                   store.isRunning
                     ? 'bg-rose-500 text-white shadow-rose-500/20'
@@ -247,8 +250,26 @@
               >
                 {{ store.isRunning ? '結束專注' : '入座' }}
               </button>
-              <div class="py-3 px-4 rounded-2xl bg-white/5 border border-white/10">
-                <p class="text-[10px] text-white/40 font-bold uppercase tracking-widest">
+
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  @click="resetFocusTimer"
+                  :disabled="store.timeLeft === store.baseDuration && !store.isRunning"
+                  class="rounded-xl border border-white/15 bg-white/5 px-2.5 py-2 text-[11px] font-black tracking-[0.08em] text-white/85 transition-all hover:border-white/25 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  重置時間
+                </button>
+                <button
+                  @click="restartFocusTimer"
+                  :disabled="!selectedSeatId && !store.isRunning"
+                  class="rounded-xl border border-amber-300/35 bg-amber-400/10 px-2.5 py-2 text-[11px] font-black tracking-[0.08em] text-amber-200 transition-all hover:border-amber-300/55 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  重新開始
+                </button>
+              </div>
+
+              <div class="py-2.5 px-3.5 rounded-xl bg-white/5 border border-white/10 text-left">
+                <p class="text-[11px] text-white/55 font-bold tracking-[0.06em]">
                   {{ selectedSeatLabel }}
                 </p>
               </div>
@@ -261,61 +282,120 @@
 
   <!-- 音頻控制條 (Floating Audio Control Bar) -->
   <div
-    class="fixed bottom-2 left-2 right-2 z-50 rounded-2xl border border-white/10 bg-slate-950/92 shadow-[0_12px_36px_rgba(0,0,0,0.38)] backdrop-blur-xl sm:left-1/2 sm:right-auto sm:w-[min(100%-1rem,40rem)] sm:-translate-x-1/2"
+    class="fixed bottom-1 left-1 right-1 z-50 rounded-2xl border border-white/10 bg-slate-950/92 shadow-[0_10px_28px_rgba(0,0,0,0.34)] backdrop-blur-xl sm:left-1/2 sm:right-auto sm:w-[min(100%-0.75rem,34rem)] sm:-translate-x-1/2"
+    :style="{ paddingBottom: 'max(0.25rem, env(safe-area-inset-bottom))' }"
   >
-    <div class="px-3 py-2 sm:px-4 sm:py-3">
-      <div class="flex items-center gap-3">
+    <div class="px-2.5 py-2 sm:px-3 sm:py-2.5">
+      <div class="flex items-center gap-2.5">
         <button
           @click="toggleAudio"
-          class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-400 text-slate-950 shadow-[0_8px_20px_rgba(251,191,36,0.22)] transition-all active:scale-95 hover:bg-amber-300"
+          class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-400 text-slate-950 shadow-[0_6px_16px_rgba(251,191,36,0.22)] transition-all active:scale-95 hover:bg-amber-300"
         >
-          <q-icon :name="isAudioPlaying ? 'pause' : 'play_arrow'" size="18px" />
+          <q-icon :name="isAudioPlaying ? 'pause' : 'play_arrow'" size="16px" />
         </button>
 
         <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
             <div
-              class="truncate text-[10px] font-black uppercase tracking-[0.25em] text-white/40 sm:text-[11px]"
+              class="truncate text-[9px] font-black uppercase tracking-[0.2em] text-white/40 sm:text-[10px]"
             >
               {{ selectedAudioTrackMeta.name }}
             </div>
             <span
-              class="rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-black text-white/45"
+              class="rounded-full border border-white/10 px-1.5 py-0.5 text-[8px] font-black text-white/45"
             >
               {{ audioVolume }}%
             </span>
           </div>
-          <div class="mt-2 flex items-center gap-2">
-            <q-icon name="volume_up" size="14px" class="text-white/60" />
+          <div class="mt-1.5 flex items-center gap-1.5">
+            <q-icon name="volume_up" size="13px" class="text-white/60" />
             <input
               v-model.number="audioVolume"
               @input="updateAudioVolume"
               type="range"
               min="0"
               max="100"
-              class="h-2 w-full cursor-pointer rounded-full bg-white/15 accent-amber-400"
+              class="h-1.5 w-full cursor-pointer rounded-full bg-white/15 accent-amber-400"
             />
           </div>
         </div>
 
-        <div class="flex w-[11rem] gap-1 overflow-x-auto pb-1 no-scrollbar sm:w-[14rem]">
+        <button
+          @click="showAudioTrackPicker = !showAudioTrackPicker"
+          class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/70 transition-all hover:border-white/20 hover:bg-white/10 sm:hidden"
+        >
+          <q-icon :name="showAudioTrackPicker ? 'expand_less' : 'queue_music'" size="16px" />
+        </button>
+
+        <div class="hidden w-[9.2rem] gap-1 overflow-x-auto pb-1 no-scrollbar sm:flex sm:w-[12rem]">
           <button
             v-for="trackKey in audioTrackOrder"
             :key="trackKey"
-            @click="
-              selectedAudioTrack = trackKey;
-              switchAudioTrack();
-            "
-            class="flex h-10 min-w-[2.6rem] flex-col items-center justify-center rounded-xl border transition-all duration-200"
+            @click="handleTrackSelect(trackKey)"
+            class="flex h-9 min-w-[2.3rem] flex-col items-center justify-center rounded-lg border transition-all duration-200"
             :class="
               selectedAudioTrack === trackKey
                 ? 'border-amber-400 bg-amber-400/10 text-amber-200'
                 : 'border-white/10 bg-white/5 text-white/55 hover:border-white/20 hover:bg-white/10 hover:text-white'
             "
           >
-            <q-icon :name="audioTracks[trackKey].icon" size="17px" />
+            <q-icon :name="audioTracks[trackKey].icon" size="15px" />
           </button>
         </div>
+      </div>
+
+      <div class="mt-2.5 flex flex-wrap items-center gap-1.5 text-[10px] text-white/65">
+        <label
+          class="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1"
+        >
+          <input v-model="followFocusPlayback" type="checkbox" class="accent-amber-400" />
+          跟隨專注
+        </label>
+        <label
+          class="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1"
+        >
+          <input v-model="audioLoopEnabled" type="checkbox" class="accent-amber-400" />
+          循環
+        </label>
+        <label
+          class="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1"
+        >
+          <input v-model="audioAutoPlayOnLoad" type="checkbox" class="accent-amber-400" />
+          進頁自動播
+        </label>
+        <label
+          class="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1"
+        >
+          <span class="text-white/60">預設音源</span>
+          <select
+            v-model="defaultAudioTrack"
+            class="rounded bg-slate-900/80 px-1.5 py-0.5 text-[10px] text-white outline-none"
+          >
+            <option
+              v-for="trackKey in audioTrackOrder"
+              :key="`default-${trackKey}`"
+              :value="trackKey"
+            >
+              {{ audioTracks[trackKey].name }}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <div v-if="showAudioTrackPicker" class="mt-2 grid grid-cols-4 gap-1.5 sm:hidden">
+        <button
+          v-for="trackKey in audioTrackOrder"
+          :key="`mobile-${trackKey}`"
+          @click="handleTrackSelect(trackKey)"
+          class="flex h-9 items-center justify-center rounded-lg border transition-all duration-200"
+          :class="
+            selectedAudioTrack === trackKey
+              ? 'border-amber-400 bg-amber-400/10 text-amber-200'
+              : 'border-white/10 bg-white/5 text-white/55'
+          "
+        >
+          <q-icon :name="audioTracks[trackKey].icon" size="15px" />
+        </button>
       </div>
     </div>
   </div>
@@ -325,6 +405,24 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 import { useQuasar } from 'quasar';
+import {
+  clampOccupancy,
+  getHeatColor as getHeatColorHelper,
+  getZoneHeatTextClass as getZoneHeatTextClassHelper,
+  getFloorLoadPercent as getFloorLoadPercentHelper,
+  getFloorLoadLabel as getFloorLoadLabelHelper,
+  getFloorLoadLabelClass as getFloorLoadLabelClassHelper,
+  formatTime as formatTimeHelper,
+} from 'src/pages/index/functions/uiHelpers';
+import {
+  fetchFloorTrafficAction,
+  type FloorHeat,
+  type FloorTrafficDto,
+} from 'src/pages/index/actions/floorTrafficActions';
+import {
+  fetchSeatSnapshotAction,
+  type SeatSnapshotItem,
+} from 'src/pages/index/actions/seatSnapshotActions';
 const $q = useQuasar();
 
 // --- 型別與介面 ---
@@ -349,27 +447,14 @@ interface Seat {
   available: boolean;
 }
 
-interface FloorHeat {
-  floor: number;
-  occupancy: number;
-  capacity: number;
-}
-
-interface FloorTrafficDto {
-  floor: number;
-  name?: string;
-  occupancy?: number;
-  available?: number;
-  capacity?: number;
-  zones?: Array<{
-    zone?: string;
-    roomId?: string;
-    name?: string;
-    occupancy?: number;
-    available?: number;
-    capacity?: number;
-  }>;
-}
+type SeatSnapshotMap = Record<
+  string,
+  {
+    status: string;
+    userId?: string;
+    username?: string;
+  }
+>;
 
 const store = usePomodoroStore();
 const DEFAULT_FLOOR_CAPACITY = 45;
@@ -400,6 +485,7 @@ const displayName = ref(
 const displayNameInput = ref(displayName.value);
 const isEditingDisplayName = ref(false);
 const readers = ref<Reader[]>([]);
+const seatSnapshotMap = ref<SeatSnapshotMap>({});
 
 // --- 音頻播放配置 ---
 type AudioTrackKey = 'forest' | 'cafe' | 'ocean' | 'pink' | 'silence' | 'lofi' | 'rain' | 'thunder';
@@ -476,6 +562,11 @@ let audioElement: HTMLAudioElement | null = null;
 const selectedAudioTrack = ref<AudioTrackKey>('forest');
 const audioVolume = ref(80);
 const isAudioPlaying = ref(false);
+const defaultAudioTrack = ref<AudioTrackKey>('forest');
+const followFocusPlayback = ref(true);
+const audioLoopEnabled = ref(true);
+const audioAutoPlayOnLoad = ref(false);
+const showAudioTrackPicker = ref(false);
 const audioTrackOrder: AudioTrackKey[] = [
   'forest',
   'cafe',
@@ -488,12 +579,57 @@ const audioTrackOrder: AudioTrackKey[] = [
 ];
 
 const selectedAudioTrackMeta = computed(() => audioTracks[selectedAudioTrack.value]);
+const AUDIO_PREFS_KEY = 'focus_island_audio_prefs_v1';
+const FADE_DURATION_MS = 220;
+let fadeTaskId = 0;
+const DEBUG_SEAT_ID_SYNC = import.meta.env.DEV;
+
+type AudioPrefs = {
+  selectedAudioTrack: AudioTrackKey;
+  defaultAudioTrack: AudioTrackKey;
+  audioVolume: number;
+  followFocusPlayback: boolean;
+  audioLoopEnabled: boolean;
+  audioAutoPlayOnLoad: boolean;
+};
 
 const zoneDescriptionMap: Record<string, string> = {
   靜謐森林: '完全靜音深度專注',
   城市咖啡廳: '環境音輕柔交流',
   深海舱: '封閉式專注座艙',
 };
+
+const roomID = computed(() => `${currentFloor.value}-${activeZoneId.value}`);
+
+function normalizeSeatId(seatId?: string | null) {
+  if (!seatId) return '';
+  const value = seatId.trim();
+  const matched = value.match(/^(\d+)-?([A-Za-z])-?(\d{1,2})$/);
+  if (!matched) return value;
+
+  const [, floorRaw = '0', zoneRaw = 'A', indexRaw = '0'] = matched;
+  return `${Number(floorRaw)}-${zoneRaw.toUpperCase()}-${indexRaw.padStart(2, '0')}`;
+}
+
+function buildSeatId(floor: number, zoneId: string, index: number) {
+  return `${floor}-${zoneId.toUpperCase()}-${String(index).padStart(2, '0')}`;
+}
+
+function logSeatIdNormalization(
+  source: string,
+  rawSeatId: string | undefined | null,
+  normalizedSeatId: string,
+  meta?: Record<string, unknown>,
+) {
+  if (!DEBUG_SEAT_ID_SYNC) return;
+
+  console.log('[SeatSync]', {
+    source,
+    rawSeatId,
+    normalizedSeatId,
+    ...meta,
+  });
+}
 
 const floorZones = computed<Zone[]>(() =>
   (floorMetaData.value.find((floor) => floor.floor === currentFloor.value)?.zones || []).map(
@@ -529,13 +665,13 @@ const currentZone = computed<Zone | undefined>(() =>
 
 const isMe = (id: string) => id === userId.value;
 const getMateAtSeat = (seatId: string) =>
-  readers.value.find((r) => r.seatId === seatId && !isMe(r.userId));
+  readers.value.find((r) => normalizeSeatId(r.seatId) === normalizeSeatId(seatId) && !isMe(r.userId));
 
 function getUniqueZoneOccupancy(zoneId: string) {
   const uniqueUsers = new Set<string>();
   readers.value.forEach((reader) => {
     if (!reader.userId || !reader.seatId) return;
-    if (reader.seatId.startsWith(`${currentFloor.value}${zoneId}-`)) {
+    if (normalizeSeatId(reader.seatId).startsWith(`${currentFloor.value}-${zoneId}-`)) {
       uniqueUsers.add(reader.userId);
     }
   });
@@ -544,129 +680,116 @@ function getUniqueZoneOccupancy(zoneId: string) {
 
 // --- 核心邏輯：熱度顏色判斷 ---
 function getHeatColor(percent: number) {
-  if (percent > 80) return 'bg-rose-500';
-  if (percent > 50) return 'bg-orange-400';
-  if (percent > 20) return 'bg-teal-400';
-  return 'bg-slate-500';
+  return getHeatColorHelper(percent);
 }
 
 function getZoneHeatTextClass(occupancyStr: string) {
-  const [currentRaw = '0', totalRaw = '1'] = (occupancyStr ?? '0/1').split('/');
-  const current = Number(currentRaw);
-  const total = Number(totalRaw);
-
-  if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
-    return 'text-white/20';
-  }
-
-  const ratio = current / total;
-  if (ratio > 0.7) return 'text-rose-400';
-  if (ratio > 0.3) return 'text-teal-400';
-  return 'text-white/20';
+  return getZoneHeatTextClassHelper(occupancyStr);
 }
 
 // --- 座位生成與同步模擬 ---
 const currentSeats = computed(() => {
-  const prefix = `${currentFloor.value}${activeZoneId.value}`;
+  const prefix = `${currentFloor.value}-${activeZoneId.value.toUpperCase()}`;
   const currentZoneConfig = floorZones.value.find((zone) => zone.id === activeZoneId.value);
   const seatCount = currentZoneConfig?.capacity || DEFAULT_ZONE_CAPACITY;
   return Array.from({ length: seatCount }, (_, i) => ({
-    id: `${prefix}-${i + 1}`,
+    id: buildSeatId(currentFloor.value, activeZoneId.value, i + 1),
     icon: i % 3 === 0 ? '📚' : i % 3 === 1 ? '💻' : '✍️',
-    available: i !== 11,
+    available: (() => {
+      const seatId = `${prefix}-${String(i + 1).padStart(2, '0')}`;
+      const snapshot = seatSnapshotMap.value[seatId];
+      const status = snapshot?.status ?? 'AVAILABLE';
+      const isMySeat = snapshot?.userId === userId.value || selectedSeatId.value === seatId;
+      return status === 'AVAILABLE' || isMySeat;
+    })(),
   }));
 });
 
-function clampPercent(value: number) {
-  return Math.max(0, Math.min(100, Math.round(value)));
+function normalizeSeatSnapshot(snapshot: SeatSnapshotItem[]) {
+  const nextSeatMap: SeatSnapshotMap = {};
+  const nextReaders: Reader[] = [];
+
+  snapshot.forEach((seat) => {
+    const normalizedSeatId = normalizeSeatId(seat.seatId);
+    logSeatIdNormalization('snapshot', seat.seatId, normalizedSeatId, {
+      status: seat.status,
+      userId: seat.userId,
+      username: seat.username,
+    });
+    if (!normalizedSeatId) return;
+
+    nextSeatMap[normalizedSeatId] = {
+      status: seat.status,
+      ...(seat.userId ? { userId: seat.userId } : {}),
+      ...(seat.username ? { username: seat.username } : {}),
+    };
+
+    if (seat.userId && seat.status !== 'AVAILABLE') {
+      nextReaders.push({
+        userId: seat.userId,
+        displayName: seat.username || seat.userId,
+        seatId: normalizedSeatId,
+        state: seat.status === 'FOCUS' ? '專注' : seat.status === 'READY' ? '待命' : '休息',
+      });
+    }
+  });
+
+  seatSnapshotMap.value = nextSeatMap;
+  readers.value = nextReaders;
 }
 
-function clampOccupancy(value: number, capacity = DEFAULT_FLOOR_CAPACITY) {
-  return Math.max(0, Math.min(capacity, Math.round(value)));
+async function fetchSeatSnapshot() {
+  try {
+    const apiBaseUrl = import.meta.env.VITE_BACKEND_API_URL as string | undefined;
+    const wsBaseUrl = import.meta.env.VITE_BACKEND_WS_URL as string | undefined;
+    const snapshot = await fetchSeatSnapshotAction({
+      roomID: roomID.value,
+      ...(apiBaseUrl ? { apiBaseUrl } : {}),
+      ...(wsBaseUrl ? { wsBaseUrl } : {}),
+    });
+    if (!snapshot) return;
+
+    normalizeSeatSnapshot(snapshot.seats);
+    updateCurrentFloorHeatByReaders();
+  } catch {
+    // ignore seat snapshot failures and continue with websocket sync
+  }
 }
 
 function getFloorLoadPercent(floor: FloorHeat) {
-  if (!floor.capacity) return 0;
-  return clampPercent((floor.occupancy / floor.capacity) * 100);
+  return getFloorLoadPercentHelper(floor);
 }
 
 function getFloorLoadLabel(floor: FloorHeat) {
   const percent = getFloorLoadPercent(floor);
-  if (percent >= 80) return '高';
-  if (percent >= 40) return '中';
-  return '低';
+  return getFloorLoadLabelHelper(percent);
 }
 
 function getFloorLoadLabelClass(floor: FloorHeat) {
   const percent = getFloorLoadPercent(floor);
-  if (percent >= 80) return currentFloor.value === floor.floor ? 'text-rose-600' : 'text-rose-300';
-  if (percent >= 40) {
-    return currentFloor.value === floor.floor ? 'text-orange-700' : 'text-orange-300';
-  }
-  return currentFloor.value === floor.floor ? 'text-teal-700' : 'text-teal-300';
-}
-
-function getHttpBaseUrl() {
-  const configured = import.meta.env.VITE_BACKEND_API_URL as string | undefined;
-  if (configured) return configured.replace(/\/$/, '');
-
-  const wsBase =
-    (import.meta.env.VITE_BACKEND_WS_URL as string | undefined) || 'ws://localhost:8080';
-  return wsBase.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:').replace(/\/$/, '');
+  return getFloorLoadLabelClassHelper(percent, currentFloor.value === floor.floor);
 }
 
 async function fetchFloorTraffic() {
-  const endpoint = `${getHttpBaseUrl()}/api/v1/library/floors`;
-
   try {
-    const response = await fetch(endpoint, { method: 'GET' });
-    if (!response.ok) return;
+    const apiBaseUrl = import.meta.env.VITE_BACKEND_API_URL as string | undefined;
+    const wsBaseUrl = import.meta.env.VITE_BACKEND_WS_URL as string | undefined;
+    const result = await fetchFloorTrafficAction({
+      defaultFloorCapacity: DEFAULT_FLOOR_CAPACITY,
+      ...(apiBaseUrl ? { apiBaseUrl } : {}),
+      ...(wsBaseUrl ? { wsBaseUrl } : {}),
+    });
+    if (!result) return;
 
-    const payload = (await response.json()) as FloorTrafficDto[] | { data?: FloorTrafficDto[] };
-    const floors = Array.isArray(payload)
-      ? payload
-      : Array.isArray(payload.data)
-        ? payload.data
-        : [];
-    if (!floors.length) return;
+    floorHeatData.value = result.normalized.map((item) => {
+      return {
+        floor: item.floor,
+        occupancy: item.occupancy,
+        capacity: item.capacity,
+      };
+    });
 
-    const normalized = floors
-      .map((item) => {
-        if (typeof item.floor !== 'number') return null;
-
-        const zoneCapacitySum = (item.zones || []).reduce((sum, zone) => {
-          const zoneCapacity =
-            typeof zone.capacity === 'number' && zone.capacity > 0 ? zone.capacity : 0;
-          return sum + zoneCapacity;
-        }, 0);
-
-        const capacity =
-          typeof item.capacity === 'number' && item.capacity > 0
-            ? item.capacity
-            : zoneCapacitySum > 0
-              ? zoneCapacitySum
-              : DEFAULT_FLOOR_CAPACITY;
-        const occupancyFromApi =
-          typeof item.occupancy === 'number' ? clampOccupancy(item.occupancy, capacity) : null;
-        const existing = floorHeatData.value.find((f) => f.floor === item.floor);
-        return {
-          floor: item.floor,
-          occupancy: occupancyFromApi ?? clampOccupancy(existing?.occupancy ?? 0, capacity),
-          capacity,
-        };
-      })
-      .filter((item): item is FloorHeat => item !== null);
-
-    if (!normalized.length) return;
-
-    const occupancyByFloor = new Map(normalized.map((item) => [item.floor, item]));
-    floorHeatData.value = normalized.map((item) => ({
-      floor: item.floor,
-      occupancy: occupancyByFloor.get(item.floor)?.occupancy ?? item.occupancy,
-      capacity: occupancyByFloor.get(item.floor)?.capacity ?? item.capacity,
-    }));
-
-    floorMetaData.value = floors;
+    floorMetaData.value = result.floors;
 
     if (
       !floorHeatData.value.some((f) => f.floor === currentFloor.value) &&
@@ -742,14 +865,127 @@ function updateCurrentFloorHeatByReaders() {
 function ensureAudioElement() {
   if (!audioElement) {
     audioElement = new Audio();
-    audioElement.loop = true;
+    audioElement.loop = audioLoopEnabled.value;
     audioElement.preload = 'auto';
     audioElement.crossOrigin = 'anonymous';
+    audioElement.addEventListener('error', handleAudioPlaybackError);
   }
   return audioElement;
 }
 
+function isTrackKey(value: unknown): value is AudioTrackKey {
+  return typeof value === 'string' && value in audioTracks;
+}
+
+function normalizeVolume(value: unknown) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 80;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function saveAudioPreferences() {
+  const payload: AudioPrefs = {
+    selectedAudioTrack: selectedAudioTrack.value,
+    defaultAudioTrack: defaultAudioTrack.value,
+    audioVolume: audioVolume.value,
+    followFocusPlayback: followFocusPlayback.value,
+    audioLoopEnabled: audioLoopEnabled.value,
+    audioAutoPlayOnLoad: audioAutoPlayOnLoad.value,
+  };
+  localStorage.setItem(AUDIO_PREFS_KEY, JSON.stringify(payload));
+}
+
+function loadAudioPreferences() {
+  const raw = localStorage.getItem(AUDIO_PREFS_KEY);
+  if (!raw) return;
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<AudioPrefs>;
+    if (isTrackKey(parsed.defaultAudioTrack)) {
+      defaultAudioTrack.value = parsed.defaultAudioTrack;
+    }
+
+    if (isTrackKey(parsed.selectedAudioTrack)) {
+      selectedAudioTrack.value = parsed.selectedAudioTrack;
+    } else {
+      selectedAudioTrack.value = defaultAudioTrack.value;
+    }
+
+    audioVolume.value = normalizeVolume(parsed.audioVolume);
+    followFocusPlayback.value = parsed.followFocusPlayback ?? true;
+    audioLoopEnabled.value = parsed.audioLoopEnabled ?? true;
+    audioAutoPlayOnLoad.value = parsed.audioAutoPlayOnLoad ?? false;
+  } catch {
+    // ignore invalid stored payload
+  }
+}
+
+function getTrackVolume(trackKey = selectedAudioTrack.value) {
+  return (audioVolume.value / 100) * (audioTracks[trackKey]?.gain ?? 0);
+}
+
+function fadeAudioVolume(target: number, duration = FADE_DURATION_MS) {
+  const player = audioElement;
+  if (!player) return Promise.resolve();
+
+  fadeTaskId += 1;
+  const taskId = fadeTaskId;
+  const from = player.volume;
+  const start = performance.now();
+
+  return new Promise<void>((resolve) => {
+    const tick = (now: number) => {
+      if (!audioElement || taskId !== fadeTaskId) {
+        resolve();
+        return;
+      }
+
+      const progress = Math.min(1, (now - start) / duration);
+      audioElement.volume = from + (target - from) * progress;
+
+      if (progress < 1) {
+        requestAnimationFrame(tick);
+      } else {
+        resolve();
+      }
+    };
+
+    requestAnimationFrame(tick);
+  });
+}
+
+function shouldAutoPlayTrack() {
+  return isAudioPlaying.value || (followFocusPlayback.value && store.isRunning);
+}
+
+function handleAudioPlaybackError() {
+  const fallbackOrder: AudioTrackKey[] = ['rain', 'forest', 'silence'];
+  const fallback = fallbackOrder.find((key) => key !== selectedAudioTrack.value);
+
+  if (!fallback) {
+    stopAudioPlayback();
+    return;
+  }
+
+  selectedAudioTrack.value = fallback;
+  saveAudioPreferences();
+
+  if (fallback === 'silence') {
+    stopAudioPlayback();
+  } else {
+    void startAudioPlayback();
+  }
+
+  $q.notify({
+    message: '音檔載入失敗，已切換到備用音源',
+    color: 'warning',
+    icon: 'warning',
+    timeout: 1800,
+    position: 'top',
+  });
+}
+
 function stopAudioPlayback() {
+  fadeTaskId += 1;
   if (audioElement) {
     try {
       audioElement.pause();
@@ -762,7 +998,7 @@ function stopAudioPlayback() {
   isAudioPlaying.value = false;
 }
 
-function startAudioPlayback() {
+async function startAudioPlayback() {
   const track = audioTracks[selectedAudioTrack.value];
   if (!track || selectedAudioTrack.value === 'silence' || !track.url) {
     stopAudioPlayback();
@@ -770,17 +1006,33 @@ function startAudioPlayback() {
   }
 
   const player = ensureAudioElement();
-  player.volume = (audioVolume.value / 100) * track.gain;
+  player.loop = audioLoopEnabled.value;
 
-  if (player.src !== track.url) {
-    player.src = track.url;
+  const targetVolume = getTrackVolume();
+  const currentSrc = player.getAttribute('src') || '';
+  const sourceChanged = currentSrc !== track.url;
+
+  if (isAudioPlaying.value && sourceChanged) {
+    await fadeAudioVolume(0);
+    player.pause();
+  }
+
+  if (sourceChanged) {
+    player.setAttribute('src', track.url);
     player.load();
   }
 
+  player.volume = sourceChanged ? 0 : targetVolume;
+
   void player
     .play()
-    .then(() => {
+    .then(async () => {
       isAudioPlaying.value = true;
+      if (sourceChanged) {
+        await fadeAudioVolume(targetVolume);
+      } else {
+        player.volume = targetVolume;
+      }
     })
     .catch(() => {
       isAudioPlaying.value = false;
@@ -790,27 +1042,39 @@ function startAudioPlayback() {
 function switchAudioTrack() {
   if (selectedAudioTrack.value === 'silence') {
     stopAudioPlayback();
+    saveAudioPreferences();
     return;
   }
 
-  if (isAudioPlaying.value || store.isRunning) {
-    startAudioPlayback();
+  if (shouldAutoPlayTrack()) {
+    void startAudioPlayback();
   }
+
+  saveAudioPreferences();
+}
+
+function handleTrackSelect(trackKey: AudioTrackKey) {
+  selectedAudioTrack.value = trackKey;
+  switchAudioTrack();
+  showAudioTrackPicker.value = false;
 }
 
 function toggleAudio() {
   if (isAudioPlaying.value) {
     stopAudioPlayback();
   } else {
-    startAudioPlayback();
+    void startAudioPlayback();
   }
+
+  saveAudioPreferences();
 }
 
 function updateAudioVolume() {
   if (audioElement) {
-    const track = audioTracks[selectedAudioTrack.value];
-    audioElement.volume = (audioVolume.value / 100) * (track?.gain ?? 0);
+    audioElement.volume = getTrackVolume();
   }
+
+  saveAudioPreferences();
 }
 
 function startEditDisplayName() {
@@ -895,14 +1159,30 @@ const initWebSocket = () => {
           Object.keys(msg.data).forEach((uid) => {
             const payload =
               typeof msg.data[uid] === 'string' ? JSON.parse(msg.data[uid]) : msg.data[uid];
+            const normalizedSeatId = normalizeSeatId(payload.seatId);
+            logSeatIdNormalization('ws:SYNC_ALL', payload.seatId, normalizedSeatId, {
+              userId: uid,
+              username: payload.username || payload.name,
+              state: payload.state,
+            });
             synchronizedReaders.push({
               userId: uid,
               displayName: payload.username || payload.name || uid,
-              seatId: payload.seatId,
+              ...(normalizedSeatId ? { seatId: normalizedSeatId } : {}),
               state: payload.state || '專注',
             });
           });
           readers.value = synchronizedReaders;
+          const nextSeatMap: SeatSnapshotMap = {};
+          synchronizedReaders.forEach((reader) => {
+            if (!reader.seatId) return;
+            nextSeatMap[normalizeSeatId(reader.seatId)] = {
+              status: reader.state === '專注' ? 'FOCUS' : 'READY',
+              userId: reader.userId,
+              username: reader.displayName,
+            };
+          });
+          seatSnapshotMap.value = nextSeatMap;
           updateCurrentFloorHeatByReaders();
           break;
         }
@@ -910,16 +1190,35 @@ const initWebSocket = () => {
         case 'JOIN': {
           // 有人進場邏輯
           const joinIdx = readers.value.findIndex((r) => r.userId === msg.userId);
+          const previousSeatId = joinIdx !== -1 ? readers.value[joinIdx]?.seatId : undefined;
+          const normalizedJoinSeatId = normalizeSeatId(msg.payload?.seatId);
+          logSeatIdNormalization('ws:JOIN', msg.payload?.seatId, normalizedJoinSeatId, {
+            userId: msg.userId,
+            username: msg.payload?.username,
+            previousSeatId,
+          });
           const joinReader: Reader = {
             userId: msg.userId,
             displayName: msg.payload?.username || msg.userId,
-            seatId: msg.payload?.seatId,
+            ...(normalizedJoinSeatId ? { seatId: normalizedJoinSeatId } : {}),
             state: msg.payload?.state || '待命',
           };
 
           // 更新數據
           if (joinIdx !== -1) readers.value[joinIdx] = joinReader;
           else readers.value.push(joinReader);
+
+          if (joinReader.seatId) {
+            if (previousSeatId && previousSeatId !== joinReader.seatId) {
+              seatSnapshotMap.value[normalizeSeatId(previousSeatId)] = { status: 'AVAILABLE' };
+            }
+            seatSnapshotMap.value[joinReader.seatId] = {
+              status: joinReader.state === '專注' ? 'FOCUS' : 'READY',
+              userId: joinReader.userId,
+              username: joinReader.displayName,
+            };
+          }
+
           // 廣播通知：只有別人進場時才顯示提示
           if (msg.userId !== userId.value) {
             $q.notify({
@@ -937,7 +1236,13 @@ const initWebSocket = () => {
 
         case 'MOVE': {
           const isSomeoneElse = msg.userId !== userId.value;
-          const isTargetingMySeat = msg.payload.seatId === selectedSeatId.value;
+          const normalizedIncomingSeatId = normalizeSeatId(msg.payload?.seatId);
+          logSeatIdNormalization('ws:MOVE', msg.payload?.seatId, normalizedIncomingSeatId, {
+            userId: msg.userId,
+            username: msg.payload?.username,
+            state: msg.payload?.state,
+          });
+          const isTargetingMySeat = normalizedIncomingSeatId === normalizeSeatId(selectedSeatId.value);
 
           // 核心邏輯：如果別人占據了我的位子
           if (isSomeoneElse && isTargetingMySeat) {
@@ -959,21 +1264,48 @@ const initWebSocket = () => {
           const moveReader: Reader = {
             userId: msg.userId,
             displayName: msg.payload?.username || msg.userId,
-            seatId: msg.payload.seatId,
+            ...(normalizedIncomingSeatId ? { seatId: normalizedIncomingSeatId } : {}),
             state: msg.payload.state || '專注',
           };
+
+          const previousSeatId = moveIdx !== -1 ? readers.value[moveIdx]?.seatId : undefined;
           if (moveIdx !== -1) readers.value[moveIdx] = moveReader;
           else readers.value.push(moveReader);
+
+          if (previousSeatId && previousSeatId !== moveReader.seatId) {
+            seatSnapshotMap.value[normalizeSeatId(previousSeatId)] = {
+              status: 'AVAILABLE',
+            };
+          }
+
+          if (moveReader.seatId) {
+            seatSnapshotMap.value[moveReader.seatId] = {
+              status: moveReader.state === '專注' ? 'FOCUS' : 'READY',
+              userId: moveReader.userId,
+              username: moveReader.displayName,
+            };
+          }
+
           updateCurrentFloorHeatByReaders();
           break;
         }
 
-        case 'LEAVE':
+        case 'LEAVE': {
           // 有人離座邏輯
+          const leavingReader = readers.value.find((r) => r.userId === msg.userId);
+          logSeatIdNormalization('ws:LEAVE', leavingReader?.seatId, normalizeSeatId(leavingReader?.seatId), {
+            userId: msg.userId,
+          });
+          if (leavingReader?.seatId) {
+            seatSnapshotMap.value[leavingReader.seatId] = {
+              status: 'AVAILABLE',
+            };
+          }
           readers.value = readers.value.filter((r) => r.userId !== msg.userId);
           updateCurrentFloorHeatByReaders();
           // 如果需要在有人離開時顯示通知，可以在此添加 $q.notify
           break;
+        }
 
         case 'ERROR': {
           // 判斷是否為搶位失敗
@@ -1039,7 +1371,7 @@ function selectSeat(id: string) {
   selectedSeatId.value = id;
 
   if (store.isRunning) {
-    startAudioPlayback();
+    void startAudioPlayback();
   }
 
   if (socket?.readyState === WebSocket.OPEN) {
@@ -1062,16 +1394,45 @@ function selectSeat(id: string) {
 function toggleFocus() {
   if (store.isRunning) {
     store.stopTimer();
-    stopAudioPlayback();
+    if (followFocusPlayback.value) {
+      stopAudioPlayback();
+    }
   } else {
     store.startTimer();
-    startAudioPlayback();
+    if (followFocusPlayback.value) {
+      void startAudioPlayback();
+    }
+  }
+}
+
+function resetFocusTimer() {
+  store.resetTimer();
+  if (followFocusPlayback.value) {
+    stopAudioPlayback();
+  }
+}
+
+function restartFocusTimer() {
+  if (!selectedSeatId.value && !store.isRunning) {
+    $q.notify({
+      message: '請先入座再重新開始',
+      color: 'warning',
+      icon: 'event_seat',
+      timeout: 1600,
+      position: 'top',
+    });
+    return;
+  }
+
+  store.resetTimer();
+  store.startTimer();
+
+  if (followFocusPlayback.value) {
+    void startAudioPlayback();
   }
 }
 
 function seatButtonClass(seat: Seat) {
-  if (!seat.available) return 'opacity-10 grayscale cursor-not-allowed border-transparent';
-
   // 我選的位子 + 切換中狀態
   if (selectedSeatId.value === seat.id) {
     return [
@@ -1080,6 +1441,8 @@ function seatButtonClass(seat: Seat) {
     ].join(' ');
   }
 
+  if (!seat.available) return 'opacity-10 grayscale cursor-not-allowed border-transparent';
+
   const otherMate = getMateAtSeat(seat.id);
   if (otherMate) return 'border-teal-500/30 bg-teal-500/5 cursor-default';
 
@@ -1087,14 +1450,14 @@ function seatButtonClass(seat: Seat) {
 }
 
 function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  return formatTimeHelper(seconds);
 }
 
 watch([currentFloor, activeZoneId], () => {
   isLoading.value = true;
   selectedSeatId.value = null;
+  seatSnapshotMap.value = {};
+  void fetchSeatSnapshot();
   initWebSocket();
   void fetchFloorTraffic();
   setTimeout(() => {
@@ -1112,19 +1475,58 @@ watch(
 );
 
 onMounted(() => {
+  loadAudioPreferences();
+  void fetchSeatSnapshot();
   initWebSocket();
   void fetchFloorTraffic();
   startFloorPollingTimer();
   document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  if (audioAutoPlayOnLoad.value && selectedAudioTrack.value !== 'silence') {
+    void startAudioPlayback();
+  }
 });
 
 onUnmounted(() => {
   socket?.close();
+  saveAudioPreferences();
   stopAudioPlayback();
+  if (audioElement) {
+    audioElement.removeEventListener('error', handleAudioPlaybackError);
+  }
   audioElement = null;
   clearFloorPollingTimer();
   document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
+
+watch(
+  [
+    selectedAudioTrack,
+    defaultAudioTrack,
+    followFocusPlayback,
+    audioLoopEnabled,
+    audioAutoPlayOnLoad,
+  ],
+  () => {
+    if (audioElement) {
+      audioElement.loop = audioLoopEnabled.value;
+    }
+
+    if (selectedAudioTrack.value === 'silence' && defaultAudioTrack.value !== 'silence') {
+      selectedAudioTrack.value = defaultAudioTrack.value;
+    }
+
+    saveAudioPreferences();
+  },
+);
+
+watch(
+  () => defaultAudioTrack.value,
+  () => {
+    selectedAudioTrack.value = defaultAudioTrack.value;
+    switchAudioTrack();
+  },
+);
 
 // --- Watchers & Lifecycle ---
 </script>
