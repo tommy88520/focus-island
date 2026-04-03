@@ -1,5 +1,5 @@
 <template>
-  <div class="relative min-h-[calc(100vh-80px)] px-4 py-4 sm:px-6 lg:py-8">
+  <div class="relative min-h-[calc(100vh-80px)] px-4 py-4 pb-32 sm:px-6 sm:pb-40 lg:py-8">
     <div class="relative z-10 mx-auto max-w-7xl">
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <main class="lg:col-span-8 space-y-6">
@@ -9,16 +9,16 @@
                 <div
                   class="px-2 py-0.5 rounded-md bg-amber-400 text-amber-950 text-[10px] font-black tracking-widest uppercase shadow-lg shadow-amber-400/20"
                 >
-                  Floor {{ currentFloor }}
+                  樓層 {{ currentFloor }}
                 </div>
                 <div class="h-1 w-1 rounded-full bg-white/20"></div>
                 <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
                   {{ currentZone?.name }} · {{ currentZone?.description }}
                 </p>
               </div>
-              <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">
+              <h3 class="text-2xl font-black tracking-tight text-white sm:text-4xl">
                 {{ store.isRunning ? '深度專注中' : '挑個好位子，入座。' }}
-              </h1>
+              </h3>
             </div>
 
             <nav
@@ -48,7 +48,7 @@
                         : 'text-white/30 group-hover:text-white/60'
                     "
                   >
-                    {{ f.floor }}F
+                    {{ f.floor }}樓
                   </span>
                   <div
                     class="mt-1 h-1 w-1 rounded-full animate-pulse"
@@ -117,7 +117,7 @@
                       <div
                         class="h-9 w-9 sm:h-12 sm:w-12 rounded-full bg-slate-800 border-2 border-amber-400 text-amber-100 shadow-[0_0_15px_rgba(251,191,36,0.4)] flex items-center justify-center text-xs sm:text-sm font-black"
                       >
-                        ME
+                        我
                       </div>
                       <div
                         class="absolute -bottom-0.5 -right-0.5 h-3 w-3 sm:h-4 sm:w-4 rounded-full border-2 border-slate-900 bg-amber-400 shadow-lg"
@@ -125,7 +125,7 @@
                     </div>
                     <span
                       class="absolute -bottom-6 text-[8px] font-black uppercase tracking-widest text-amber-400"
-                      >YOU</span
+                      >我</span
                     >
                   </div>
 
@@ -166,7 +166,7 @@
                   class="h-12 w-12 border-4 border-amber-400/20 border-t-amber-400 rounded-full animate-spin"
                 ></div>
                 <p class="text-amber-400/60 font-black text-[10px] tracking-[0.4em] uppercase">
-                  Syncing Floor {{ currentFloor }}...
+                  同步樓層 {{ currentFloor }}...
                 </p>
               </div>
             </div>
@@ -182,16 +182,20 @@
             ></div>
 
             <div
-              class="mb-10 h-56 w-56 mx-auto rounded-full border-[12px] border-white/5 flex flex-col items-center justify-center relative shadow-[inset_0_0_40px_rgba(0,0,0,0.3)]"
+              class="mb-10 h-40 w-40 sm:h-56 sm:w-56 mx-auto rounded-full border-[12px] border-white/5 flex flex-col items-center justify-center relative shadow-[inset_0_0_40px_rgba(0,0,0,0.3)]"
             >
               <div
                 class="absolute inset-[-12px] rounded-full border-[12px] border-transparent border-t-amber-400 animate-spin-slow"
                 v-if="store.isRunning"
               ></div>
-              <div class="text-[10px] font-black text-amber-200/40 tracking-[0.5em] mb-2 uppercase">
-                Remaining
+              <div
+                class="text-[9px] sm:text-[10px] font-black text-amber-300 tracking-[0.5em] mb-2 uppercase drop-shadow-lg"
+              >
+                剩餘時間
               </div>
-              <div class="text-6xl font-mono font-black text-white tracking-tighter">
+              <div
+                class="text-4xl sm:text-6xl font-mono font-black text-amber-50 tracking-tighter drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+              >
                 {{ formattedTime }}
               </div>
             </div>
@@ -202,7 +206,7 @@
                   for="display-name"
                   class="block text-[10px] font-black uppercase tracking-[0.2em] text-white/50 mb-2"
                 >
-                  Username
+                  顯示名稱
                 </label>
                 <input
                   id="display-name"
@@ -220,14 +224,14 @@
                     class="rounded-lg border border-white/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-white/70 hover:text-white hover:border-white/40"
                     @click="startEditDisplayName"
                   >
-                    Edit
+                    編輯
                   </button>
                   <button
                     v-else
                     class="rounded-lg bg-amber-400 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-950 hover:bg-amber-300"
                     @click="applyDisplayName"
                   >
-                    Save
+                    儲存
                   </button>
                 </div>
               </div>
@@ -241,7 +245,7 @@
                     : 'bg-white text-slate-900 shadow-white/10 hover:bg-amber-50'
                 "
               >
-                {{ store.isRunning ? 'LEAVE SESSION' : 'CLAIM YOUR SEAT' }}
+                {{ store.isRunning ? '結束專注' : '入座' }}
               </button>
               <div class="py-3 px-4 rounded-2xl bg-white/5 border border-white/10">
                 <p class="text-[10px] text-white/40 font-bold uppercase tracking-widest">
@@ -251,6 +255,67 @@
             </div>
           </div>
         </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- 音頻控制條 (Floating Audio Control Bar) -->
+  <div
+    class="fixed bottom-2 left-2 right-2 z-50 rounded-2xl border border-white/10 bg-slate-950/92 shadow-[0_12px_36px_rgba(0,0,0,0.38)] backdrop-blur-xl sm:left-1/2 sm:right-auto sm:w-[min(100%-1rem,40rem)] sm:-translate-x-1/2"
+  >
+    <div class="px-3 py-2 sm:px-4 sm:py-3">
+      <div class="flex items-center gap-3">
+        <button
+          @click="toggleAudio"
+          class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-400 text-slate-950 shadow-[0_8px_20px_rgba(251,191,36,0.22)] transition-all active:scale-95 hover:bg-amber-300"
+        >
+          <q-icon :name="isAudioPlaying ? 'pause' : 'play_arrow'" size="18px" />
+        </button>
+
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <div
+              class="truncate text-[10px] font-black uppercase tracking-[0.25em] text-white/40 sm:text-[11px]"
+            >
+              {{ selectedAudioTrackMeta.name }}
+            </div>
+            <span
+              class="rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-black text-white/45"
+            >
+              {{ audioVolume }}%
+            </span>
+          </div>
+          <div class="mt-2 flex items-center gap-2">
+            <q-icon name="volume_up" size="14px" class="text-white/60" />
+            <input
+              v-model.number="audioVolume"
+              @input="updateAudioVolume"
+              type="range"
+              min="0"
+              max="100"
+              class="h-2 w-full cursor-pointer rounded-full bg-white/15 accent-amber-400"
+            />
+          </div>
+        </div>
+
+        <div class="flex w-[11rem] gap-1 overflow-x-auto pb-1 no-scrollbar sm:w-[14rem]">
+          <button
+            v-for="trackKey in audioTrackOrder"
+            :key="trackKey"
+            @click="
+              selectedAudioTrack = trackKey;
+              switchAudioTrack();
+            "
+            class="flex h-10 min-w-[2.6rem] flex-col items-center justify-center rounded-xl border transition-all duration-200"
+            :class="
+              selectedAudioTrack === trackKey
+                ? 'border-amber-400 bg-amber-400/10 text-amber-200'
+                : 'border-white/10 bg-white/5 text-white/55 hover:border-white/20 hover:bg-white/10 hover:text-white'
+            "
+          >
+            <q-icon :name="audioTracks[trackKey].icon" size="17px" />
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -275,7 +340,7 @@ interface Reader {
   userId: string;
   displayName: string;
   seatId?: string;
-  state: 'FOCUS' | 'BREAK' | 'READY';
+  state: '專注' | '休息' | '待命';
 }
 
 interface Seat {
@@ -326,20 +391,108 @@ let floorHeatTimer: number | null = null;
 const FLOOR_POLL_INTERVAL_ACTIVE_MS = 8000;
 const FLOOR_POLL_INTERVAL_BACKGROUND_MS = 30000;
 
-const userId = ref(localStorage.getItem('lib_uid') || `user_${Math.floor(Math.random() * 1000)}`);
+const userId = ref(localStorage.getItem('lib_uid') || `使用者_${Math.floor(Math.random() * 1000)}`);
 localStorage.setItem('lib_uid', userId.value);
 
 const displayName = ref(
-  localStorage.getItem('lib_display_name') || `Reader-${userId.value.slice(-4)}`,
+  localStorage.getItem('lib_display_name') || `讀者-${userId.value.slice(-4)}`,
 );
 const displayNameInput = ref(displayName.value);
 const isEditingDisplayName = ref(false);
 const readers = ref<Reader[]>([]);
 
+// --- 音頻播放配置 ---
+type AudioTrackKey = 'forest' | 'cafe' | 'ocean' | 'pink' | 'silence' | 'lofi' | 'rain' | 'thunder';
+
+const audioTracks: Record<
+  AudioTrackKey,
+  {
+    name: string;
+    description: string;
+    icon: string;
+    url: string;
+    gain: number;
+  }
+> = {
+  forest: {
+    name: '靜謐森林',
+    description: '柔和樹葉感',
+    icon: 'park',
+    url: '/music/dany_photo-forestbirds-319791.mp3',
+    gain: 0.12,
+  },
+  cafe: {
+    name: '城市咖啡',
+    description: '溫暖環境聲',
+    icon: 'local_cafe',
+    url: '/music/deawthanapon-lofi-relax-beat-loop-bpm-88-eb-major-ii-v-i-361752.mp3',
+    gain: 0.1,
+  },
+  ocean: {
+    name: '深海艙',
+    description: '低頻潮汐感',
+    icon: 'waves',
+    url: '/music/kokoreli777-sea-waves-169411.mp3',
+    gain: 0.14,
+  },
+  pink: {
+    name: '粉噪',
+    description: '更平順的底噪',
+    icon: 'graphic_eq',
+    url: '/music/deawthanapon-lofi-relax-beat-loop-bpm-88-eb-major-ii-v-i-361752.mp3',
+    gain: 0.1,
+  },
+  silence: {
+    name: '無聲',
+    description: '關閉播放',
+    icon: 'volume_off',
+    url: '',
+    gain: 0,
+  },
+  lofi: {
+    name: 'Lofi',
+    description: '暖色低保真',
+    icon: 'music_note',
+    url: '/music/deawthanapon-lofi-relax-beat-loop-bpm-88-eb-major-ii-v-i-361752.mp3',
+    gain: 0.11,
+  },
+  rain: {
+    name: '下雨聲',
+    description: '細碎雨滴聲',
+    icon: 'water_drop',
+    url: '/music/dragon-studio-copyright-free-rain-sounds-331497.mp3',
+    gain: 0.11,
+  },
+  thunder: {
+    name: '打雷聲',
+    description: '雨聲伴隨打雷',
+    icon: 'cloud',
+    url: '/music/237729__flathill__rain-and-thunder-4.wav',
+    gain: 0.12,
+  },
+};
+
+let audioElement: HTMLAudioElement | null = null;
+const selectedAudioTrack = ref<AudioTrackKey>('forest');
+const audioVolume = ref(80);
+const isAudioPlaying = ref(false);
+const audioTrackOrder: AudioTrackKey[] = [
+  'forest',
+  'cafe',
+  'ocean',
+  'pink',
+  'lofi',
+  'rain',
+  'thunder',
+  'silence',
+];
+
+const selectedAudioTrackMeta = computed(() => audioTracks[selectedAudioTrack.value]);
+
 const zoneDescriptionMap: Record<string, string> = {
-  'Silent Forest': '完全靜音深度專注',
-  'Urban Cafe': '環境音輕柔交流',
-  'Deep Sea': '封閉式專注座艙',
+  靜謐森林: '完全靜音深度專注',
+  城市咖啡廳: '環境音輕柔交流',
+  深海舱: '封閉式專注座艙',
 };
 
 const floorZones = computed<Zone[]>(() =>
@@ -439,9 +592,9 @@ function getFloorLoadPercent(floor: FloorHeat) {
 
 function getFloorLoadLabel(floor: FloorHeat) {
   const percent = getFloorLoadPercent(floor);
-  if (percent >= 80) return 'HIGH';
-  if (percent >= 40) return 'MEDIUM';
-  return 'LOW';
+  if (percent >= 80) return '高';
+  if (percent >= 40) return '中';
+  return '低';
 }
 
 function getFloorLoadLabelClass(floor: FloorHeat) {
@@ -529,7 +682,7 @@ async function fetchFloorTraffic() {
       activeZoneId.value = floorZones.value[0]!.id;
     }
   } catch {
-    // endpoint 未就緒時維持現有畫面，不中斷互動
+    // API 端點未就緒時維持現有畫面，不中斷互動
   }
 }
 
@@ -585,13 +738,87 @@ function updateCurrentFloorHeatByReaders() {
   });
 }
 
+// --- 音頻控制函數 ---
+function ensureAudioElement() {
+  if (!audioElement) {
+    audioElement = new Audio();
+    audioElement.loop = true;
+    audioElement.preload = 'auto';
+    audioElement.crossOrigin = 'anonymous';
+  }
+  return audioElement;
+}
+
+function stopAudioPlayback() {
+  if (audioElement) {
+    try {
+      audioElement.pause();
+      audioElement.currentTime = 0;
+    } catch {
+      // ignore
+    }
+  }
+
+  isAudioPlaying.value = false;
+}
+
+function startAudioPlayback() {
+  const track = audioTracks[selectedAudioTrack.value];
+  if (!track || selectedAudioTrack.value === 'silence' || !track.url) {
+    stopAudioPlayback();
+    return;
+  }
+
+  const player = ensureAudioElement();
+  player.volume = (audioVolume.value / 100) * track.gain;
+
+  if (player.src !== track.url) {
+    player.src = track.url;
+    player.load();
+  }
+
+  void player
+    .play()
+    .then(() => {
+      isAudioPlaying.value = true;
+    })
+    .catch(() => {
+      isAudioPlaying.value = false;
+    });
+}
+
+function switchAudioTrack() {
+  if (selectedAudioTrack.value === 'silence') {
+    stopAudioPlayback();
+    return;
+  }
+
+  if (isAudioPlaying.value || store.isRunning) {
+    startAudioPlayback();
+  }
+}
+
+function toggleAudio() {
+  if (isAudioPlaying.value) {
+    stopAudioPlayback();
+  } else {
+    startAudioPlayback();
+  }
+}
+
+function updateAudioVolume() {
+  if (audioElement) {
+    const track = audioTracks[selectedAudioTrack.value];
+    audioElement.volume = (audioVolume.value / 100) * (track?.gain ?? 0);
+  }
+}
+
 function startEditDisplayName() {
   isEditingDisplayName.value = true;
 }
 
 function applyDisplayName() {
-  const normalized =
-    displayNameInput.value.trim().slice(0, 20) || `Reader-${userId.value.slice(-4)}`;
+  const normalized = displayNameInput.value.trim().slice(0, 20) || `讀者-${userId.value.slice(-4)}`;
   displayName.value = normalized;
   displayNameInput.value = normalized;
   isEditingDisplayName.value = false;
@@ -641,7 +868,7 @@ const initWebSocket = () => {
   const url = `${baseUrl}/api/v1/library/ws?floor=${currentFloor.value}&zone=${activeZoneId.value}&userId=${userId.value}`;
   socket = new WebSocket(url);
 
-  // --- 1. 連線成功：發送進場訊號 (JOIN) ---
+  // --- 1. 連線成功：發送進場訊號 ---
   socket.onopen = () => {
     socket?.send(
       JSON.stringify({
@@ -656,14 +883,14 @@ const initWebSocket = () => {
     );
   };
 
-  // --- 2. 收到訊息：數據更新與廣播邏輯 ---
+  // --- 2. 接收訊息：數據更新與廣播邏輯 ---
   socket.onmessage = (event) => {
     try {
       const msg = JSON.parse(event.data);
 
       switch (msg.type) {
         case 'SYNC_ALL': {
-          // 初始同步：把目前房間裡所有人的狀態拿回來
+          // 初始同步：取得目前房間裡所有人的狀態
           const synchronizedReaders: Reader[] = [];
           Object.keys(msg.data).forEach((uid) => {
             const payload =
@@ -672,7 +899,7 @@ const initWebSocket = () => {
               userId: uid,
               displayName: payload.username || payload.name || uid,
               seatId: payload.seatId,
-              state: payload.state || 'FOCUS',
+              state: payload.state || '專注',
             });
           });
           readers.value = synchronizedReaders;
@@ -681,19 +908,19 @@ const initWebSocket = () => {
         }
 
         case 'JOIN': {
-          // 🟢 有人進場邏輯
+          // 有人進場邏輯
           const joinIdx = readers.value.findIndex((r) => r.userId === msg.userId);
           const joinReader: Reader = {
             userId: msg.userId,
             displayName: msg.payload?.username || msg.userId,
             seatId: msg.payload?.seatId,
-            state: msg.payload?.state || 'READY',
+            state: msg.payload?.state || '待命',
           };
 
           // 更新數據
           if (joinIdx !== -1) readers.value[joinIdx] = joinReader;
           else readers.value.push(joinReader);
-          // 廣播通知：只有別人的 JOIN 才跳 Toast
+          // 廣播通知：只有別人進場時才顯示提示
           if (msg.userId !== userId.value) {
             $q.notify({
               message: `👋 新同學 ${joinReader.displayName} 進入了圖書館`,
@@ -712,7 +939,7 @@ const initWebSocket = () => {
           const isSomeoneElse = msg.userId !== userId.value;
           const isTargetingMySeat = msg.payload.seatId === selectedSeatId.value;
 
-          // 🔴 核心邏輯：如果別人搶了我的位子
+          // 核心邏輯：如果別人占據了我的位子
           if (isSomeoneElse && isTargetingMySeat) {
             isShake.value = true; // 觸發震動
             selectedSeatId.value = null;
@@ -733,7 +960,7 @@ const initWebSocket = () => {
             userId: msg.userId,
             displayName: msg.payload?.username || msg.userId,
             seatId: msg.payload.seatId,
-            state: msg.payload.state || 'FOCUS',
+            state: msg.payload.state || '專注',
           };
           if (moveIdx !== -1) readers.value[moveIdx] = moveReader;
           else readers.value.push(moveReader);
@@ -742,27 +969,27 @@ const initWebSocket = () => {
         }
 
         case 'LEAVE':
-          // 🔴 有人離座邏輯
+          // 有人離座邏輯
           readers.value = readers.value.filter((r) => r.userId !== msg.userId);
           updateCurrentFloorHeatByReaders();
-          // 如果你希望有人離開也有通知，可以在這補 $q.notify
+          // 如果需要在有人離開時顯示通知，可以在此添加 $q.notify
           break;
 
         case 'ERROR': {
-          // 1. 判斷是否為搶位失敗
+          // 判斷是否為搶位失敗
           if (msg.message === 'SEAT_TAKEN') {
-            // 2. 啟動震動效果 (這是在 grid 上的 class)
+            // 啟動震動效果
             isShake.value = true;
 
-            // 3. 重置本地選擇 (這會讓 UI 自動回到空位或原本的位置)
+            // 重置本地選擇
             selectedSeatId.value = null;
 
-            // 4. 500ms 後移除震動狀態
+            // 500ms 後移除震動狀態
             setTimeout(() => {
               isShake.value = false;
             }, 500);
 
-            // 5. 噴出提示讓使用者知道原因
+            // 顯示提示讓使用者知道原因
             $q.notify({
               message: '🛑 慢了一步！這個位子剛剛被別人搶走了',
               color: 'negative',
@@ -776,16 +1003,16 @@ const initWebSocket = () => {
         }
       }
     } catch (err) {
-      console.error('❌ 解析 WebSocket 訊息失敗:', err);
+      console.error('WebSocket 訊息解析失敗:', err);
     }
   };
 
   socket.onclose = () => {
-    console.log('🚪 WebSocket 連線已斷開');
+    console.log('WebSocket 連線已斷開');
   };
 
   socket.onerror = (error) => {
-    console.error('💥 WebSocket 發生錯誤:', error);
+    console.error('WebSocket 發生錯誤:', error);
   };
 };
 
@@ -804,12 +1031,16 @@ const selectedSeatLabel = computed(() => {
 });
 
 function selectSeat(id: string) {
-  // 增加條件：如果正在切換中，直接 return
+  // 如果正在切換中，直接 return
   if (getMateAtSeat(id) || store.isRunning || isSwitching.value) return;
 
-  // 2. 開鎖
+  // 標記切換中
   isSwitching.value = true;
   selectedSeatId.value = id;
+
+  if (store.isRunning) {
+    startAudioPlayback();
+  }
 
   if (socket?.readyState === WebSocket.OPEN) {
     socket.send(
@@ -821,29 +1052,31 @@ function selectSeat(id: string) {
     );
   }
 
-  // 3. 設定 500ms 後才能再次點擊 (或是等 WS 回應後再解鎖)
+  // 設定 500ms 後有下一次點擊
   setTimeout(() => {
     isSwitching.value = false;
   }, 500);
 }
 
-// --- 動作方法 ---
+// --- 操作方法 ---
 function toggleFocus() {
   if (store.isRunning) {
     store.stopTimer();
+    stopAudioPlayback();
   } else {
     store.startTimer();
+    startAudioPlayback();
   }
 }
 
 function seatButtonClass(seat: Seat) {
   if (!seat.available) return 'opacity-10 grayscale cursor-not-allowed border-transparent';
 
-  // 🟢 我選的位子 + 切換中狀態
+  // 我選的位子 + 切換中狀態
   if (selectedSeatId.value === seat.id) {
     return [
       'border-amber-400 bg-amber-400/20 shadow-[0_0_20px_rgba(251,191,36,0.2)] scale-105 z-10',
-      isSwitching.value ? 'animate-pulse cursor-wait opacity-70' : '', // 增加等待感
+      isSwitching.value ? 'animate-pulse cursor-wait opacity-70' : '', // 顯示等待狀態
     ].join(' ');
   }
 
@@ -887,11 +1120,13 @@ onMounted(() => {
 
 onUnmounted(() => {
   socket?.close();
+  stopAudioPlayback();
+  audioElement = null;
   clearFloorPollingTimer();
   document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 
-// --- 監聽器 ---
+// --- Watchers & Lifecycle ---
 </script>
 
 <style scoped>
