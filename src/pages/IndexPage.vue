@@ -705,6 +705,14 @@ async function requestWebSocketToken() {
   try {
     const apiBaseUrl = import.meta.env.VITE_BACKEND_API_URL as string | undefined;
     const wsBaseUrl = import.meta.env.VITE_BACKEND_WS_URL as string | undefined;
+    if (import.meta.env.DEV) {
+      console.log('[WS Token Request] Config:', {
+        apiBaseUrl: apiBaseUrl || '(not set)',
+        wsBaseUrl: wsBaseUrl || '(not set)',
+        roomID: roomID.value,
+        userId: userId.value,
+      });
+    }
     return await fetchWebSocketTokenAction({
       roomID: roomID.value,
       userId: userId.value,
@@ -712,7 +720,8 @@ async function requestWebSocketToken() {
       ...(wsBaseUrl ? { wsBaseUrl } : {}),
       clientNonce: `${userId.value}-${Date.now()}`,
     });
-  } catch {
+  } catch (err) {
+    console.error('[WS Token Request] Unexpected error:', err);
     return null;
   }
 }
@@ -1267,12 +1276,18 @@ function handleVisibilityChange() {
 function connectWebSocket(token: string, version: number) {
   const baseUrl = import.meta.env.VITE_BACKEND_WS_URL || 'ws://localhost:8080';
   const url = `${baseUrl}/api/v1/library/ws?floor=${currentFloor.value}&zone=${activeZoneId.value}&userId=${userId.value}&token=${encodeURIComponent(token)}`;
+  
+  if (import.meta.env.DEV) {
+    console.log('[WS Connect] Connecting to:', url);
+  }
+  
   const currentSocket = new WebSocket(url);
   socket = currentSocket;
 
   currentSocket.onopen = () => {
     if (socket !== currentSocket || version !== connectionVersion) return;
 
+    console.log('[WS Connect] Connected successfully');
     socketCloseWasIntentional = false;
     clearReconnectTimer();
     startHeartbeat();
@@ -1487,10 +1502,12 @@ function connectWebSocket(token: string, version: number) {
     if (version !== connectionVersion) return;
 
     if (socketCloseWasIntentional) {
+      console.log('[WS Close] Connection closed intentionally');
       socketCloseWasIntentional = false;
       return;
     }
 
+    console.warn('[WS Close] Connection closed unexpectedly, scheduling reconnect...');
     isLoading.value = false;
     clearReconnectTimer();
     reconnectTimer = window.setTimeout(() => {
@@ -1503,7 +1520,12 @@ function connectWebSocket(token: string, version: number) {
   currentSocket.onerror = (error) => {
     if (socket !== currentSocket || version !== connectionVersion) return;
 
-    console.error('WebSocket 發生錯誤:', error);
+    console.error('[WS Error] WebSocket 發生錯誤:', {
+      error,
+      readyState: currentSocket.readyState,
+      url: currentSocket.url,
+      state: ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][currentSocket.readyState],
+    });
     $q.notify({
       message: '連線發生錯誤，正在嘗試重新連線',
       color: 'negative',
@@ -1532,6 +1554,10 @@ async function reconnectRoomSession() {
 
   if (!tokenPayload?.token) {
     isLoading.value = false;
+    console.error('[WS Connect] Token payload missing or invalid:', {
+      hasPayload: !!tokenPayload,
+      hasToken: !!tokenPayload?.token,
+    });
     $q.notify({
       message: '無法取得安全連線權杖，請稍後再試',
       color: 'negative',
@@ -1542,6 +1568,9 @@ async function reconnectRoomSession() {
     return;
   }
 
+  if (import.meta.env.DEV) {
+    console.log('[WS Connect] Token acquired, initiating connection...');
+  }
   connectWebSocket(tokenPayload.token, version);
 }
 
