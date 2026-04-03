@@ -268,6 +268,13 @@
                 </button>
               </div>
 
+              <label
+                class="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white/75"
+              >
+                <span class="font-bold tracking-[0.06em]">結束自動重來</span>
+                <input v-model="autoRestartOnFinish" type="checkbox" class="accent-amber-400" />
+              </label>
+
               <div class="py-2.5 px-3.5 rounded-xl bg-white/5 border border-white/10 text-left">
                 <p class="text-[11px] text-white/55 font-bold tracking-[0.06em]">
                   {{ selectedSeatLabel }}
@@ -308,7 +315,13 @@
             </span>
           </div>
           <div class="mt-1.5 flex items-center gap-1.5">
-            <q-icon name="volume_up" size="13px" class="text-white/60" />
+            <button
+              type="button"
+              @click="toggleAudioMute"
+              class="flex h-5 w-5 items-center justify-center rounded text-white/60 transition-colors hover:text-white"
+            >
+              <q-icon :name="volumeIconName" size="13px" />
+            </button>
             <input
               v-model.number="audioVolume"
               @input="updateAudioVolume"
@@ -559,13 +572,15 @@ const audioTracks: Record<
 };
 
 let audioElement: HTMLAudioElement | null = null;
-const selectedAudioTrack = ref<AudioTrackKey>('forest');
+const selectedAudioTrack = ref<AudioTrackKey>('lofi');
 const audioVolume = ref(80);
+const lastVolumeBeforeMute = ref(80);
 const isAudioPlaying = ref(false);
-const defaultAudioTrack = ref<AudioTrackKey>('forest');
+const defaultAudioTrack = ref<AudioTrackKey>('lofi');
 const followFocusPlayback = ref(true);
 const audioLoopEnabled = ref(true);
 const audioAutoPlayOnLoad = ref(false);
+const autoRestartOnFinish = ref(false);
 const showAudioTrackPicker = ref(false);
 const audioTrackOrder: AudioTrackKey[] = [
   'forest',
@@ -579,7 +594,14 @@ const audioTrackOrder: AudioTrackKey[] = [
 ];
 
 const selectedAudioTrackMeta = computed(() => audioTracks[selectedAudioTrack.value]);
+const volumeIconName = computed(() => {
+  if (audioVolume.value <= 0) return 'volume_off';
+  if (audioVolume.value < 50) return 'volume_down';
+  return 'volume_up';
+});
 const AUDIO_PREFS_KEY = 'focus_island_audio_prefs_v1';
+const FOCUS_PREFS_KEY = 'focus_island_focus_prefs_v1';
+const CURRENT_ROOM_INFO_KEY = 'focus_island_current_room_info_v1';
 const FADE_DURATION_MS = 220;
 let fadeTaskId = 0;
 const DEBUG_SEAT_ID_SYNC = import.meta.env.DEV;
@@ -613,6 +635,17 @@ function normalizeSeatId(seatId?: string | null) {
 
 function buildSeatId(floor: number, zoneId: string, index: number) {
   return `${floor}-${zoneId.toUpperCase()}-${String(index).padStart(2, '0')}`;
+}
+
+function syncCurrentRoomInfo() {
+  const payload = {
+    roomID: roomID.value,
+    roomName: currentZone.value?.name || `Zone ${activeZoneId.value}`,
+    zoneDescription: currentZone.value?.description || '',
+  };
+
+  localStorage.setItem(CURRENT_ROOM_INFO_KEY, JSON.stringify(payload));
+  window.dispatchEvent(new CustomEvent('focus-room-updated', { detail: payload }));
 }
 
 function logSeatIdNormalization(
@@ -665,7 +698,9 @@ const currentZone = computed<Zone | undefined>(() =>
 
 const isMe = (id: string) => id === userId.value;
 const getMateAtSeat = (seatId: string) =>
-  readers.value.find((r) => normalizeSeatId(r.seatId) === normalizeSeatId(seatId) && !isMe(r.userId));
+  readers.value.find(
+    (r) => normalizeSeatId(r.seatId) === normalizeSeatId(seatId) && !isMe(r.userId),
+  );
 
 function getUniqueZoneOccupancy(zoneId: string) {
   const uniqueUsers = new Set<string>();
@@ -919,6 +954,27 @@ function loadAudioPreferences() {
   }
 }
 
+function saveFocusPreferences() {
+  localStorage.setItem(
+    FOCUS_PREFS_KEY,
+    JSON.stringify({
+      autoRestartOnFinish: autoRestartOnFinish.value,
+    }),
+  );
+}
+
+function loadFocusPreferences() {
+  const raw = localStorage.getItem(FOCUS_PREFS_KEY);
+  if (!raw) return;
+
+  try {
+    const parsed = JSON.parse(raw) as { autoRestartOnFinish?: boolean };
+    autoRestartOnFinish.value = parsed.autoRestartOnFinish ?? false;
+  } catch {
+    // ignore invalid stored payload
+  }
+}
+
 function getTrackVolume(trackKey = selectedAudioTrack.value) {
   return (audioVolume.value / 100) * (audioTracks[trackKey]?.gain ?? 0);
 }
@@ -1070,11 +1126,26 @@ function toggleAudio() {
 }
 
 function updateAudioVolume() {
+  if (audioVolume.value > 0) {
+    lastVolumeBeforeMute.value = audioVolume.value;
+  }
+
   if (audioElement) {
     audioElement.volume = getTrackVolume();
   }
 
   saveAudioPreferences();
+}
+
+function toggleAudioMute() {
+  if (audioVolume.value > 0) {
+    lastVolumeBeforeMute.value = audioVolume.value;
+    audioVolume.value = 0;
+  } else {
+    audioVolume.value = Math.max(20, lastVolumeBeforeMute.value || 80);
+  }
+
+  updateAudioVolume();
 }
 
 function startEditDisplayName() {
@@ -1242,7 +1313,8 @@ const initWebSocket = () => {
             username: msg.payload?.username,
             state: msg.payload?.state,
           });
-          const isTargetingMySeat = normalizedIncomingSeatId === normalizeSeatId(selectedSeatId.value);
+          const isTargetingMySeat =
+            normalizedIncomingSeatId === normalizeSeatId(selectedSeatId.value);
 
           // 核心邏輯：如果別人占據了我的位子
           if (isSomeoneElse && isTargetingMySeat) {
@@ -1293,9 +1365,14 @@ const initWebSocket = () => {
         case 'LEAVE': {
           // 有人離座邏輯
           const leavingReader = readers.value.find((r) => r.userId === msg.userId);
-          logSeatIdNormalization('ws:LEAVE', leavingReader?.seatId, normalizeSeatId(leavingReader?.seatId), {
-            userId: msg.userId,
-          });
+          logSeatIdNormalization(
+            'ws:LEAVE',
+            leavingReader?.seatId,
+            normalizeSeatId(leavingReader?.seatId),
+            {
+              userId: msg.userId,
+            },
+          );
           if (leavingReader?.seatId) {
             seatSnapshotMap.value[leavingReader.seatId] = {
               status: 'AVAILABLE',
@@ -1432,6 +1509,38 @@ function restartFocusTimer() {
   }
 }
 
+function handleFocusFinished() {
+  stopAudioPlayback();
+
+  if (autoRestartOnFinish.value) {
+    store.resetTimer();
+    store.startTimer();
+
+    if (followFocusPlayback.value) {
+      void startAudioPlayback();
+    }
+
+    $q.notify({
+      message: '本輪專注完成，已自動開始下一輪',
+      color: 'amber-9',
+      icon: 'autorenew',
+      timeout: 2200,
+      position: 'top',
+      classes: 'font-black tracking-tighter',
+    });
+    return;
+  }
+
+  $q.notify({
+    message: '本輪專注完成，辛苦了',
+    color: 'positive',
+    icon: 'task_alt',
+    timeout: 2600,
+    position: 'top',
+    classes: 'font-black tracking-tighter',
+  });
+}
+
 function seatButtonClass(seat: Seat) {
   // 我選的位子 + 切換中狀態
   if (selectedSeatId.value === seat.id) {
@@ -1457,6 +1566,7 @@ watch([currentFloor, activeZoneId], () => {
   isLoading.value = true;
   selectedSeatId.value = null;
   seatSnapshotMap.value = {};
+  syncCurrentRoomInfo();
   void fetchSeatSnapshot();
   initWebSocket();
   void fetchFloorTraffic();
@@ -1474,8 +1584,26 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => store.isRunning,
+  (isRunning, wasRunning) => {
+    if (wasRunning && !isRunning && store.timeLeft <= 0) {
+      handleFocusFinished();
+    }
+  },
+);
+
+watch(
+  () => autoRestartOnFinish.value,
+  () => {
+    saveFocusPreferences();
+  },
+);
+
 onMounted(() => {
   loadAudioPreferences();
+  loadFocusPreferences();
+  syncCurrentRoomInfo();
   void fetchSeatSnapshot();
   initWebSocket();
   void fetchFloorTraffic();
@@ -1490,6 +1618,7 @@ onMounted(() => {
 onUnmounted(() => {
   socket?.close();
   saveAudioPreferences();
+  saveFocusPreferences();
   stopAudioPlayback();
   if (audioElement) {
     audioElement.removeEventListener('error', handleAudioPlaybackError);
@@ -1525,6 +1654,13 @@ watch(
   () => {
     selectedAudioTrack.value = defaultAudioTrack.value;
     switchAudioTrack();
+  },
+);
+
+watch(
+  () => currentZone.value?.name,
+  () => {
+    syncCurrentRoomInfo();
   },
 );
 
