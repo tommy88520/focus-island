@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /test-ws
+
+Sitemap: https://focus-island.huangyanming.com/sitemap.xml
