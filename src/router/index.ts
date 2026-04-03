@@ -20,6 +20,7 @@ const DEFAULT_SEO: Required<RouteSeoMeta> = {
 };
 
 const SITE_URL = 'https://focus-island.huangyanming.com';
+const SEO_IMAGE_URL = 'https://imgs.huangyanming.com/Focus-Island.png';
 
 function upsertMeta(attrName: 'name' | 'property', attrValue: string, content: string) {
   if (typeof document === 'undefined') return;
@@ -60,8 +61,11 @@ function applySeoMeta(path: string, seo?: RouteSeoMeta) {
   upsertMeta('property', 'og:description', description);
   upsertMeta('property', 'og:url', canonical);
   upsertMeta('property', 'og:type', 'website');
+  upsertMeta('property', 'og:image', SEO_IMAGE_URL);
   upsertMeta('name', 'twitter:title', title);
   upsertMeta('name', 'twitter:description', description);
+  upsertMeta('name', 'twitter:image', SEO_IMAGE_URL);
+  upsertMeta('name', 'twitter:card', 'summary_large_image');
   upsertCanonical(canonical);
 }
 
