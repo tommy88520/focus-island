@@ -611,6 +611,52 @@ const FADE_DURATION_MS = 220;
 let fadeTaskId = 0;
 const DEBUG_SEAT_ID_SYNC = import.meta.env.DEV;
 
+// --- 入座狀態 flag ---
+const IS_SEATED_FLAG_KEY = 'focus_island_is_seated_v1';
+function setSeatedFlag(value: boolean) {
+  try {
+    localStorage.setItem(IS_SEATED_FLAG_KEY, value ? '1' : '0');
+  } catch {
+    // ignore storage errors (e.g. private mode)
+  }
+}
+
+function getSeatedFlag() {
+  try {
+    return localStorage.getItem(IS_SEATED_FLAG_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function clearSeatedFlag() {
+  try {
+    localStorage.removeItem(IS_SEATED_FLAG_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// 監聽其他分頁變更 seat flag，同步結束專注
+window.addEventListener('storage', (e: StorageEvent) => {
+  if (e.key !== IS_SEATED_FLAG_KEY) return;
+
+  // 如果其他分頁把 flag 清掉，而本分頁還在專注，則同步結束
+  if (e.newValue !== '1' && store.isRunning) {
+    store.stopTimer();
+    try {
+      clearSeatedFlag();
+    } catch {}
+    $q.notify({
+      message: '你在其他分頁結束了專注，本分頁已同步結束',
+      color: 'warning',
+      icon: 'event_seat',
+      timeout: 2200,
+      position: 'top',
+    });
+  }
+});
+
 type AudioPrefs = {
   selectedAudioTrack: AudioTrackKey;
   defaultAudioTrack: AudioTrackKey;
@@ -1627,13 +1673,26 @@ function toggleFocus() {
     return;
   }
 
+  if (!store.isRunning && getSeatedFlag()) {
+    $q.notify({
+      message: '你已在其他分頁入座，請先結束那邊的專注',
+      color: 'negative',
+      icon: 'block',
+      timeout: 2200,
+      position: 'top',
+    });
+    return;
+  }
+
   if (store.isRunning) {
     store.stopTimer();
+    setSeatedFlag(false);
     if (followFocusPlayback.value) {
       stopAudioPlayback();
     }
   } else {
     store.startTimer();
+    setSeatedFlag(true);
     if (followFocusPlayback.value) {
       void startAudioPlayback();
     }
