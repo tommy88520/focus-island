@@ -240,7 +240,6 @@
               </div>
               <button
                 @click="toggleFocus"
-                :disabled="!selectedSeatId && !store.isRunning"
                 class="w-full py-4 rounded-2xl text-sm font-black tracking-[0.14em] transition-all active:scale-95 shadow-2xl"
                 :class="
                   store.isRunning
@@ -261,7 +260,6 @@
                 </button>
                 <button
                   @click="restartFocusTimer"
-                  :disabled="!selectedSeatId && !store.isRunning"
                   class="rounded-xl border border-amber-300/35 bg-amber-400/10 px-2.5 py-2 text-[11px] font-black tracking-[0.08em] text-amber-200 transition-all hover:border-amber-300/55 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   重新開始
@@ -1276,11 +1274,11 @@ function handleVisibilityChange() {
 function connectWebSocket(token: string, version: number) {
   const baseUrl = import.meta.env.VITE_BACKEND_WS_URL || 'ws://localhost:8080';
   const url = `${baseUrl}/api/v1/library/ws?floor=${currentFloor.value}&zone=${activeZoneId.value}&userId=${userId.value}&token=${encodeURIComponent(token)}`;
-  
+
   if (import.meta.env.DEV) {
     console.log('[WS Connect] Connecting to:', url);
   }
-  
+
   const currentSocket = new WebSocket(url);
   socket = currentSocket;
 
@@ -1618,6 +1616,17 @@ function selectSeat(id: string) {
 
 // --- 操作方法 ---
 function toggleFocus() {
+  if (!selectedSeatId.value && !store.isRunning) {
+    $q.notify({
+      message: '請先選擇一個座位才能入座',
+      color: 'warning',
+      icon: 'event_seat',
+      timeout: 1600,
+      position: 'top',
+    });
+    return;
+  }
+
   if (store.isRunning) {
     store.stopTimer();
     if (followFocusPlayback.value) {
