@@ -657,6 +657,35 @@ window.addEventListener('storage', (e: StorageEvent) => {
   }
 });
 
+function isMobileDevice() {
+  try {
+    return /Mobi|Android|iPhone|iPad|iPod/.test(navigator.userAgent);
+  } catch {
+    return false;
+  }
+}
+
+// 頁面卸載或隱藏時清除 flag，避免 stale lock（mobile 尤其要處理）
+window.addEventListener('beforeunload', () => {
+  try {
+    if (store.isRunning) clearSeatedFlag();
+  } catch {}
+});
+
+window.addEventListener('pagehide', () => {
+  try {
+    if (store.isRunning) clearSeatedFlag();
+  } catch {}
+});
+
+window.addEventListener('visibilitychange', () => {
+  try {
+    if (document.visibilityState === 'hidden' && isMobileDevice()) {
+      if (store.isRunning) clearSeatedFlag();
+    }
+  } catch {}
+});
+
 type AudioPrefs = {
   selectedAudioTrack: AudioTrackKey;
   defaultAudioTrack: AudioTrackKey;
@@ -1507,6 +1536,13 @@ function connectWebSocket(token: string, version: number) {
           }
           readers.value = readers.value.filter((r) => r.userId !== msg.userId);
           updateCurrentFloorHeatByReaders();
+          // 如果伺服器通知是本使用者離開，清除入座 flag 並停止本分頁的專注
+          if (msg.userId === userId.value) {
+            try {
+              clearSeatedFlag();
+              if (store.isRunning) store.stopTimer();
+            } catch {}
+          }
           break;
         }
 
@@ -1548,8 +1584,16 @@ function connectWebSocket(token: string, version: number) {
     if (socketCloseWasIntentional) {
       console.log('[WS Close] Connection closed intentionally');
       socketCloseWasIntentional = false;
+      try {
+        clearSeatedFlag();
+      } catch {}
       return;
     }
+
+    // 清除入座 flag，避免斷線後造成鎖定
+    try {
+      clearSeatedFlag();
+    } catch {}
 
     console.warn('[WS Close] Connection closed unexpectedly, scheduling reconnect...');
     isLoading.value = false;
