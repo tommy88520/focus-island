@@ -1,13 +1,13 @@
 <template>
-  <div class="relative min-h-[calc(100vh-80px)] px-4 py-4 pb-32 sm:px-6 sm:pb-40 lg:py-8">
+  <div class="relative min-h-[calc(100vh-80px)] px-3 py-3 pb-24 sm:px-6 sm:py-4 sm:pb-40 lg:py-8">
     <div class="relative z-10 mx-auto max-w-7xl">
-      <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <main class="lg:col-span-8 space-y-6">
-          <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-12 sm:gap-6">
+        <main class="order-2 space-y-4 lg:order-none lg:col-span-8 sm:space-y-6">
+          <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div class="flex items-center gap-3 mb-2">
                 <div
-                  class="px-2 py-0.5 rounded-md bg-amber-400 text-amber-950 text-[10px] font-black tracking-widest uppercase shadow-lg shadow-amber-400/20"
+                  class="rounded-md bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-950 shadow-lg shadow-amber-400/20"
                 >
                   樓層 {{ currentFloor }}
                 </div>
@@ -16,19 +16,19 @@
                   {{ currentZone?.name }} · {{ currentZone?.description }}
                 </p>
               </div>
-              <h3 class="text-2xl font-black tracking-tight text-white sm:text-4xl">
+              <h3 class="text-[1.6rem] font-black tracking-tight text-white sm:text-4xl">
                 {{ store.isRunning ? '深度專注中' : '挑個好位子，入座。' }}
               </h3>
             </div>
 
             <nav
-              class="flex items-center gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-xl overflow-x-auto no-scrollbar"
+              class="flex items-center gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/5 p-1.5 backdrop-blur-xl no-scrollbar"
             >
               <button
                 v-for="f in floorHeatData"
                 :key="f.floor"
                 @click="currentFloor = f.floor"
-                class="relative px-4 py-3 rounded-xl transition-all duration-500 group overflow-hidden"
+                class="group relative overflow-hidden rounded-xl px-4 py-3 transition-all duration-500"
                 :class="
                   currentFloor === f.floor ? 'bg-white shadow-2xl scale-105' : 'hover:bg-white/5'
                 "
@@ -71,17 +71,15 @@
             </nav>
           </header>
 
-          <section
-            class="rounded-[40px] border border-white/10 bg-slate-900/40 p-4 sm:p-10 backdrop-blur-md shadow-2xl relative min-h-[550px]"
-          >
+          <section class="relative min-h-[440px] rounded-[32px] border border-white/10 bg-slate-900/40 p-3 shadow-2xl backdrop-blur-md sm:min-h-[550px] sm:rounded-[40px] sm:p-10">
             <div
-              class="flex items-center gap-6 mb-10 border-b border-white/5 overflow-x-auto no-scrollbar"
+              class="mb-6 flex items-center gap-4 overflow-x-auto border-b border-white/5 no-scrollbar sm:mb-10 sm:gap-6"
             >
               <button
                 v-for="zone in floorZones"
                 :key="zone.id"
                 @click="activeZoneId = zone.id"
-                class="pb-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative group flex-shrink-0"
+                class="group flex-shrink-0 pb-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative sm:pb-4"
                 :class="
                   activeZoneId === zone.id ? 'text-amber-400' : 'text-white/20 hover:text-white/40'
                 "
@@ -89,7 +87,7 @@
                 <div class="flex items-center gap-2" :class="getZoneHeatTextClass(zone.occupancy)">
                   {{ zone.name }}
                   <span
-                    class="text-[8px] px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 group-hover:border-amber-400/30"
+                    class="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] group-hover:border-amber-400/30"
                   >
                     {{ zone.occupancy }}
                   </span>
@@ -102,14 +100,14 @@
             </div>
 
             <div
-              class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 sm:gap-6 relative transition-all duration-500"
+              class="relative grid grid-cols-3 gap-2.5 transition-all duration-500 sm:grid-cols-4 sm:gap-6 md:grid-cols-6"
               :class="{ 'shake-error': isShake, 'opacity-0 scale-95': isLoading }"
             >
               <div v-for="seat in currentSeats" :key="seat.id" class="relative">
                 <button
                   :disabled="!seat.available || store.isRunning"
                   @click="selectSeat(seat.id)"
-                  class="w-full aspect-square ..."
+                  class="w-full aspect-square"
                   :class="seatButtonClass(seat)"
                 >
                   <div v-if="selectedSeatId === seat.id" class="flex flex-col items-center">
@@ -159,7 +157,7 @@
 
             <div
               v-if="isLoading"
-              class="absolute inset-x-0 bottom-0 top-32 px-4 sm:px-10 flex items-center justify-center pointer-events-none"
+              class="absolute inset-x-0 bottom-0 top-24 flex items-center justify-center px-4 pointer-events-none sm:top-32 sm:px-10"
             >
               <div class="flex flex-col items-center gap-4">
                 <div
@@ -173,9 +171,9 @@
           </section>
         </main>
 
-        <aside class="lg:col-span-4 space-y-6">
+        <aside class="order-1 space-y-4 lg:order-none lg:col-span-4 sm:space-y-6">
           <div
-            class="relative overflow-hidden rounded-[36px] border border-white/10 bg-slate-950/55 p-4 shadow-2xl backdrop-blur-xl sm:p-6"
+            class="relative overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/55 p-3 shadow-2xl backdrop-blur-xl sm:rounded-[36px] sm:p-6"
           >
             <div
               class="pointer-events-none absolute -top-24 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-amber-300/10 blur-[92px]"
@@ -184,7 +182,7 @@
               class="pointer-events-none absolute -bottom-20 -right-16 h-48 w-48 rounded-full bg-cyan-300/10 blur-[88px]"
             ></div>
 
-            <div class="relative z-10 space-y-5">
+            <div class="relative z-10 space-y-4 sm:space-y-5">
               <div
                 class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
               >
@@ -204,7 +202,7 @@
               </div>
 
               <div
-                class="rounded-3xl border border-white/10 bg-slate-900/70 px-4 py-4 shadow-[inset_0_0_40px_rgba(15,23,42,0.55)] sm:px-5 sm:py-5"
+                class="rounded-3xl border border-white/10 bg-slate-900/70 px-3 py-3 shadow-[inset_0_0_40px_rgba(15,23,42,0.55)] sm:px-5 sm:py-5"
               >
                 <div class="mb-3 flex items-end justify-between">
                   <p class="text-[10px] font-black uppercase tracking-[0.24em] text-amber-300/80">
@@ -218,9 +216,7 @@
                 <div
                   class="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-900/70 to-slate-950/80 px-3 py-5 text-center"
                 >
-                  <div
-                    class="text-5xl font-mono font-black leading-none tracking-tight text-amber-50 drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)] sm:text-6xl"
-                  >
+                  <div class="text-[3rem] font-mono font-black leading-none tracking-tight text-amber-50 drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)] sm:text-6xl">
                     {{ formattedTime }}
                   </div>
                 </div>
@@ -251,10 +247,10 @@
                 </div>
               </div>
 
-              <div class="space-y-[5px] flex flex-col gap-y-3.5">
+              <div class="flex flex-col gap-y-3 space-y-[5px]">
                 <button
                   @click="toggleFocus"
-                  class="w-full rounded-2xl py-4 text-sm font-black tracking-[0.14em] shadow-2xl transition-all active:scale-[0.98]"
+                  class="w-full rounded-2xl py-3.5 text-sm font-black tracking-[0.14em] shadow-2xl transition-all active:scale-[0.98]"
                   :class="
                     store.isRunning
                       ? 'bg-rose-500 text-white shadow-rose-500/30 hover:bg-rose-400'
@@ -712,8 +708,15 @@ const DEBUG_SEAT_ID_SYNC = import.meta.env.DEV;
 
 // --- 入座狀態 flag ---
 const IS_SEATED_FLAG_KEY = 'focus_island_is_seated_v1';
+const TAB_ID_SESSION_KEY = 'focus_island_tab_id_v1';
 const RESUME_CANDIDATE_KEY = 'focus_island_resume_candidate_v1';
 const RESUME_CANDIDATE_TTL_MS = 20_000;
+
+type SeatedFlagPayload = {
+  tabId: string;
+  userId: string;
+  updatedAt: number;
+};
 
 type ResumeCandidatePayload = {
   userId: string;
@@ -727,17 +730,83 @@ type ResumeCandidatePayload = {
 
 const resumeCandidate = ref<ResumeCandidatePayload | null>(null);
 
+function createRandomId(prefix: string) {
+  return `${prefix}_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+}
+
+function getOrCreateTabId() {
+  try {
+    const existing = sessionStorage.getItem(TAB_ID_SESSION_KEY);
+    if (existing) return existing;
+    const next = createRandomId('tab');
+    sessionStorage.setItem(TAB_ID_SESSION_KEY, next);
+    return next;
+  } catch {
+    // fallback for restricted storage environments
+    return createRandomId('tab_fallback');
+  }
+}
+
+const currentTabId = getOrCreateTabId();
+
+function parseSeatedPayload(raw: string | null): SeatedFlagPayload | null {
+  if (!raw) return null;
+
+  try {
+    // backward compatibility: old payload used plain '1'/'0'
+    if (raw === '1') {
+      return {
+        tabId: 'legacy',
+        userId: userId.value,
+        updatedAt: Date.now(),
+      };
+    }
+
+    const parsed = JSON.parse(raw) as Partial<SeatedFlagPayload>;
+    if (
+      typeof parsed.tabId !== 'string' ||
+      typeof parsed.userId !== 'string' ||
+      typeof parsed.updatedAt !== 'number'
+    ) {
+      return null;
+    }
+    return {
+      tabId: parsed.tabId,
+      userId: parsed.userId,
+      updatedAt: parsed.updatedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function setSeatedFlag(value: boolean) {
   try {
-    localStorage.setItem(IS_SEATED_FLAG_KEY, value ? '1' : '0');
+    if (value) {
+      const payload: SeatedFlagPayload = {
+        tabId: currentTabId,
+        userId: userId.value,
+        updatedAt: Date.now(),
+      };
+      localStorage.setItem(IS_SEATED_FLAG_KEY, JSON.stringify(payload));
+      return;
+    }
+
+    const existing = parseSeatedPayload(localStorage.getItem(IS_SEATED_FLAG_KEY));
+    if (!existing || existing.tabId === currentTabId) {
+      localStorage.removeItem(IS_SEATED_FLAG_KEY);
+    }
   } catch {
     // ignore storage errors (e.g. private mode)
   }
 }
 
-function getSeatedFlag() {
+function isSeatedByOtherTab() {
   try {
-    return localStorage.getItem(IS_SEATED_FLAG_KEY) === '1';
+    const existing = parseSeatedPayload(localStorage.getItem(IS_SEATED_FLAG_KEY));
+    if (!existing) return false;
+    if (existing.userId !== userId.value) return false;
+    return existing.tabId !== currentTabId;
   } catch {
     return false;
   }
@@ -745,7 +814,10 @@ function getSeatedFlag() {
 
 function clearSeatedFlag() {
   try {
-    localStorage.removeItem(IS_SEATED_FLAG_KEY);
+    const existing = parseSeatedPayload(localStorage.getItem(IS_SEATED_FLAG_KEY));
+    if (!existing || existing.tabId === currentTabId) {
+      localStorage.removeItem(IS_SEATED_FLAG_KEY);
+    }
   } catch {
     // ignore
   }
@@ -877,8 +949,11 @@ async function resumePreviousFocus() {
 window.addEventListener('storage', (e: StorageEvent) => {
   if (e.key !== IS_SEATED_FLAG_KEY) return;
 
-  // 如果其他分頁把 flag 清掉，而本分頁還在專注，則同步結束
-  if (e.newValue !== '1' && store.isRunning) {
+  if (!store.isRunning) return;
+  const nextPayload = parseSeatedPayload(e.newValue);
+
+  // 其他分頁拿走入座狀態（或清除狀態）時，本分頁同步結束
+  if (!nextPayload || nextPayload.tabId !== currentTabId) {
     store.stopTimer();
     try {
       clearSeatedFlag();
@@ -1978,7 +2053,7 @@ function toggleFocus() {
     return;
   }
 
-  if (!store.isRunning && getSeatedFlag()) {
+  if (!store.isRunning && isSeatedByOtherTab()) {
     $q.notify({
       message: '你已在其他分頁入座，請先結束那邊的專注',
       color: 'negative',
