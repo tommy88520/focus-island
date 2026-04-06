@@ -175,106 +175,203 @@
 
         <aside class="lg:col-span-4 space-y-6">
           <div
-            class="rounded-[36px] border border-white/10 bg-slate-900/60 p-5 text-center shadow-2xl backdrop-blur-xl relative overflow-hidden sm:p-7"
+            class="relative overflow-hidden rounded-[36px] border border-white/10 bg-slate-950/55 p-4 shadow-2xl backdrop-blur-xl sm:p-6"
           >
             <div
-              class="absolute -top-24 -right-24 h-48 w-48 bg-amber-400/5 blur-[80px] rounded-full"
+              class="pointer-events-none absolute -top-24 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-amber-300/10 blur-[92px]"
             ></div>
             <div
-              class="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-teal-400/5 blur-[90px]"
+              class="pointer-events-none absolute -bottom-20 -right-16 h-48 w-48 rounded-full bg-cyan-300/10 blur-[88px]"
             ></div>
 
-            <div
-              class="mb-7 h-44 w-44 sm:mb-8 sm:h-56 sm:w-56 mx-auto rounded-full border-[10px] border-white/10 bg-slate-950/35 flex flex-col items-center justify-center relative shadow-[inset_0_0_46px_rgba(0,0,0,0.34)]"
-            >
+            <div class="relative z-10 space-y-5">
               <div
-                class="absolute inset-[-10px] rounded-full border-[10px] border-transparent border-t-amber-400 animate-spin-slow"
-                v-if="store.isRunning"
-              ></div>
-              <div
-                class="text-[9px] sm:text-[10px] font-black text-amber-300/90 tracking-[0.28em] mb-2 uppercase"
+                class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
               >
-                剩餘時間
-              </div>
-              <div
-                class="text-[2.3rem] leading-none sm:text-6xl font-mono font-black text-amber-50 tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.42)]"
-              >
-                {{ formattedTime }}
-              </div>
-            </div>
-
-            <div class="space-y-3.5 relative z-10">
-              <div class="rounded-2xl bg-white/5 border border-white/10 px-4 py-3 text-left">
-                <label
-                  for="display-name"
-                  class="block text-[10px] font-black uppercase tracking-[0.2em] text-white/50 mb-2"
+                <p class="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
+                  Focus Clock
+                </p>
+                <span
+                  class="rounded-full px-2 py-1 text-[9px] font-black tracking-[0.2em]"
+                  :class="
+                    store.isRunning
+                      ? 'bg-emerald-300/20 text-emerald-200'
+                      : 'bg-white/10 text-white/60'
+                  "
                 >
-                  顯示名稱
-                </label>
-                <input
-                  id="display-name"
-                  v-model="displayNameInput"
-                  type="text"
-                  maxlength="20"
-                  :disabled="!isEditingDisplayName"
-                  class="w-full rounded-xl bg-slate-950/70 border border-white/15 px-3 py-2 text-sm font-black text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-amber-400/60 disabled:opacity-60 disabled:cursor-not-allowed"
-                  placeholder="輸入你想顯示的名稱"
-                  @keyup.enter="applyDisplayName"
-                />
-                <div class="mt-3 flex justify-end">
-                  <button
-                    v-if="!isEditingDisplayName"
-                    class="rounded-lg border border-white/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-white/70 hover:text-white hover:border-white/40"
-                    @click="startEditDisplayName"
+                  {{ store.isRunning ? 'RUNNING' : 'IDLE' }}
+                </span>
+              </div>
+
+              <div
+                class="rounded-3xl border border-white/10 bg-slate-900/70 px-4 py-4 shadow-[inset_0_0_40px_rgba(15,23,42,0.55)] sm:px-5 sm:py-5"
+              >
+                <div class="mb-3 flex items-end justify-between">
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-amber-300/80">
+                    剩餘時間
+                  </p>
+                  <p class="text-[10px] font-black tracking-[0.14em] text-white/45">
+                    Base {{ formatTime(store.baseDuration) }}
+                  </p>
+                </div>
+
+                <div
+                  class="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-900/70 to-slate-950/80 px-3 py-5 text-center"
+                >
+                  <div
+                    class="text-5xl font-mono font-black leading-none tracking-tight text-amber-50 drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)] sm:text-6xl"
                   >
-                    編輯
-                  </button>
-                  <button
-                    v-else
-                    class="rounded-lg bg-amber-400 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-950 hover:bg-amber-300"
-                    @click="applyDisplayName"
+                    {{ formattedTime }}
+                  </div>
+                </div>
+
+                <div class="mt-3">
+                  <div
+                    class="mb-1.5 flex items-center justify-between text-[10px] font-black tracking-[0.12em] text-white/45"
                   >
-                    儲存
-                  </button>
+                    <span>進度</span>
+                    <span
+                      >{{
+                        Math.round(
+                          ((store.baseDuration - store.timeLeft) /
+                            Math.max(1, store.baseDuration)) *
+                            100,
+                        )
+                      }}%</span
+                    >
+                  </div>
+                  <div class="h-2 rounded-full bg-white/10">
+                    <div
+                      class="h-full rounded-full bg-gradient-to-r from-amber-300 via-rose-300 to-cyan-300 transition-all duration-500"
+                      :style="{
+                        width: `${Math.min(100, Math.max(0, ((store.baseDuration - store.timeLeft) / Math.max(1, store.baseDuration)) * 100))}%`,
+                      }"
+                    ></div>
+                  </div>
                 </div>
               </div>
-              <button
-                @click="toggleFocus"
-                class="w-full py-4 rounded-2xl text-sm font-black tracking-[0.14em] transition-all active:scale-95 shadow-2xl"
-                :class="
-                  store.isRunning
-                    ? 'bg-rose-500 text-white shadow-rose-500/20'
-                    : 'bg-white text-slate-900 shadow-white/10 hover:bg-amber-50'
-                "
-              >
-                {{ store.isRunning ? '結束專注' : '入座' }}
-              </button>
 
-              <div class="grid grid-cols-2 gap-2">
+              <div class="space-y-[5px] flex flex-col gap-y-3.5">
                 <button
-                  @click="resetFocusTimer"
-                  :disabled="store.timeLeft === store.baseDuration && !store.isRunning"
-                  class="rounded-xl border border-white/15 bg-white/5 px-2.5 py-2 text-[11px] font-black tracking-[0.08em] text-white/85 transition-all hover:border-white/25 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                  @click="toggleFocus"
+                  class="w-full rounded-2xl py-4 text-sm font-black tracking-[0.14em] shadow-2xl transition-all active:scale-[0.98]"
+                  :class="
+                    store.isRunning
+                      ? 'bg-rose-500 text-white shadow-rose-500/30 hover:bg-rose-400'
+                      : 'bg-white text-slate-900 shadow-white/20 hover:bg-amber-50'
+                  "
                 >
-                  重置時間
+                  {{ store.isRunning ? '結束專注' : '入座' }}
                 </button>
+
                 <button
                   @click="restartFocusTimer"
-                  class="rounded-xl border border-amber-300/35 bg-amber-400/10 px-2.5 py-2 text-[11px] font-black tracking-[0.08em] text-amber-200 transition-all hover:border-amber-300/55 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-45"
+                  class="w-full rounded-xl border border-amber-300/35 bg-amber-400/10 px-3 py-2.5 text-[11px] font-black tracking-[0.08em] text-amber-200 transition-all hover:border-amber-300/60 hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   重新開始
                 </button>
+
+                <button
+                  v-if="!store.isRunning && resumeCandidate"
+                  @click="resumePreviousFocus"
+                  class="w-full rounded-2xl border border-emerald-300/50 bg-emerald-400/10 px-3 py-2.5 text-[11px] font-black tracking-[0.08em] text-emerald-200 transition-all hover:border-emerald-300/70 hover:bg-emerald-400/20"
+                >
+                  繼續上一段專注
+                  <span class="ml-1 text-emerald-100/80">{{ resumeCandidateLabel }}</span>
+                </button>
               </div>
 
-              <label
-                class="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white/75"
+              <button
+                type="button"
+                @click="showAdvancedFocusControls = !showAdvancedFocusControls"
+                class="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-[11px] font-black tracking-[0.1em] text-white/75 transition-all hover:border-white/30 hover:bg-white/10"
               >
-                <span class="font-bold tracking-[0.06em]">結束自動重來</span>
-                <input v-model="autoRestartOnFinish" type="checkbox" class="accent-amber-400" />
-              </label>
+                {{ showAdvancedFocusControls ? '收合進階設定' : '展開進階設定' }}
+              </button>
 
-              <div class="py-2.5 px-3.5 rounded-xl bg-white/5 border border-white/10 text-left">
-                <p class="text-[11px] text-white/55 font-bold tracking-[0.06em]">
+              <div
+                v-if="showAdvancedFocusControls"
+                class="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-3"
+              >
+                <div class="space-y-2 rounded-xl border border-white/10 bg-slate-900/35 p-3">
+                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
+                    專注時長
+                  </p>
+                  <div class="grid grid-cols-3 gap-2">
+                    <button
+                      v-for="minutes in focusDurationOptions"
+                      :key="minutes"
+                      type="button"
+                      @click="handleFocusDurationSelect(minutes)"
+                      class="rounded-xl border px-2 py-2 text-[11px] font-black tracking-[0.08em] transition-all"
+                      :class="
+                        selectedFocusDurationMinutes === minutes
+                          ? 'border-amber-300/70 bg-amber-400/20 text-amber-100'
+                          : 'border-white/15 bg-slate-900/45 text-white/75 hover:border-white/30 hover:text-white'
+                      "
+                    >
+                      {{ minutes }} 分鐘
+                    </button>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-2">
+                  <button
+                    @click="resetFocusTimer"
+                    :disabled="store.timeLeft === store.baseDuration && !store.isRunning"
+                    class="rounded-xl border border-white/15 bg-slate-900/45 px-2.5 py-2 text-[11px] font-black tracking-[0.08em] text-white/85 transition-all hover:border-white/30 hover:bg-slate-900/65 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    重置時間
+                  </button>
+                </div>
+
+                <label
+                  class="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/35 px-3 py-2 text-[11px] text-white/75"
+                >
+                  <span class="font-bold tracking-[0.06em]">結束自動重來</span>
+                  <input v-model="autoRestartOnFinish" type="checkbox" class="accent-amber-400" />
+                </label>
+
+                <div class="rounded-xl border border-white/10 bg-slate-900/35 p-3 text-left">
+                  <label
+                    for="display-name"
+                    class="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-white/50"
+                  >
+                    顯示名稱
+                  </label>
+                  <input
+                    id="display-name"
+                    v-model="displayNameInput"
+                    type="text"
+                    maxlength="20"
+                    :disabled="!isEditingDisplayName"
+                    class="w-full rounded-xl border border-white/15 bg-slate-950/70 px-3 py-2 text-sm font-black text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-amber-400/60 disabled:cursor-not-allowed disabled:opacity-60"
+                    placeholder="輸入你想顯示的名稱"
+                    @keyup.enter="applyDisplayName"
+                  />
+                  <div class="mt-3 flex justify-end">
+                    <button
+                      v-if="!isEditingDisplayName"
+                      class="rounded-lg border border-white/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-white/70 hover:border-white/40 hover:text-white"
+                      @click="startEditDisplayName"
+                    >
+                      編輯
+                    </button>
+                    <button
+                      v-else
+                      class="rounded-lg bg-amber-400 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-950 hover:bg-amber-300"
+                      @click="applyDisplayName"
+                    >
+                      儲存
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                class="rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-left mt-3.5"
+              >
+                <p class="text-[11px] font-bold tracking-[0.06em] text-white/55">
                   {{ selectedSeatLabel }}
                 </p>
               </div>
@@ -414,6 +511,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 import { useQuasar } from 'quasar';
 import {
@@ -482,6 +580,7 @@ const isLoading = ref(false);
 const selectedSeatId = ref<string | null>(null);
 const isShake = ref(false);
 const isSwitching = ref(false);
+const showAdvancedFocusControls = ref(false);
 
 let socket: WebSocket | null = null;
 let floorHeatTimer: number | null = null;
@@ -506,7 +605,7 @@ const readers = ref<Reader[]>([]);
 const seatSnapshotMap = ref<SeatSnapshotMap>({});
 
 // --- 音頻播放配置 ---
-type AudioTrackKey = 'forest' | 'cafe' | 'ocean' | 'pink' | 'silence' | 'lofi' | 'rain' | 'thunder';
+type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain' | 'thunder';
 
 const audioTracks: Record<
   AudioTrackKey,
@@ -525,26 +624,12 @@ const audioTracks: Record<
     url: '/music/dany_photo-forestbirds-319791.mp3',
     gain: 0.12,
   },
-  cafe: {
-    name: '城市咖啡',
-    description: '溫暖環境聲',
-    icon: 'local_cafe',
-    url: '/music/deawthanapon-lofi-relax-beat-loop-bpm-88-eb-major-ii-v-i-361752.mp3',
-    gain: 0.1,
-  },
   ocean: {
     name: '深海艙',
     description: '低頻潮汐感',
     icon: 'waves',
     url: '/music/kokoreli777-sea-waves-169411.mp3',
     gain: 0.14,
-  },
-  pink: {
-    name: '粉噪',
-    description: '更平順的底噪',
-    icon: 'graphic_eq',
-    url: '/music/deawthanapon-lofi-relax-beat-loop-bpm-88-eb-major-ii-v-i-361752.mp3',
-    gain: 0.1,
   },
   silence: {
     name: '無聲',
@@ -587,16 +672,30 @@ const audioLoopEnabled = ref(true);
 const audioAutoPlayOnLoad = ref(false);
 const autoRestartOnFinish = ref(false);
 const showAudioTrackPicker = ref(false);
-const audioTrackOrder: AudioTrackKey[] = [
-  'forest',
-  'cafe',
-  'ocean',
-  'pink',
-  'lofi',
-  'rain',
-  'thunder',
-  'silence',
-];
+const focusDurationOptions = [15, 25, 50] as const;
+type FocusDurationOption = (typeof focusDurationOptions)[number];
+
+const selectedFocusDurationMinutes = computed(() => Math.round(store.baseDuration / 60));
+
+function handleFocusDurationSelect(minutes: FocusDurationOption) {
+  if (store.isRunning) {
+    $q.notify({
+      message: '請先結束目前專注，再切換時長',
+      color: 'warning',
+      icon: 'timer_off',
+      timeout: 1600,
+      position: 'top',
+    });
+    return;
+  }
+
+  if (selectedFocusDurationMinutes.value === minutes) return;
+  clearResumeCandidate();
+  store.setDuration(minutes);
+  saveFocusPreferences();
+}
+
+const audioTrackOrder: AudioTrackKey[] = ['forest', 'ocean', 'lofi', 'rain', 'thunder', 'silence'];
 
 const selectedAudioTrackMeta = computed(() => audioTracks[selectedAudioTrack.value]);
 const volumeIconName = computed(() => {
@@ -613,6 +712,21 @@ const DEBUG_SEAT_ID_SYNC = import.meta.env.DEV;
 
 // --- 入座狀態 flag ---
 const IS_SEATED_FLAG_KEY = 'focus_island_is_seated_v1';
+const RESUME_CANDIDATE_KEY = 'focus_island_resume_candidate_v1';
+const RESUME_CANDIDATE_TTL_MS = 20_000;
+
+type ResumeCandidatePayload = {
+  userId: string;
+  seatId: string;
+  floor: number;
+  zoneId: string;
+  timeLeft: number;
+  baseDuration: number;
+  expiresAt: number;
+};
+
+const resumeCandidate = ref<ResumeCandidatePayload | null>(null);
+
 function setSeatedFlag(value: boolean) {
   try {
     localStorage.setItem(IS_SEATED_FLAG_KEY, value ? '1' : '0');
@@ -637,6 +751,128 @@ function clearSeatedFlag() {
   }
 }
 
+function clearResumeCandidate() {
+  resumeCandidate.value = null;
+  try {
+    localStorage.removeItem(RESUME_CANDIDATE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function saveResumeCandidate() {
+  if (!store.isRunning || !selectedSeatId.value) return;
+
+  const payload: ResumeCandidatePayload = {
+    userId: userId.value,
+    seatId: selectedSeatId.value,
+    floor: currentFloor.value,
+    zoneId: activeZoneId.value,
+    timeLeft: Math.max(1, Math.floor(store.timeLeft)),
+    baseDuration: Math.max(60, Math.floor(store.baseDuration)),
+    expiresAt: Date.now() + RESUME_CANDIDATE_TTL_MS,
+  };
+
+  resumeCandidate.value = payload;
+  try {
+    localStorage.setItem(RESUME_CANDIDATE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore
+  }
+}
+
+function loadResumeCandidate() {
+  try {
+    const raw = localStorage.getItem(RESUME_CANDIDATE_KEY);
+    if (!raw) {
+      resumeCandidate.value = null;
+      return;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<ResumeCandidatePayload>;
+    const normalized: ResumeCandidatePayload = {
+      userId: String(parsed.userId || ''),
+      seatId: String(parsed.seatId || ''),
+      floor: Number(parsed.floor || 0),
+      zoneId: String(parsed.zoneId || ''),
+      timeLeft: Number(parsed.timeLeft || 0),
+      baseDuration: Number(parsed.baseDuration || 0),
+      expiresAt: Number(parsed.expiresAt || 0),
+    };
+
+    const isValid =
+      normalized.userId === userId.value &&
+      normalized.seatId.length > 0 &&
+      Number.isFinite(normalized.floor) &&
+      normalized.floor > 0 &&
+      normalized.zoneId.length > 0 &&
+      Number.isFinite(normalized.timeLeft) &&
+      normalized.timeLeft > 0 &&
+      Number.isFinite(normalized.baseDuration) &&
+      normalized.baseDuration >= 60 &&
+      Number.isFinite(normalized.expiresAt) &&
+      normalized.expiresAt > Date.now();
+
+    if (!isValid) {
+      clearResumeCandidate();
+      return;
+    }
+
+    resumeCandidate.value = normalized;
+  } catch {
+    clearResumeCandidate();
+  }
+}
+
+const resumeCandidateLabel = computed(() => {
+  const candidate = resumeCandidate.value;
+  if (!candidate) return '';
+  const remain = Math.max(1, Math.floor((candidate.expiresAt - Date.now()) / 1000));
+  return `可續接 ${formatTimeHelper(candidate.timeLeft)}（${remain}s 內）`;
+});
+
+async function resumePreviousFocus() {
+  const candidate = resumeCandidate.value;
+  if (!candidate) return;
+
+  if (candidate.expiresAt <= Date.now()) {
+    clearResumeCandidate();
+    $q.notify({
+      message: '續接已過期，請重新入座',
+      color: 'warning',
+      icon: 'schedule',
+      timeout: 1600,
+      position: 'top',
+    });
+    return;
+  }
+
+  if (candidate.floor !== currentFloor.value || candidate.zoneId !== activeZoneId.value) {
+    currentFloor.value = candidate.floor;
+    activeZoneId.value = candidate.zoneId;
+    await reconnectRoomSession();
+  }
+
+  if (getMateAtSeat(candidate.seatId)) {
+    clearResumeCandidate();
+    $q.notify({
+      message: '座位已被占用，請重新選位',
+      color: 'negative',
+      icon: 'event_busy',
+      timeout: 1800,
+      position: 'top',
+    });
+    return;
+  }
+
+  selectedSeatId.value = candidate.seatId;
+  store.baseDuration = Math.max(60, Math.floor(candidate.baseDuration));
+  store.timeLeft = Math.min(store.baseDuration, Math.max(1, Math.floor(candidate.timeLeft)));
+
+  clearResumeCandidate();
+  toggleFocus();
+}
+
 // 監聽其他分頁變更 seat flag，同步結束專注
 window.addEventListener('storage', (e: StorageEvent) => {
   if (e.key !== IS_SEATED_FLAG_KEY) return;
@@ -646,7 +882,9 @@ window.addEventListener('storage', (e: StorageEvent) => {
     store.stopTimer();
     try {
       clearSeatedFlag();
-    } catch {}
+    } catch {
+      // ignore
+    }
     $q.notify({
       message: '你在其他分頁結束了專注，本分頁已同步結束',
       color: 'warning',
@@ -669,13 +907,17 @@ function isMobileDevice() {
 window.addEventListener('beforeunload', () => {
   try {
     if (store.isRunning) clearSeatedFlag();
-  } catch {}
+  } catch {
+    // ignore
+  }
 });
 
 window.addEventListener('pagehide', () => {
   try {
     if (store.isRunning) clearSeatedFlag();
-  } catch {}
+  } catch {
+    // ignore
+  }
 });
 
 window.addEventListener('visibilitychange', () => {
@@ -683,7 +925,9 @@ window.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && isMobileDevice()) {
       if (store.isRunning) clearSeatedFlag();
     }
-  } catch {}
+  } catch {
+    // ignore
+  }
 });
 
 type AudioPrefs = {
@@ -1110,6 +1354,7 @@ function saveFocusPreferences() {
     FOCUS_PREFS_KEY,
     JSON.stringify({
       autoRestartOnFinish: autoRestartOnFinish.value,
+      focusDurationMinutes: selectedFocusDurationMinutes.value,
     }),
   );
 }
@@ -1119,8 +1364,18 @@ function loadFocusPreferences() {
   if (!raw) return;
 
   try {
-    const parsed = JSON.parse(raw) as { autoRestartOnFinish?: boolean };
+    const parsed = JSON.parse(raw) as {
+      autoRestartOnFinish?: boolean;
+      focusDurationMinutes?: number;
+    };
     autoRestartOnFinish.value = parsed.autoRestartOnFinish ?? false;
+
+    if (
+      typeof parsed.focusDurationMinutes === 'number' &&
+      focusDurationOptions.includes(parsed.focusDurationMinutes as FocusDurationOption)
+    ) {
+      store.setDuration(parsed.focusDurationMinutes);
+    }
   } catch {
     // ignore invalid stored payload
   }
@@ -1541,7 +1796,9 @@ function connectWebSocket(token: string, version: number) {
             try {
               clearSeatedFlag();
               if (store.isRunning) store.stopTimer();
-            } catch {}
+            } catch {
+              // ignore
+            }
           }
           break;
         }
@@ -1586,14 +1843,18 @@ function connectWebSocket(token: string, version: number) {
       socketCloseWasIntentional = false;
       try {
         clearSeatedFlag();
-      } catch {}
+      } catch {
+        // ignore
+      }
       return;
     }
 
     // 清除入座 flag，避免斷線後造成鎖定
     try {
       clearSeatedFlag();
-    } catch {}
+    } catch {
+      // ignore
+    }
 
     console.warn('[WS Close] Connection closed unexpectedly, scheduling reconnect...');
     isLoading.value = false;
@@ -1731,10 +1992,12 @@ function toggleFocus() {
   if (store.isRunning) {
     store.stopTimer();
     setSeatedFlag(false);
+    clearResumeCandidate();
     if (followFocusPlayback.value) {
       stopAudioPlayback();
     }
   } else {
+    clearResumeCandidate();
     store.startTimer();
     setSeatedFlag(true);
     if (followFocusPlayback.value) {
@@ -1856,6 +2119,7 @@ watch(
 onMounted(() => {
   loadAudioPreferences();
   loadFocusPreferences();
+  loadResumeCandidate();
   void reconnectRoomSession();
   startFloorPollingTimer();
   document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -1865,8 +2129,26 @@ onMounted(() => {
   }
 });
 
-onUnmounted(() => {
+let hasHandledPageLeaveCleanup = false;
+function cleanupSessionOnPageLeave() {
+  if (hasHandledPageLeaveCleanup) return;
+  hasHandledPageLeaveCleanup = true;
+
+  // 離開座位頁時，避免出現「已離座但計時仍在跑」
+  saveResumeCandidate();
+  if (store.isRunning) {
+    store.stopTimer();
+  }
+  clearSeatedFlag();
   stopWebSocketConnection(true);
+}
+
+onBeforeRouteLeave(() => {
+  cleanupSessionOnPageLeave();
+});
+
+onUnmounted(() => {
+  cleanupSessionOnPageLeave();
   saveAudioPreferences();
   saveFocusPreferences();
   stopAudioPlayback();
