@@ -40,8 +40,10 @@
             :class="chipClass"
             @click="toggleLanguage"
           >
-            <span class="sm:hidden">🌐</span>
-            <span class="hidden sm:inline">{{ t.languageButton }}</span>
+            <span class="inline-flex items-center gap-1">
+              <q-icon name="translate" size="12px" />
+              <span class="hidden sm:inline">{{ t.languageButton }}</span>
+            </span>
           </button>
           <button
             type="button"
@@ -49,8 +51,10 @@
             :class="chipClass"
             @click="toggleTheme"
           >
-            <span class="sm:hidden">{{ isDarkMode ? '☀' : '☾' }}</span>
-            <span class="hidden sm:inline">{{ isDarkMode ? t.lightButton : t.darkButton }}</span>
+            <span class="inline-flex items-center gap-1">
+              <q-icon :name="isDarkMode ? 'light_mode' : 'dark_mode'" size="12px" />
+              <span class="hidden sm:inline">{{ isDarkMode ? t.lightButton : t.darkButton }}</span>
+            </span>
           </button>
           <button
             type="button"
@@ -58,8 +62,10 @@
             :class="favoriteButtonClass"
             @click="handleFavoriteShortcut"
           >
-            <span class="sm:hidden">★</span>
-            <span class="hidden sm:inline">{{ t.favoriteButton }}</span>
+            <span class="inline-flex items-center gap-1">
+              <q-icon name="star" size="12px" />
+              <span class="hidden sm:inline">{{ t.favoriteButton }}</span>
+            </span>
           </button>
           <span class="hidden rounded-lg border px-2 py-1 text-[10px] font-mono sm:inline-flex" :class="chipClass">v{{ $q.version }}</span>
         </div>
