@@ -48,17 +48,6 @@
           <button
             type="button"
             class="rounded-lg border px-2 py-1 text-[10px] font-black tracking-[0.18em] transition-all sm:px-2.5"
-            :class="chipClass"
-            @click="toggleTheme"
-          >
-            <span class="inline-flex items-center gap-1">
-              <q-icon :name="isDarkMode ? 'light_mode' : 'dark_mode'" size="12px" />
-              <span class="hidden sm:inline">{{ isDarkMode ? t.lightButton : t.darkButton }}</span>
-            </span>
-          </button>
-          <button
-            type="button"
-            class="rounded-lg border px-2 py-1 text-[10px] font-black tracking-[0.18em] transition-all sm:px-2.5"
             :class="favoriteButtonClass"
             @click="handleFavoriteShortcut"
           >
