@@ -945,28 +945,16 @@ async function resumePreviousFocus() {
   toggleFocus();
 }
 
-// 監聽其他分頁變更 seat flag，同步結束專注
+// When other tabs update resume candidate, reload it locally.
+// We intentionally no longer auto-stop the timer when other tabs change seat flags,
+// to allow multiple tabs to run focus concurrently.
 window.addEventListener('storage', (e: StorageEvent) => {
-  if (e.key !== IS_SEATED_FLAG_KEY) return;
-
-  if (!store.isRunning) return;
-  const nextPayload = parseSeatedPayload(e.newValue);
-
-  // 其他分頁拿走入座狀態（或清除狀態）時，本分頁同步結束
-  if (!nextPayload || nextPayload.tabId !== currentTabId) {
-    store.stopTimer();
-    try {
-      clearSeatedFlag();
-    } catch {
-      // ignore
+  try {
+    if (e.key === RESUME_CANDIDATE_KEY) {
+      loadResumeCandidate();
     }
-    $q.notify({
-      message: '你在其他分頁結束了專注，本分頁已同步結束',
-      color: 'warning',
-      icon: 'event_seat',
-      timeout: 2200,
-      position: 'top',
-    });
+  } catch {
+    // ignore
   }
 });
 
@@ -2053,16 +2041,9 @@ function toggleFocus() {
     return;
   }
 
-  if (!store.isRunning && isSeatedByOtherTab()) {
-    $q.notify({
-      message: '你已在其他分頁入座，請先結束那邊的專注',
-      color: 'negative',
-      icon: 'block',
-      timeout: 2200,
-      position: 'top',
-    });
-    return;
-  }
+  // Allow multiple tabs to run focus concurrently. Previously we blocked
+  // entering focus when another tab held the seated flag; that caused
+  // cross-tab issues. We no longer enforce a single-tab lock here.
 
   if (store.isRunning) {
     store.stopTimer();
