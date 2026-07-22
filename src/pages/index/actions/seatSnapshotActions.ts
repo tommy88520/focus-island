@@ -1,4 +1,6 @@
-export type SeatStatus = 'AVAILABLE' | 'READY' | 'FOCUS' | 'OCCUPIED' | string;
+// Known values are AVAILABLE / READY / FOCUS / OCCUPIED, but the type stays a
+// plain string since the backend may introduce new statuses without a frontend release.
+export type SeatStatus = string;
 
 export interface SeatSnapshotItem {
   seatId: string;

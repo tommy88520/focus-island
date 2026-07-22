@@ -542,6 +542,9 @@ interface Zone {
 
 interface Reader {
   userId: string;
+  // 分頁專屬 id：同一個 userId 開兩個分頁、各自入座不同座位時，
+  // 用這個欄位分辨是「哪一個分頁的座位」，避免互相覆蓋彼此的紀錄。
+  sessionId?: string;
   displayName: string;
   seatId?: string;
   state: '專注' | '休息' | '待命';
@@ -589,7 +592,7 @@ const FLOOR_POLL_INTERVAL_BACKGROUND_MS = 30000;
 const WS_HEARTBEAT_INTERVAL_MS = 25000;
 const WS_RECONNECT_DELAY_MS = 3000;
 
-const userId = ref(localStorage.getItem('lib_uid') || `使用者_${Math.floor(Math.random() * 1000)}`);
+const userId = ref(localStorage.getItem('lib_uid') || createRandomId('使用者'));
 localStorage.setItem('lib_uid', userId.value);
 
 const displayName = ref(
@@ -798,17 +801,6 @@ function setSeatedFlag(value: boolean) {
     }
   } catch {
     // ignore storage errors (e.g. private mode)
-  }
-}
-
-function isSeatedByOtherTab() {
-  try {
-    const existing = parseSeatedPayload(localStorage.getItem(IS_SEATED_FLAG_KEY));
-    if (!existing) return false;
-    if (existing.userId !== userId.value) return false;
-    return existing.tabId !== currentTabId;
-  } catch {
-    return false;
   }
 }
 
@@ -1074,6 +1066,7 @@ function startHeartbeat() {
       JSON.stringify({
         type: 'HEARTBEAT',
         userId: userId.value,
+        sessionId: currentTabId,
         roomID: roomID.value,
         timestamp: Date.now(),
       }),
@@ -1633,9 +1626,12 @@ function applyDisplayName() {
       JSON.stringify({
         type: 'MOVE',
         userId: userId.value,
+        sessionId: currentTabId,
         payload: {
           seatId: selectedSeatId.value,
-          state: 'READY',
+          // 只是改名字，不代表使用者離開了專注狀態 —— 之前這裡寫死 'READY'，
+          // 專注中改名會讓其他人看到你「假離座」。
+          state: store.isRunning ? 'FOCUS' : 'READY',
           username: displayName.value,
         },
       }),
@@ -1666,7 +1662,7 @@ function handleVisibilityChange() {
 
 function connectWebSocket(token: string, version: number) {
   const baseUrl = import.meta.env.VITE_BACKEND_WS_URL || 'ws://localhost:8080';
-  const url = `${baseUrl}/api/v1/library/ws?floor=${currentFloor.value}&zone=${activeZoneId.value}&userId=${userId.value}&token=${encodeURIComponent(token)}`;
+  const url = `${baseUrl}/api/v1/library/ws?floor=${currentFloor.value}&zone=${activeZoneId.value}&userId=${userId.value}&sessionId=${encodeURIComponent(currentTabId)}&token=${encodeURIComponent(token)}`;
 
   if (import.meta.env.DEV) {
     console.log('[WS Connect] Connecting to:', url);
@@ -1687,6 +1683,7 @@ function connectWebSocket(token: string, version: number) {
       JSON.stringify({
         type: 'JOIN',
         userId: userId.value,
+        sessionId: currentTabId,
         payload: {
           state: 'READY',
           username: displayName.value,
@@ -1707,18 +1704,22 @@ function connectWebSocket(token: string, version: number) {
       switch (msg.type) {
         case 'SYNC_ALL': {
           const synchronizedReaders: Reader[] = [];
-          Object.keys(msg.data).forEach((uid) => {
+          Object.keys(msg.data).forEach((sid) => {
             const payload =
-              typeof msg.data[uid] === 'string' ? JSON.parse(msg.data[uid]) : msg.data[uid];
+              typeof msg.data[sid] === 'string' ? JSON.parse(msg.data[sid]) : msg.data[sid];
             const normalizedSeatId = normalizeSeatId(payload.seatId);
+            // 房間狀態現在是用 sessionId(分頁) 當 key，真正的 userId 要從 payload 讀。
+            const readerUserId = payload.userId || sid;
             logSeatIdNormalization('ws:SYNC_ALL', payload.seatId, normalizedSeatId, {
-              userId: uid,
+              sessionId: sid,
+              userId: readerUserId,
               username: payload.username || payload.name,
               state: payload.state,
             });
             synchronizedReaders.push({
-              userId: uid,
-              displayName: payload.username || payload.name || uid,
+              userId: readerUserId,
+              sessionId: sid,
+              displayName: payload.username || payload.name || readerUserId,
               ...(normalizedSeatId ? { seatId: normalizedSeatId } : {}),
               state: payload.state || '專注',
             });
@@ -1739,16 +1740,21 @@ function connectWebSocket(token: string, version: number) {
         }
 
         case 'JOIN': {
-          const joinIdx = readers.value.findIndex((r) => r.userId === msg.userId);
+          // 用 sessionId(分頁) 找對應的 reader，同一個 userId 開兩個分頁、
+          // 各自入座不同座位時才不會互相覆蓋掉對方在畫面上的狀態。
+          const joinKey = msg.sessionId || msg.userId;
+          const joinIdx = readers.value.findIndex((r) => (r.sessionId || r.userId) === joinKey);
           const previousSeatId = joinIdx !== -1 ? readers.value[joinIdx]?.seatId : undefined;
           const normalizedJoinSeatId = normalizeSeatId(msg.payload?.seatId);
           logSeatIdNormalization('ws:JOIN', msg.payload?.seatId, normalizedJoinSeatId, {
             userId: msg.userId,
+            sessionId: msg.sessionId,
             username: msg.payload?.username,
             previousSeatId,
           });
           const joinReader: Reader = {
             userId: msg.userId,
+            sessionId: msg.sessionId,
             displayName: msg.payload?.username || msg.userId,
             ...(normalizedJoinSeatId ? { seatId: normalizedJoinSeatId } : {}),
             state: msg.payload?.state || '待命',
@@ -1787,6 +1793,7 @@ function connectWebSocket(token: string, version: number) {
           const normalizedIncomingSeatId = normalizeSeatId(msg.payload?.seatId);
           logSeatIdNormalization('ws:MOVE', msg.payload?.seatId, normalizedIncomingSeatId, {
             userId: msg.userId,
+            sessionId: msg.sessionId,
             username: msg.payload?.username,
             state: msg.payload?.state,
           });
@@ -1807,9 +1814,11 @@ function connectWebSocket(token: string, version: number) {
             });
           }
 
-          const moveIdx = readers.value.findIndex((r) => r.userId === msg.userId);
+          const moveKey = msg.sessionId || msg.userId;
+          const moveIdx = readers.value.findIndex((r) => (r.sessionId || r.userId) === moveKey);
           const moveReader: Reader = {
             userId: msg.userId,
+            sessionId: msg.sessionId,
             displayName: msg.payload?.username || msg.userId,
             ...(normalizedIncomingSeatId ? { seatId: normalizedIncomingSeatId } : {}),
             state: msg.payload.state || '專注',
@@ -1838,24 +1847,32 @@ function connectWebSocket(token: string, version: number) {
         }
 
         case 'LEAVE': {
-          const leavingReader = readers.value.find((r) => r.userId === msg.userId);
-          logSeatIdNormalization(
-            'ws:LEAVE',
-            leavingReader?.seatId,
-            normalizeSeatId(leavingReader?.seatId),
-            {
-              userId: msg.userId,
-            },
-          );
-          if (leavingReader?.seatId) {
-            seatSnapshotMap.value[leavingReader.seatId] = {
+          // 伺服器現在會附上是「哪個分頁(sessionId)」離開、以及被清掉的 seatId，
+          // 這樣同一個 userId 的其他分頁不會被這則 LEAVE 誤判成自己也離座了。
+          const leaveKey = msg.sessionId || msg.userId;
+          const leavingReader = readers.value.find((r) => (r.sessionId || r.userId) === leaveKey);
+          const vacatedSeatId = msg.seatId
+            ? normalizeSeatId(msg.seatId)
+            : leavingReader?.seatId
+              ? normalizeSeatId(leavingReader.seatId)
+              : '';
+          logSeatIdNormalization('ws:LEAVE', msg.seatId, vacatedSeatId, {
+            userId: msg.userId,
+            sessionId: msg.sessionId,
+          });
+          if (vacatedSeatId) {
+            seatSnapshotMap.value[vacatedSeatId] = {
               status: 'AVAILABLE',
             };
           }
-          readers.value = readers.value.filter((r) => r.userId !== msg.userId);
+          readers.value = readers.value.filter((r) => (r.sessionId || r.userId) !== leaveKey);
           updateCurrentFloorHeatByReaders();
-          // 如果伺服器通知是本使用者離開，清除入座 flag 並停止本分頁的專注
-          if (msg.userId === userId.value) {
+          // 只有「這個分頁自己」離座時才清 flag、停止本分頁的計時器 ——
+          // 不能只看 userId，否則同一使用者的其他分頁離座會誤停這裡的專注。
+          const isThisTabsSession = msg.sessionId
+            ? msg.sessionId === currentTabId
+            : msg.userId === userId.value;
+          if (isThisTabsSession) {
             try {
               clearSeatedFlag();
               if (store.isRunning) store.stopTimer();
@@ -2017,6 +2034,7 @@ function selectSeat(id: string) {
       JSON.stringify({
         type: 'MOVE',
         userId: userId.value,
+        sessionId: currentTabId,
         payload: { seatId: id, state: 'READY', username: displayName.value },
       }),
     );

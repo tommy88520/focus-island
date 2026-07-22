@@ -27,17 +27,6 @@ const routes: RouteRecordRaw[] = [
           },
         },
       },
-      {
-        path: 'test-ws',
-        component: () => import('pages/TestWSPage.vue'),
-        meta: {
-          seo: {
-            title: 'WebSocket 測試頁',
-            description: '內部連線測試頁面。',
-            robots: 'noindex,nofollow',
-          },
-        },
-      },
     ],
   },
 

@@ -48,6 +48,17 @@
           <button
             type="button"
             class="rounded-lg border px-2 py-1 text-[10px] font-black tracking-[0.18em] transition-all sm:px-2.5"
+            :class="chipClass"
+            @click="toggleTheme"
+          >
+            <span class="inline-flex items-center gap-1">
+              <q-icon :name="isDarkMode ? 'dark_mode' : 'light_mode'" size="12px" />
+              <span class="hidden sm:inline">{{ isDarkMode ? t.darkButton : t.lightButton }}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            class="rounded-lg border px-2 py-1 text-[10px] font-black tracking-[0.18em] transition-all sm:px-2.5"
             :class="favoriteButtonClass"
             @click="handleFavoriteShortcut"
           >
@@ -133,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Dark, useQuasar } from 'quasar';
 
