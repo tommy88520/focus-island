@@ -223,6 +223,50 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     }
 
     isAudioPlaying.value = false;
+    updateMediaSessionPlaybackState();
+  }
+
+  // Registering a Media Session is what tells the OS "this tab is actively
+  // playing audio" — it's what gets lock-screen playback controls on mobile,
+  // and on Android in particular it's a big factor in whether a backgrounded
+  // tab is allowed to keep playing at all instead of being suspended.
+  function updateMediaSessionMetadata() {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+
+    const track = audioTracks[selectedAudioTrack.value];
+    if (!track || selectedAudioTrack.value === 'silence') {
+      navigator.mediaSession.metadata = null;
+      return;
+    }
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.name,
+      artist: 'Focus Island',
+      album: track.description,
+    });
+  }
+
+  function updateMediaSessionPlaybackState() {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = isAudioPlaying.value ? 'playing' : 'paused';
+  }
+
+  function setupMediaSessionActionHandlers() {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+
+    const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
+      ['play', () => void startPlayback()],
+      ['pause', () => stopPlayback()],
+      ['stop', () => stopPlayback()],
+    ];
+
+    for (const [action, handler] of handlers) {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler);
+      } catch {
+        // some actions aren't supported on every browser; safe to ignore
+      }
+    }
   }
 
   async function startPlayback() {
@@ -255,6 +299,8 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
       .play()
       .then(async () => {
         isAudioPlaying.value = true;
+        updateMediaSessionMetadata();
+        updateMediaSessionPlaybackState();
         if (sourceChanged) {
           await fadeAudioVolume(targetVolume);
         } else {
@@ -269,12 +315,15 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   function switchTrack() {
     if (selectedAudioTrack.value === 'silence') {
       stopPlayback();
+      updateMediaSessionMetadata();
       saveAudioPreferences();
       return;
     }
 
     if (shouldAutoPlayTrack()) {
       void startPlayback();
+    } else {
+      updateMediaSessionMetadata();
     }
 
     saveAudioPreferences();
@@ -343,6 +392,8 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
 
   onMounted(() => {
     loadAudioPreferences();
+    setupMediaSessionActionHandlers();
+    updateMediaSessionMetadata();
     if (audioAutoPlayOnLoad.value && selectedAudioTrack.value !== 'silence') {
       void startPlayback();
     }
