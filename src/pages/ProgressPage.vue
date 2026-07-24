@@ -28,6 +28,41 @@
       </section>
 
       <section class="rounded-3xl border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/45 p-5 shadow-xl backdrop-blur sm:p-6">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-black text-slate-900 dark:!text-white">近 7 天</h2>
+          <div class="flex items-center gap-1.5 rounded-full border border-amber-300 dark:!border-amber-300/40 bg-amber-50 dark:!bg-amber-400/10 px-3 py-1">
+            <span class="text-sm">🔥</span>
+            <span class="text-xs font-black text-amber-700 dark:!text-amber-200">連續 {{ store.currentStreak }} 天</span>
+          </div>
+        </div>
+
+        <div class="mt-6 flex items-end justify-between gap-2 sm:gap-4" role="img" :aria-label="chartAriaLabel">
+          <div v-for="day in store.last7Days" :key="day.date" class="flex flex-1 flex-col items-center gap-1.5">
+            <span class="text-[10px] font-black tabular-nums text-slate-500 dark:!text-white/60">
+              {{ Math.floor(day.focusedSeconds / 60) }}
+            </span>
+            <div class="flex h-24 w-full items-end justify-center">
+              <div
+                class="w-full max-w-8 rounded-t-md transition-all"
+                :class="
+                  isToday(day.date)
+                    ? 'bg-teal-500 dark:!bg-teal-400 ring-2 ring-amber-400 ring-offset-1 ring-offset-white dark:!ring-offset-slate-900'
+                    : 'bg-teal-300 dark:!bg-teal-600'
+                "
+                :style="{ height: barHeight(day.focusedSeconds) }"
+              ></div>
+            </div>
+            <span
+              class="text-[10px] font-bold"
+              :class="isToday(day.date) ? 'text-amber-600 dark:!text-amber-300' : 'text-slate-400 dark:!text-white/45'"
+            >
+              {{ formatDayLabel(day.date) }}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-3xl border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/45 p-5 shadow-xl backdrop-blur sm:p-6">
         <h2 class="text-lg font-black text-slate-900 dark:!text-white">說明</h2>
         <ul class="mt-3 space-y-2 text-sm text-slate-600 dark:!text-white/75">
           <li>計時完成會自動計入完成輪數。</li>
@@ -40,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 
 const store = usePomodoroStore();
@@ -49,4 +84,32 @@ onMounted(() => {
   store.loadProgress();
   store.ensureTodayProgress();
 });
+
+const todayKey = new Date().toLocaleDateString('sv-SE');
+const weekdayLabels = ['日', '一', '二', '三', '四', '五', '六'];
+
+function isToday(date: string) {
+  return date === todayKey;
+}
+
+function formatDayLabel(date: string) {
+  if (isToday(date)) return '今天';
+  const d = new Date(`${date}T00:00:00`);
+  return `週${weekdayLabels[d.getDay()]}`;
+}
+
+function barHeight(focusedSeconds: number) {
+  const maxSeconds = Math.max(1, ...store.last7Days.map((d) => d.focusedSeconds));
+  const ratio = focusedSeconds / maxSeconds;
+  // Even a 0-minute day gets a sliver, so the 7-day rhythm stays visible
+  // instead of looking like a missing bar.
+  const percent = focusedSeconds > 0 ? Math.max(6, Math.round(ratio * 100)) : 3;
+  return `${percent}%`;
+}
+
+const chartAriaLabel = computed(() =>
+  store.last7Days
+    .map((day) => `${formatDayLabel(day.date)} ${Math.floor(day.focusedSeconds / 60)} 分鐘`)
+    .join('，'),
+);
 </script>

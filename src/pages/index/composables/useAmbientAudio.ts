@@ -172,8 +172,8 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
           return;
         }
 
-        const progress = Math.min(1, (now - start) / duration);
-        audioElement.volume = from + (target - from) * progress;
+        const progress = Math.min(1, Math.max(0, (now - start) / duration));
+        audioElement.volume = Math.min(1, Math.max(0, from + (target - from) * progress));
 
         if (progress < 1) {
           requestAnimationFrame(tick);
