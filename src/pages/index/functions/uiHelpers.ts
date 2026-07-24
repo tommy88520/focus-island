@@ -24,13 +24,13 @@ export function getZoneHeatTextClass(occupancyStr: string) {
   const total = Number(totalRaw);
 
   if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
-    return 'text-white/20';
+    return 'text-slate-400 dark:!text-white/45';
   }
 
   const ratio = current / total;
-  if (ratio > 0.7) return 'text-rose-400';
-  if (ratio > 0.3) return 'text-teal-400';
-  return 'text-white/20';
+  if (ratio > 0.7) return 'text-rose-600 dark:!text-rose-400';
+  if (ratio > 0.3) return 'text-teal-600 dark:!text-teal-400';
+  return 'text-slate-400 dark:!text-white/45';
 }
 
 export function getFloorLoadPercent(floor: FloorLoadLike) {
@@ -45,11 +45,14 @@ export function getFloorLoadLabel(percent: number) {
 }
 
 export function getFloorLoadLabelClass(percent: number, isCurrentFloor: boolean) {
-  if (percent >= 80) return isCurrentFloor ? 'text-rose-600' : 'text-rose-300';
+  // isCurrentFloor tabs always sit on a solid white pill (both themes), so a single
+  // dark-ish shade reads fine either way. Inactive tabs sit on the nav's own
+  // light/dark surface, so those need a light/dark split.
+  if (percent >= 80) return isCurrentFloor ? 'text-rose-600' : 'text-rose-600 dark:!text-rose-300';
   if (percent >= 40) {
-    return isCurrentFloor ? 'text-orange-700' : 'text-orange-300';
+    return isCurrentFloor ? 'text-orange-700' : 'text-orange-600 dark:!text-orange-300';
   }
-  return isCurrentFloor ? 'text-teal-700' : 'text-teal-300';
+  return isCurrentFloor ? 'text-teal-700' : 'text-teal-600 dark:!text-teal-300';
 }
 
 export function formatTime(seconds: number): string {

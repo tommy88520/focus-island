@@ -11,18 +11,18 @@
                 >
                   樓層 {{ currentFloor }}
                 </div>
-                <div class="h-1 w-1 rounded-full bg-slate-200 dark:bg-white/20"></div>
-                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-white/55">
+                <div class="h-1 w-1 rounded-full bg-slate-200 dark:!bg-white/20"></div>
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:!text-white/55">
                   {{ currentZone?.name }} · {{ currentZone?.description }}
                 </p>
               </div>
-              <h3 class="text-[1.6rem] font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">
+              <h3 class="text-[1.6rem] font-black tracking-tight text-slate-900 dark:!text-white sm:text-4xl">
                 {{ store.isRunning ? '深度專注中' : '挑個好位子，入座。' }}
               </h3>
             </div>
 
             <nav
-              class="flex items-center gap-2 overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 p-1.5 backdrop-blur-xl no-scrollbar"
+              class="flex items-center gap-2 overflow-x-auto rounded-2xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 p-1.5 backdrop-blur-xl no-scrollbar"
             >
               <button
                 v-for="f in floorHeatData"
@@ -30,7 +30,7 @@
                 @click="currentFloor = f.floor"
                 class="group relative overflow-hidden rounded-xl px-4 py-3 transition-all duration-500"
                 :class="
-                  currentFloor === f.floor ? 'bg-white shadow-2xl scale-105' : 'hover:bg-slate-100 dark:hover:bg-white/5'
+                  currentFloor === f.floor ? 'bg-white shadow-2xl scale-105' : 'hover:bg-slate-100 dark:hover:!bg-white/5'
                 "
               >
                 <div
@@ -45,7 +45,7 @@
                     :class="
                       currentFloor === f.floor
                         ? 'text-slate-900'
-                        : 'text-slate-400 dark:text-white/50 group-hover:text-slate-500 dark:group-hover:text-white/75'
+                        : 'text-slate-400 dark:!text-white/50 group-hover:text-slate-500 dark:group-hover:text-white/75'
                     "
                   >
                     {{ f.floor }}樓
@@ -56,7 +56,7 @@
                   ></div>
                   <span
                     class="mt-1 text-[8px] font-black tracking-tight"
-                    :class="currentFloor === f.floor ? 'text-slate-700' : 'text-slate-400 dark:text-white/50'"
+                    :class="currentFloor === f.floor ? 'text-slate-700' : 'text-slate-400 dark:!text-white/50'"
                   >
                     {{ f.occupancy }}/{{ f.capacity }}
                   </span>
@@ -71,9 +71,9 @@
             </nav>
           </header>
 
-          <section class="relative min-h-[440px] rounded-[32px] border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/40 p-3 shadow-2xl backdrop-blur-md sm:min-h-[550px] sm:rounded-[40px] sm:p-10">
+          <section class="relative min-h-[440px] rounded-[32px] border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/40 p-3 shadow-2xl backdrop-blur-md sm:min-h-[550px] sm:rounded-[40px] sm:p-10">
             <div
-              class="mb-6 flex items-center gap-4 overflow-x-auto border-b border-slate-200 dark:border-white/5 no-scrollbar sm:mb-10 sm:gap-6"
+              class="mb-6 flex items-center gap-4 overflow-x-auto border-b border-slate-200 dark:!border-white/5 no-scrollbar sm:mb-10 sm:gap-6"
             >
               <button
                 v-for="zone in floorZones"
@@ -81,13 +81,13 @@
                 @click="activeZoneId = zone.id"
                 class="group flex-shrink-0 pb-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative sm:pb-4"
                 :class="
-                  activeZoneId === zone.id ? 'text-amber-400' : 'text-slate-300 dark:text-white/45 hover:text-slate-400 dark:hover:text-white/55'
+                  activeZoneId === zone.id ? 'text-amber-400' : 'text-slate-300 dark:!text-white/45 hover:text-slate-400 dark:hover:!text-white/55'
                 "
               >
                 <div class="flex items-center gap-2" :class="getZoneHeatTextClass(zone.occupancy)">
                   {{ zone.name }}
                   <span
-                    class="rounded-full border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 text-[8px] group-hover:border-amber-400/30"
+                    class="rounded-full border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 px-1.5 py-0.5 text-[8px] group-hover:border-amber-400/30"
                   >
                     {{ zone.occupancy }}
                   </span>
@@ -139,7 +139,7 @@
                       ></div>
                     </div>
                     <span
-                      class="absolute -bottom-6 text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/55"
+                      class="absolute -bottom-6 text-[8px] font-black uppercase tracking-widest text-slate-400 dark:!text-white/55"
                     >
                       {{ getMateAtSeat(seat.id)?.displayName }}
                     </span>
@@ -173,7 +173,7 @@
 
         <aside class="order-1 space-y-4 lg:order-none lg:col-span-4 sm:space-y-6">
           <div
-            class="relative overflow-hidden rounded-[28px] border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950/55 p-3 shadow-2xl backdrop-blur-xl sm:rounded-[36px] sm:p-6"
+            class="relative overflow-hidden rounded-[28px] border border-slate-200 dark:!border-white/10 bg-slate-50 dark:!bg-slate-950/55 p-3 shadow-2xl backdrop-blur-xl sm:rounded-[36px] sm:p-6"
           >
             <div
               class="pointer-events-none absolute -top-24 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-amber-300/10 blur-[92px]"
@@ -184,9 +184,9 @@
 
             <div class="relative z-10 space-y-4 sm:space-y-5">
               <div
-                class="flex items-center justify-between rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 px-3 py-2"
+                class="flex items-center justify-between rounded-2xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 px-3 py-2"
               >
-                <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-white/60">
+                <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:!text-white/60">
                   Focus Clock
                 </p>
                 <span
@@ -194,7 +194,7 @@
                   :class="
                     store.isRunning
                       ? 'bg-emerald-300/20 text-emerald-200'
-                      : 'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/75'
+                      : 'bg-slate-100 dark:!bg-white/10 text-slate-500 dark:!text-white/75'
                   "
                 >
                   {{ store.isRunning ? 'RUNNING' : 'IDLE' }}
@@ -202,19 +202,19 @@
               </div>
 
               <div
-                class="rounded-3xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/70 px-3 py-3 shadow-[inset_0_0_40px_rgba(15,23,42,0.55)] sm:px-5 sm:py-5"
+                class="rounded-3xl border border-slate-200 dark:!border-white/10 bg-slate-50 dark:!bg-slate-900/70 px-3 py-3 shadow-[inset_0_0_40px_rgba(15,23,42,0.55)] sm:px-5 sm:py-5"
               >
                 <div class="mb-3 flex items-end justify-between">
                   <p class="text-[10px] font-black uppercase tracking-[0.24em] text-amber-300/90">
                     剩餘時間
                   </p>
-                  <p class="text-[10px] font-black tracking-[0.14em] text-slate-500 dark:text-white/60">
+                  <p class="text-[10px] font-black tracking-[0.14em] text-slate-500 dark:!text-white/60">
                     Base {{ formatTime(store.baseDuration) }}
                   </p>
                 </div>
 
                 <div
-                  class="rounded-2xl border border-slate-200 dark:border-white/10 bg-gradient-to-br from-slate-50 dark:from-slate-950/80 via-white dark:via-slate-900/70 to-slate-50 dark:to-slate-950/80 px-3 py-5 text-center"
+                  class="rounded-2xl border border-slate-200 dark:!border-white/10 bg-gradient-to-br from-slate-50 dark:!from-slate-950/80 via-white dark:!via-slate-900/70 to-slate-50 dark:!to-slate-950/80 px-3 py-5 text-center"
                 >
                   <div class="text-[3rem] font-mono font-black leading-none tracking-tight text-amber-50 drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)] sm:text-6xl">
                     {{ formattedTime }}
@@ -223,7 +223,7 @@
 
                 <div class="mt-3">
                   <div
-                    class="mb-1.5 flex items-center justify-between text-[10px] font-black tracking-[0.12em] text-slate-500 dark:text-white/60"
+                    class="mb-1.5 flex items-center justify-between text-[10px] font-black tracking-[0.12em] text-slate-500 dark:!text-white/60"
                   >
                     <span>進度</span>
                     <span
@@ -236,7 +236,7 @@
                       }}%</span
                     >
                   </div>
-                  <div class="h-2 rounded-full bg-slate-100 dark:bg-white/10">
+                  <div class="h-2 rounded-full bg-slate-100 dark:!bg-white/10">
                     <div
                       class="h-full rounded-full bg-gradient-to-r from-amber-300 via-rose-300 to-cyan-300 transition-all duration-500"
                       :style="{
@@ -262,7 +262,7 @@
 
                 <button
                   @click="restartFocusTimer"
-                  class="w-full rounded-xl border border-amber-300 dark:border-amber-300/35 bg-amber-50 dark:bg-amber-400/10 px-3 py-2.5 text-[11px] font-black tracking-[0.08em] text-amber-700 dark:text-amber-200 transition-all hover:border-amber-400 dark:hover:border-amber-300/60 hover:bg-amber-100 dark:hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-45"
+                  class="w-full rounded-xl border border-amber-300 dark:!border-amber-300/35 bg-amber-50 dark:!bg-amber-400/10 px-3 py-2.5 text-[11px] font-black tracking-[0.08em] text-amber-700 dark:!text-amber-200 transition-all hover:border-amber-400 dark:hover:!border-amber-300/60 hover:bg-amber-100 dark:hover:!bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   重新開始
                 </button>
@@ -280,17 +280,17 @@
               <button
                 type="button"
                 @click="showAdvancedFocusControls = !showAdvancedFocusControls"
-                class="w-full rounded-xl border border-slate-200 dark:border-white/15 bg-slate-100 dark:bg-white/5 px-3 py-2 text-[11px] font-black tracking-[0.1em] text-slate-600 dark:text-white/85 transition-all hover:border-slate-300 dark:hover:border-white/30 hover:bg-slate-100 dark:hover:bg-white/10"
+                class="w-full rounded-xl border border-slate-200 dark:!border-white/15 bg-slate-100 dark:!bg-white/5 px-3 py-2 text-[11px] font-black tracking-[0.1em] text-slate-600 dark:!text-white/85 transition-all hover:border-slate-300 dark:hover:!border-white/30 hover:bg-slate-100 dark:hover:!bg-white/10"
               >
                 {{ showAdvancedFocusControls ? '收合進階設定' : '展開進階設定' }}
               </button>
 
               <div
                 v-if="showAdvancedFocusControls"
-                class="space-y-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 p-3"
+                class="space-y-3 rounded-2xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 p-3"
               >
-                <div class="space-y-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/35 p-3">
-                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-white/60">
+                <div class="space-y-2 rounded-xl border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/35 p-3">
+                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:!text-white/60">
                     專注時長
                   </p>
                   <div class="grid grid-cols-3 gap-2">
@@ -302,8 +302,8 @@
                       class="rounded-xl border px-2 py-2 text-[11px] font-black tracking-[0.08em] transition-all"
                       :class="
                         selectedFocusDurationMinutes === minutes
-                          ? 'border-amber-400 bg-amber-100 dark:bg-amber-400/20 text-amber-800 dark:text-amber-100'
-                          : 'border-slate-200 dark:border-white/15 bg-white dark:bg-slate-900/45 text-slate-600 dark:text-white/85 hover:border-slate-300 dark:hover:border-white/30 hover:text-slate-900 dark:text-white'
+                          ? 'border-amber-400 bg-amber-100 dark:!bg-amber-400/20 text-amber-800 dark:!text-amber-100'
+                          : 'border-slate-200 dark:!border-white/15 bg-white dark:!bg-slate-900/45 text-slate-600 dark:!text-white/85 hover:border-slate-300 dark:hover:!border-white/30 hover:text-slate-900 dark:!text-white'
                       "
                     >
                       {{ minutes }} 分鐘
@@ -315,23 +315,23 @@
                   <button
                     @click="resetFocusTimer"
                     :disabled="store.timeLeft === store.baseDuration && !store.isRunning"
-                    class="rounded-xl border border-slate-200 dark:border-white/15 bg-white dark:bg-slate-900/45 px-2.5 py-2 text-[11px] font-black tracking-[0.08em] text-slate-700 dark:text-white/90 transition-all hover:border-slate-300 dark:hover:border-white/30 hover:bg-slate-50 dark:hover:bg-slate-900/65 disabled:cursor-not-allowed disabled:opacity-45"
+                    class="rounded-xl border border-slate-200 dark:!border-white/15 bg-white dark:!bg-slate-900/45 px-2.5 py-2 text-[11px] font-black tracking-[0.08em] text-slate-700 dark:!text-white/90 transition-all hover:border-slate-300 dark:hover:!border-white/30 hover:bg-slate-50 dark:hover:!bg-slate-900/65 disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     重置時間
                   </button>
                 </div>
 
                 <label
-                  class="flex items-center justify-between rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/35 px-3 py-2 text-[11px] text-slate-600 dark:text-white/85"
+                  class="flex items-center justify-between rounded-xl border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/35 px-3 py-2 text-[11px] text-slate-600 dark:!text-white/85"
                 >
                   <span class="font-bold tracking-[0.06em]">結束自動重來</span>
                   <input v-model="autoRestartOnFinish" type="checkbox" class="accent-amber-400" />
                 </label>
 
-                <div class="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/35 p-3 text-left">
+                <div class="rounded-xl border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/35 p-3 text-left">
                   <label
                     for="display-name"
-                    class="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-white/65"
+                    class="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:!text-white/65"
                   >
                     顯示名稱
                   </label>
@@ -341,14 +341,14 @@
                     type="text"
                     maxlength="20"
                     :disabled="!isEditingDisplayName"
-                    class="w-full rounded-xl border border-slate-200 dark:border-white/15 bg-slate-50 dark:bg-slate-950/70 px-3 py-2 text-sm font-black text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-white/45 focus:outline-none focus:ring-2 focus:ring-amber-400/60 disabled:cursor-not-allowed disabled:opacity-60"
+                    class="w-full rounded-xl border border-slate-200 dark:!border-white/15 bg-slate-50 dark:!bg-slate-950/70 px-3 py-2 text-sm font-black text-slate-900 dark:!text-white placeholder:text-slate-300 dark:placeholder:text-white/45 focus:outline-none focus:ring-2 focus:ring-amber-400/60 disabled:cursor-not-allowed disabled:opacity-60"
                     placeholder="輸入你想顯示的名稱"
                     @keyup.enter="applyDisplayName"
                   />
                   <div class="mt-3 flex justify-end">
                     <button
                       v-if="!isEditingDisplayName"
-                      class="rounded-lg border border-slate-200 dark:border-white/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 dark:text-white/80 hover:border-slate-300 dark:hover:border-white/40 hover:text-slate-900 dark:text-white"
+                      class="rounded-lg border border-slate-200 dark:!border-white/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 dark:!text-white/80 hover:border-slate-300 dark:hover:!border-white/40 hover:text-slate-900 dark:!text-white"
                       @click="startEditDisplayName"
                     >
                       編輯
@@ -365,9 +365,9 @@
               </div>
 
               <div
-                class="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 px-3.5 py-2.5 text-left mt-3.5"
+                class="rounded-xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 px-3.5 py-2.5 text-left mt-3.5"
               >
-                <p class="text-[11px] font-bold tracking-[0.06em] text-slate-500 dark:text-white/70">
+                <p class="text-[11px] font-bold tracking-[0.06em] text-slate-500 dark:!text-white/70">
                   {{ selectedSeatLabel }}
                 </p>
               </div>
@@ -1716,7 +1716,7 @@ function seatButtonClass(seat: Seat) {
   const otherMate = getMateAtSeat(seat.id);
   if (otherMate) return 'border-teal-500/30 bg-teal-500/5 cursor-default';
 
-  return 'border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-white/5 hover:border-slate-200 dark:hover:border-white/20 hover:bg-slate-100 dark:hover:bg-white/10';
+  return 'border-slate-200 dark:!border-white/5 bg-slate-100 dark:!bg-white/5 hover:border-slate-200 dark:hover:!border-white/20 hover:bg-slate-100 dark:hover:!bg-white/10';
 }
 
 function formatTime(seconds: number): string {

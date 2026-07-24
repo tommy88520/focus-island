@@ -14,14 +14,14 @@
       >
         <q-btn 
           flat dense round icon="menu" 
-          class="lg:hidden shrink-0 text-amber-600 dark:text-amber-200"
+          class="lg:hidden shrink-0 text-amber-600 dark:!text-amber-200"
           @click="toggleLeftDrawer" 
         />
 
         <div class="flex items-center gap-2 sm:gap-3">
           <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-rose-300 to-amber-400 font-black text-[10px] text-amber-950 shadow-lg shadow-orange-500/20 sm:h-9 sm:w-9 sm:text-base">FI</div>
           <div class="hide-below-sm sm:block">
-            <div class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-200/80 leading-none mb-1">Cute Library</div>
+            <div class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:!text-amber-200/80 leading-none mb-1">Cute Library</div>
             <div class="text-base font-black text-white leading-none">Focus Island</div>
           </div>
         </div>
