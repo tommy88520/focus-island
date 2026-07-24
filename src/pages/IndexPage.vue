@@ -11,18 +11,18 @@
                 >
                   樓層 {{ currentFloor }}
                 </div>
-                <div class="h-1 w-1 rounded-full bg-white/20"></div>
-                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                <div class="h-1 w-1 rounded-full bg-slate-200 dark:bg-white/20"></div>
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-white/55">
                   {{ currentZone?.name }} · {{ currentZone?.description }}
                 </p>
               </div>
-              <h3 class="text-[1.6rem] font-black tracking-tight text-white sm:text-4xl">
+              <h3 class="text-[1.6rem] font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">
                 {{ store.isRunning ? '深度專注中' : '挑個好位子，入座。' }}
               </h3>
             </div>
 
             <nav
-              class="flex items-center gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/5 p-1.5 backdrop-blur-xl no-scrollbar"
+              class="flex items-center gap-2 overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 p-1.5 backdrop-blur-xl no-scrollbar"
             >
               <button
                 v-for="f in floorHeatData"
@@ -30,7 +30,7 @@
                 @click="currentFloor = f.floor"
                 class="group relative overflow-hidden rounded-xl px-4 py-3 transition-all duration-500"
                 :class="
-                  currentFloor === f.floor ? 'bg-white shadow-2xl scale-105' : 'hover:bg-white/5'
+                  currentFloor === f.floor ? 'bg-white shadow-2xl scale-105' : 'hover:bg-slate-100 dark:hover:bg-white/5'
                 "
               >
                 <div
@@ -45,7 +45,7 @@
                     :class="
                       currentFloor === f.floor
                         ? 'text-slate-900'
-                        : 'text-white/30 group-hover:text-white/60'
+                        : 'text-slate-400 dark:text-white/50 group-hover:text-slate-500 dark:group-hover:text-white/75'
                     "
                   >
                     {{ f.floor }}樓
@@ -56,7 +56,7 @@
                   ></div>
                   <span
                     class="mt-1 text-[8px] font-black tracking-tight"
-                    :class="currentFloor === f.floor ? 'text-slate-700' : 'text-white/35'"
+                    :class="currentFloor === f.floor ? 'text-slate-700' : 'text-slate-400 dark:text-white/50'"
                   >
                     {{ f.occupancy }}/{{ f.capacity }}
                   </span>
@@ -71,9 +71,9 @@
             </nav>
           </header>
 
-          <section class="relative min-h-[440px] rounded-[32px] border border-white/10 bg-slate-900/40 p-3 shadow-2xl backdrop-blur-md sm:min-h-[550px] sm:rounded-[40px] sm:p-10">
+          <section class="relative min-h-[440px] rounded-[32px] border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/40 p-3 shadow-2xl backdrop-blur-md sm:min-h-[550px] sm:rounded-[40px] sm:p-10">
             <div
-              class="mb-6 flex items-center gap-4 overflow-x-auto border-b border-white/5 no-scrollbar sm:mb-10 sm:gap-6"
+              class="mb-6 flex items-center gap-4 overflow-x-auto border-b border-slate-200 dark:border-white/5 no-scrollbar sm:mb-10 sm:gap-6"
             >
               <button
                 v-for="zone in floorZones"
@@ -81,13 +81,13 @@
                 @click="activeZoneId = zone.id"
                 class="group flex-shrink-0 pb-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative sm:pb-4"
                 :class="
-                  activeZoneId === zone.id ? 'text-amber-400' : 'text-white/20 hover:text-white/40'
+                  activeZoneId === zone.id ? 'text-amber-400' : 'text-slate-300 dark:text-white/45 hover:text-slate-400 dark:hover:text-white/55'
                 "
               >
                 <div class="flex items-center gap-2" :class="getZoneHeatTextClass(zone.occupancy)">
                   {{ zone.name }}
                   <span
-                    class="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] group-hover:border-amber-400/30"
+                    class="rounded-full border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 text-[8px] group-hover:border-amber-400/30"
                   >
                     {{ zone.occupancy }}
                   </span>
@@ -139,7 +139,7 @@
                       ></div>
                     </div>
                     <span
-                      class="absolute -bottom-6 text-[8px] font-black uppercase tracking-widest text-white/40"
+                      class="absolute -bottom-6 text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-white/55"
                     >
                       {{ getMateAtSeat(seat.id)?.displayName }}
                     </span>
@@ -163,7 +163,7 @@
                 <div
                   class="h-12 w-12 border-4 border-amber-400/20 border-t-amber-400 rounded-full animate-spin"
                 ></div>
-                <p class="text-amber-400/60 font-black text-[10px] tracking-[0.4em] uppercase">
+                <p class="text-amber-400/80 font-black text-[10px] tracking-[0.4em] uppercase">
                   同步樓層 {{ currentFloor }}...
                 </p>
               </div>
@@ -173,7 +173,7 @@
 
         <aside class="order-1 space-y-4 lg:order-none lg:col-span-4 sm:space-y-6">
           <div
-            class="relative overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/55 p-3 shadow-2xl backdrop-blur-xl sm:rounded-[36px] sm:p-6"
+            class="relative overflow-hidden rounded-[28px] border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950/55 p-3 shadow-2xl backdrop-blur-xl sm:rounded-[36px] sm:p-6"
           >
             <div
               class="pointer-events-none absolute -top-24 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-amber-300/10 blur-[92px]"
@@ -184,9 +184,9 @@
 
             <div class="relative z-10 space-y-4 sm:space-y-5">
               <div
-                class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                class="flex items-center justify-between rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 px-3 py-2"
               >
-                <p class="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
+                <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-white/60">
                   Focus Clock
                 </p>
                 <span
@@ -194,7 +194,7 @@
                   :class="
                     store.isRunning
                       ? 'bg-emerald-300/20 text-emerald-200'
-                      : 'bg-white/10 text-white/60'
+                      : 'bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-white/75'
                   "
                 >
                   {{ store.isRunning ? 'RUNNING' : 'IDLE' }}
@@ -202,19 +202,19 @@
               </div>
 
               <div
-                class="rounded-3xl border border-white/10 bg-slate-900/70 px-3 py-3 shadow-[inset_0_0_40px_rgba(15,23,42,0.55)] sm:px-5 sm:py-5"
+                class="rounded-3xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/70 px-3 py-3 shadow-[inset_0_0_40px_rgba(15,23,42,0.55)] sm:px-5 sm:py-5"
               >
                 <div class="mb-3 flex items-end justify-between">
-                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-amber-300/80">
+                  <p class="text-[10px] font-black uppercase tracking-[0.24em] text-amber-300/90">
                     剩餘時間
                   </p>
-                  <p class="text-[10px] font-black tracking-[0.14em] text-white/45">
+                  <p class="text-[10px] font-black tracking-[0.14em] text-slate-500 dark:text-white/60">
                     Base {{ formatTime(store.baseDuration) }}
                   </p>
                 </div>
 
                 <div
-                  class="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/80 via-slate-900/70 to-slate-950/80 px-3 py-5 text-center"
+                  class="rounded-2xl border border-slate-200 dark:border-white/10 bg-gradient-to-br from-slate-50 dark:from-slate-950/80 via-white dark:via-slate-900/70 to-slate-50 dark:to-slate-950/80 px-3 py-5 text-center"
                 >
                   <div class="text-[3rem] font-mono font-black leading-none tracking-tight text-amber-50 drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)] sm:text-6xl">
                     {{ formattedTime }}
@@ -223,7 +223,7 @@
 
                 <div class="mt-3">
                   <div
-                    class="mb-1.5 flex items-center justify-between text-[10px] font-black tracking-[0.12em] text-white/45"
+                    class="mb-1.5 flex items-center justify-between text-[10px] font-black tracking-[0.12em] text-slate-500 dark:text-white/60"
                   >
                     <span>進度</span>
                     <span
@@ -236,7 +236,7 @@
                       }}%</span
                     >
                   </div>
-                  <div class="h-2 rounded-full bg-white/10">
+                  <div class="h-2 rounded-full bg-slate-100 dark:bg-white/10">
                     <div
                       class="h-full rounded-full bg-gradient-to-r from-amber-300 via-rose-300 to-cyan-300 transition-all duration-500"
                       :style="{
@@ -262,7 +262,7 @@
 
                 <button
                   @click="restartFocusTimer"
-                  class="w-full rounded-xl border border-amber-300/35 bg-amber-400/10 px-3 py-2.5 text-[11px] font-black tracking-[0.08em] text-amber-200 transition-all hover:border-amber-300/60 hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-45"
+                  class="w-full rounded-xl border border-amber-300 dark:border-amber-300/35 bg-amber-50 dark:bg-amber-400/10 px-3 py-2.5 text-[11px] font-black tracking-[0.08em] text-amber-700 dark:text-amber-200 transition-all hover:border-amber-400 dark:hover:border-amber-300/60 hover:bg-amber-100 dark:hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   重新開始
                 </button>
@@ -280,17 +280,17 @@
               <button
                 type="button"
                 @click="showAdvancedFocusControls = !showAdvancedFocusControls"
-                class="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-[11px] font-black tracking-[0.1em] text-white/75 transition-all hover:border-white/30 hover:bg-white/10"
+                class="w-full rounded-xl border border-slate-200 dark:border-white/15 bg-slate-100 dark:bg-white/5 px-3 py-2 text-[11px] font-black tracking-[0.1em] text-slate-600 dark:text-white/85 transition-all hover:border-slate-300 dark:hover:border-white/30 hover:bg-slate-100 dark:hover:bg-white/10"
               >
                 {{ showAdvancedFocusControls ? '收合進階設定' : '展開進階設定' }}
               </button>
 
               <div
                 v-if="showAdvancedFocusControls"
-                class="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-3"
+                class="space-y-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 p-3"
               >
-                <div class="space-y-2 rounded-xl border border-white/10 bg-slate-900/35 p-3">
-                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-white/45">
+                <div class="space-y-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/35 p-3">
+                  <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:text-white/60">
                     專注時長
                   </p>
                   <div class="grid grid-cols-3 gap-2">
@@ -302,8 +302,8 @@
                       class="rounded-xl border px-2 py-2 text-[11px] font-black tracking-[0.08em] transition-all"
                       :class="
                         selectedFocusDurationMinutes === minutes
-                          ? 'border-amber-300/70 bg-amber-400/20 text-amber-100'
-                          : 'border-white/15 bg-slate-900/45 text-white/75 hover:border-white/30 hover:text-white'
+                          ? 'border-amber-400 bg-amber-100 dark:bg-amber-400/20 text-amber-800 dark:text-amber-100'
+                          : 'border-slate-200 dark:border-white/15 bg-white dark:bg-slate-900/45 text-slate-600 dark:text-white/85 hover:border-slate-300 dark:hover:border-white/30 hover:text-slate-900 dark:text-white'
                       "
                     >
                       {{ minutes }} 分鐘
@@ -315,23 +315,23 @@
                   <button
                     @click="resetFocusTimer"
                     :disabled="store.timeLeft === store.baseDuration && !store.isRunning"
-                    class="rounded-xl border border-white/15 bg-slate-900/45 px-2.5 py-2 text-[11px] font-black tracking-[0.08em] text-white/85 transition-all hover:border-white/30 hover:bg-slate-900/65 disabled:cursor-not-allowed disabled:opacity-45"
+                    class="rounded-xl border border-slate-200 dark:border-white/15 bg-white dark:bg-slate-900/45 px-2.5 py-2 text-[11px] font-black tracking-[0.08em] text-slate-700 dark:text-white/90 transition-all hover:border-slate-300 dark:hover:border-white/30 hover:bg-slate-50 dark:hover:bg-slate-900/65 disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     重置時間
                   </button>
                 </div>
 
                 <label
-                  class="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/35 px-3 py-2 text-[11px] text-white/75"
+                  class="flex items-center justify-between rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/35 px-3 py-2 text-[11px] text-slate-600 dark:text-white/85"
                 >
                   <span class="font-bold tracking-[0.06em]">結束自動重來</span>
                   <input v-model="autoRestartOnFinish" type="checkbox" class="accent-amber-400" />
                 </label>
 
-                <div class="rounded-xl border border-white/10 bg-slate-900/35 p-3 text-left">
+                <div class="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/35 p-3 text-left">
                   <label
                     for="display-name"
-                    class="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-white/50"
+                    class="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-white/65"
                   >
                     顯示名稱
                   </label>
@@ -341,14 +341,14 @@
                     type="text"
                     maxlength="20"
                     :disabled="!isEditingDisplayName"
-                    class="w-full rounded-xl border border-white/15 bg-slate-950/70 px-3 py-2 text-sm font-black text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-amber-400/60 disabled:cursor-not-allowed disabled:opacity-60"
+                    class="w-full rounded-xl border border-slate-200 dark:border-white/15 bg-slate-50 dark:bg-slate-950/70 px-3 py-2 text-sm font-black text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-white/45 focus:outline-none focus:ring-2 focus:ring-amber-400/60 disabled:cursor-not-allowed disabled:opacity-60"
                     placeholder="輸入你想顯示的名稱"
                     @keyup.enter="applyDisplayName"
                   />
                   <div class="mt-3 flex justify-end">
                     <button
                       v-if="!isEditingDisplayName"
-                      class="rounded-lg border border-white/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-white/70 hover:border-white/40 hover:text-white"
+                      class="rounded-lg border border-slate-200 dark:border-white/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 dark:text-white/80 hover:border-slate-300 dark:hover:border-white/40 hover:text-slate-900 dark:text-white"
                       @click="startEditDisplayName"
                     >
                       編輯
@@ -365,9 +365,9 @@
               </div>
 
               <div
-                class="rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-left mt-3.5"
+                class="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 px-3.5 py-2.5 text-left mt-3.5"
               >
-                <p class="text-[11px] font-bold tracking-[0.06em] text-white/55">
+                <p class="text-[11px] font-bold tracking-[0.06em] text-slate-500 dark:text-white/70">
                   {{ selectedSeatLabel }}
                 </p>
               </div>
@@ -378,131 +378,7 @@
     </div>
   </div>
 
-  <!-- 音頻控制條 (Floating Audio Control Bar) -->
-  <div
-    class="fixed bottom-1 left-1 right-1 z-50 rounded-2xl border border-white/10 bg-slate-950/92 shadow-[0_10px_28px_rgba(0,0,0,0.34)] backdrop-blur-xl sm:left-1/2 sm:right-auto sm:w-[min(100%-0.75rem,34rem)] sm:-translate-x-1/2"
-    :style="{ paddingBottom: 'max(0.25rem, env(safe-area-inset-bottom))' }"
-  >
-    <div class="px-2.5 py-2 sm:px-3 sm:py-2.5">
-      <div class="flex items-center gap-2.5">
-        <button
-          @click="toggleAudio"
-          class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-400 text-slate-950 shadow-[0_6px_16px_rgba(251,191,36,0.22)] transition-all active:scale-95 hover:bg-amber-300"
-        >
-          <q-icon :name="isAudioPlaying ? 'pause' : 'play_arrow'" size="16px" />
-        </button>
-
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-1.5">
-            <div
-              class="truncate text-[9px] font-black uppercase tracking-[0.2em] text-white/40 sm:text-[10px]"
-            >
-              {{ selectedAudioTrackMeta.name }}
-            </div>
-            <span
-              class="rounded-full border border-white/10 px-1.5 py-0.5 text-[8px] font-black text-white/45"
-            >
-              {{ audioVolume }}%
-            </span>
-          </div>
-          <div class="mt-1.5 flex items-center gap-1.5">
-            <button
-              type="button"
-              @click="toggleAudioMute"
-              class="flex h-5 w-5 items-center justify-center rounded text-white/60 transition-colors hover:text-white"
-            >
-              <q-icon :name="volumeIconName" size="13px" />
-            </button>
-            <input
-              v-model.number="audioVolume"
-              @input="updateAudioVolume"
-              type="range"
-              min="0"
-              max="100"
-              class="h-1.5 w-full cursor-pointer rounded-full bg-white/15 accent-amber-400"
-            />
-          </div>
-        </div>
-
-        <button
-          @click="showAudioTrackPicker = !showAudioTrackPicker"
-          class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/70 transition-all hover:border-white/20 hover:bg-white/10 sm:hidden"
-        >
-          <q-icon :name="showAudioTrackPicker ? 'expand_less' : 'queue_music'" size="16px" />
-        </button>
-
-        <div class="hidden w-[9.2rem] gap-1 overflow-x-auto pb-1 no-scrollbar sm:flex sm:w-[12rem]">
-          <button
-            v-for="trackKey in audioTrackOrder"
-            :key="trackKey"
-            @click="handleTrackSelect(trackKey)"
-            class="flex h-9 min-w-[2.3rem] flex-col items-center justify-center rounded-lg border transition-all duration-200"
-            :class="
-              selectedAudioTrack === trackKey
-                ? 'border-amber-400 bg-amber-400/10 text-amber-200'
-                : 'border-white/10 bg-white/5 text-white/55 hover:border-white/20 hover:bg-white/10 hover:text-white'
-            "
-          >
-            <q-icon :name="audioTracks[trackKey].icon" size="15px" />
-          </button>
-        </div>
-      </div>
-
-      <div class="mt-2.5 flex flex-wrap items-center gap-1.5 text-[10px] text-white/65">
-        <label
-          class="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1"
-        >
-          <input v-model="followFocusPlayback" type="checkbox" class="accent-amber-400" />
-          跟隨專注
-        </label>
-        <label
-          class="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1"
-        >
-          <input v-model="audioLoopEnabled" type="checkbox" class="accent-amber-400" />
-          循環
-        </label>
-        <label
-          class="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1"
-        >
-          <input v-model="audioAutoPlayOnLoad" type="checkbox" class="accent-amber-400" />
-          進頁自動播
-        </label>
-        <label
-          class="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1"
-        >
-          <span class="text-white/60">預設音源</span>
-          <select
-            v-model="defaultAudioTrack"
-            class="rounded bg-slate-900/80 px-1.5 py-0.5 text-[10px] text-white outline-none"
-          >
-            <option
-              v-for="trackKey in audioTrackOrder"
-              :key="`default-${trackKey}`"
-              :value="trackKey"
-            >
-              {{ audioTracks[trackKey].name }}
-            </option>
-          </select>
-        </label>
-      </div>
-
-      <div v-if="showAudioTrackPicker" class="mt-2 grid grid-cols-4 gap-1.5 sm:hidden">
-        <button
-          v-for="trackKey in audioTrackOrder"
-          :key="`mobile-${trackKey}`"
-          @click="handleTrackSelect(trackKey)"
-          class="flex h-9 items-center justify-center rounded-lg border transition-all duration-200"
-          :class="
-            selectedAudioTrack === trackKey
-              ? 'border-amber-400 bg-amber-400/10 text-amber-200'
-              : 'border-white/10 bg-white/5 text-white/55'
-          "
-        >
-          <q-icon :name="audioTracks[trackKey].icon" size="15px" />
-        </button>
-      </div>
-    </div>
-  </div>
+  <AmbientAudioPlayer :audio="audio" />
 </template>
 
 <script setup lang="ts">
@@ -510,6 +386,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 import { useQuasar } from 'quasar';
+import { useAmbientAudio } from 'src/pages/index/composables/useAmbientAudio';
+import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vue';
 import {
   clampOccupancy,
   getHeatColor as getHeatColorHelper,
@@ -603,74 +481,10 @@ const isEditingDisplayName = ref(false);
 const readers = ref<Reader[]>([]);
 const seatSnapshotMap = ref<SeatSnapshotMap>({});
 
-// --- 音頻播放配置 ---
-type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain' | 'thunder';
+// --- 背景音樂 ---
+const audio = useAmbientAudio(() => store.isRunning);
 
-const audioTracks: Record<
-  AudioTrackKey,
-  {
-    name: string;
-    description: string;
-    icon: string;
-    url: string;
-    gain: number;
-  }
-> = {
-  forest: {
-    name: '靜謐森林',
-    description: '柔和樹葉感',
-    icon: 'park',
-    url: '/music/dany_photo-forestbirds-319791.mp3',
-    gain: 0.12,
-  },
-  ocean: {
-    name: '深海艙',
-    description: '低頻潮汐感',
-    icon: 'waves',
-    url: '/music/kokoreli777-sea-waves-169411.mp3',
-    gain: 0.14,
-  },
-  silence: {
-    name: '無聲',
-    description: '關閉播放',
-    icon: 'volume_off',
-    url: '',
-    gain: 0,
-  },
-  lofi: {
-    name: 'Lofi',
-    description: '暖色低保真',
-    icon: 'music_note',
-    url: '/music/deawthanapon-lofi-relax-beat-loop-bpm-88-eb-major-ii-v-i-361752.mp3',
-    gain: 0.11,
-  },
-  rain: {
-    name: '下雨聲',
-    description: '細碎雨滴聲',
-    icon: 'water_drop',
-    url: '/music/dragon-studio-copyright-free-rain-sounds-331497.mp3',
-    gain: 0.11,
-  },
-  thunder: {
-    name: '打雷聲',
-    description: '雨聲伴隨打雷',
-    icon: 'cloud',
-    url: '/music/237729__flathill__rain-and-thunder-4.wav',
-    gain: 0.12,
-  },
-};
-
-let audioElement: HTMLAudioElement | null = null;
-const selectedAudioTrack = ref<AudioTrackKey>('lofi');
-const audioVolume = ref(80);
-const lastVolumeBeforeMute = ref(80);
-const isAudioPlaying = ref(false);
-const defaultAudioTrack = ref<AudioTrackKey>('lofi');
-const followFocusPlayback = ref(true);
-const audioLoopEnabled = ref(true);
-const audioAutoPlayOnLoad = ref(false);
 const autoRestartOnFinish = ref(false);
-const showAudioTrackPicker = ref(false);
 const focusDurationOptions = [15, 25, 50] as const;
 type FocusDurationOption = (typeof focusDurationOptions)[number];
 
@@ -694,19 +508,8 @@ function handleFocusDurationSelect(minutes: FocusDurationOption) {
   saveFocusPreferences();
 }
 
-const audioTrackOrder: AudioTrackKey[] = ['forest', 'ocean', 'lofi', 'rain', 'thunder', 'silence'];
-
-const selectedAudioTrackMeta = computed(() => audioTracks[selectedAudioTrack.value]);
-const volumeIconName = computed(() => {
-  if (audioVolume.value <= 0) return 'volume_off';
-  if (audioVolume.value < 50) return 'volume_down';
-  return 'volume_up';
-});
-const AUDIO_PREFS_KEY = 'focus_island_audio_prefs_v1';
 const FOCUS_PREFS_KEY = 'focus_island_focus_prefs_v1';
 const CURRENT_ROOM_INFO_KEY = 'focus_island_current_room_info_v1';
-const FADE_DURATION_MS = 220;
-let fadeTaskId = 0;
 const DEBUG_SEAT_ID_SYNC = import.meta.env.DEV;
 
 // --- 入座狀態 flag ---
@@ -984,15 +787,6 @@ window.addEventListener('visibilitychange', () => {
     // ignore
   }
 });
-
-type AudioPrefs = {
-  selectedAudioTrack: AudioTrackKey;
-  defaultAudioTrack: AudioTrackKey;
-  audioVolume: number;
-  followFocusPlayback: boolean;
-  audioLoopEnabled: boolean;
-  audioAutoPlayOnLoad: boolean;
-};
 
 const zoneDescriptionMap: Record<string, string> = {
   靜謐森林: '完全靜音深度專注',
@@ -1347,64 +1141,6 @@ function updateCurrentFloorHeatByReaders() {
   });
 }
 
-// --- 音頻控制函數 ---
-function ensureAudioElement() {
-  if (!audioElement) {
-    audioElement = new Audio();
-    audioElement.loop = audioLoopEnabled.value;
-    audioElement.preload = 'auto';
-    audioElement.crossOrigin = 'anonymous';
-    audioElement.addEventListener('error', handleAudioPlaybackError);
-  }
-  return audioElement;
-}
-
-function isTrackKey(value: unknown): value is AudioTrackKey {
-  return typeof value === 'string' && value in audioTracks;
-}
-
-function normalizeVolume(value: unknown) {
-  if (typeof value !== 'number' || Number.isNaN(value)) return 80;
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function saveAudioPreferences() {
-  const payload: AudioPrefs = {
-    selectedAudioTrack: selectedAudioTrack.value,
-    defaultAudioTrack: defaultAudioTrack.value,
-    audioVolume: audioVolume.value,
-    followFocusPlayback: followFocusPlayback.value,
-    audioLoopEnabled: audioLoopEnabled.value,
-    audioAutoPlayOnLoad: audioAutoPlayOnLoad.value,
-  };
-  localStorage.setItem(AUDIO_PREFS_KEY, JSON.stringify(payload));
-}
-
-function loadAudioPreferences() {
-  const raw = localStorage.getItem(AUDIO_PREFS_KEY);
-  if (!raw) return;
-
-  try {
-    const parsed = JSON.parse(raw) as Partial<AudioPrefs>;
-    if (isTrackKey(parsed.defaultAudioTrack)) {
-      defaultAudioTrack.value = parsed.defaultAudioTrack;
-    }
-
-    if (isTrackKey(parsed.selectedAudioTrack)) {
-      selectedAudioTrack.value = parsed.selectedAudioTrack;
-    } else {
-      selectedAudioTrack.value = defaultAudioTrack.value;
-    }
-
-    audioVolume.value = normalizeVolume(parsed.audioVolume);
-    followFocusPlayback.value = parsed.followFocusPlayback ?? true;
-    audioLoopEnabled.value = parsed.audioLoopEnabled ?? true;
-    audioAutoPlayOnLoad.value = parsed.audioAutoPlayOnLoad ?? false;
-  } catch {
-    // ignore invalid stored payload
-  }
-}
-
 function saveFocusPreferences() {
   localStorage.setItem(
     FOCUS_PREFS_KEY,
@@ -1435,179 +1171,6 @@ function loadFocusPreferences() {
   } catch {
     // ignore invalid stored payload
   }
-}
-
-function getTrackVolume(trackKey = selectedAudioTrack.value) {
-  return (audioVolume.value / 100) * (audioTracks[trackKey]?.gain ?? 0);
-}
-
-function fadeAudioVolume(target: number, duration = FADE_DURATION_MS) {
-  const player = audioElement;
-  if (!player) return Promise.resolve();
-
-  fadeTaskId += 1;
-  const taskId = fadeTaskId;
-  const from = player.volume;
-  const start = performance.now();
-
-  return new Promise<void>((resolve) => {
-    const tick = (now: number) => {
-      if (!audioElement || taskId !== fadeTaskId) {
-        resolve();
-        return;
-      }
-
-      const progress = Math.min(1, (now - start) / duration);
-      audioElement.volume = from + (target - from) * progress;
-
-      if (progress < 1) {
-        requestAnimationFrame(tick);
-      } else {
-        resolve();
-      }
-    };
-
-    requestAnimationFrame(tick);
-  });
-}
-
-function shouldAutoPlayTrack() {
-  return isAudioPlaying.value || (followFocusPlayback.value && store.isRunning);
-}
-
-function handleAudioPlaybackError() {
-  const fallbackOrder: AudioTrackKey[] = ['rain', 'forest', 'silence'];
-  const fallback = fallbackOrder.find((key) => key !== selectedAudioTrack.value);
-
-  if (!fallback) {
-    stopAudioPlayback();
-    return;
-  }
-
-  selectedAudioTrack.value = fallback;
-  saveAudioPreferences();
-
-  if (fallback === 'silence') {
-    stopAudioPlayback();
-  } else {
-    void startAudioPlayback();
-  }
-
-  $q.notify({
-    message: '音檔載入失敗，已切換到備用音源',
-    color: 'warning',
-    icon: 'warning',
-    timeout: 1800,
-    position: 'top',
-  });
-}
-
-function stopAudioPlayback() {
-  fadeTaskId += 1;
-  if (audioElement) {
-    try {
-      audioElement.pause();
-      audioElement.currentTime = 0;
-    } catch {
-      // ignore
-    }
-  }
-
-  isAudioPlaying.value = false;
-}
-
-async function startAudioPlayback() {
-  const track = audioTracks[selectedAudioTrack.value];
-  if (!track || selectedAudioTrack.value === 'silence' || !track.url) {
-    stopAudioPlayback();
-    return;
-  }
-
-  const player = ensureAudioElement();
-  player.loop = audioLoopEnabled.value;
-
-  const targetVolume = getTrackVolume();
-  const currentSrc = player.getAttribute('src') || '';
-  const sourceChanged = currentSrc !== track.url;
-
-  if (isAudioPlaying.value && sourceChanged) {
-    await fadeAudioVolume(0);
-    player.pause();
-  }
-
-  if (sourceChanged) {
-    player.setAttribute('src', track.url);
-    player.load();
-  }
-
-  player.volume = sourceChanged ? 0 : targetVolume;
-
-  void player
-    .play()
-    .then(async () => {
-      isAudioPlaying.value = true;
-      if (sourceChanged) {
-        await fadeAudioVolume(targetVolume);
-      } else {
-        player.volume = targetVolume;
-      }
-    })
-    .catch(() => {
-      isAudioPlaying.value = false;
-    });
-}
-
-function switchAudioTrack() {
-  if (selectedAudioTrack.value === 'silence') {
-    stopAudioPlayback();
-    saveAudioPreferences();
-    return;
-  }
-
-  if (shouldAutoPlayTrack()) {
-    void startAudioPlayback();
-  }
-
-  saveAudioPreferences();
-}
-
-function handleTrackSelect(trackKey: AudioTrackKey) {
-  selectedAudioTrack.value = trackKey;
-  switchAudioTrack();
-  showAudioTrackPicker.value = false;
-}
-
-function toggleAudio() {
-  if (isAudioPlaying.value) {
-    stopAudioPlayback();
-  } else {
-    void startAudioPlayback();
-  }
-
-  saveAudioPreferences();
-}
-
-function updateAudioVolume() {
-  if (audioVolume.value > 0) {
-    lastVolumeBeforeMute.value = audioVolume.value;
-  }
-
-  if (audioElement) {
-    audioElement.volume = getTrackVolume();
-  }
-
-  saveAudioPreferences();
-}
-
-function toggleAudioMute() {
-  if (audioVolume.value > 0) {
-    lastVolumeBeforeMute.value = audioVolume.value;
-    audioVolume.value = 0;
-  } else {
-    audioVolume.value = Math.max(20, lastVolumeBeforeMute.value || 80);
-  }
-
-  updateAudioVolume();
 }
 
 function startEditDisplayName() {
@@ -2026,7 +1589,7 @@ function selectSeat(id: string) {
   selectedSeatId.value = id;
 
   if (store.isRunning) {
-    void startAudioPlayback();
+    void audio.startPlayback();
   }
 
   if (socket?.readyState === WebSocket.OPEN) {
@@ -2067,23 +1630,23 @@ function toggleFocus() {
     store.stopTimer();
     setSeatedFlag(false);
     clearResumeCandidate();
-    if (followFocusPlayback.value) {
-      stopAudioPlayback();
+    if (audio.followFocusPlayback.value) {
+      audio.stopPlayback();
     }
   } else {
     clearResumeCandidate();
     store.startTimer();
     setSeatedFlag(true);
-    if (followFocusPlayback.value) {
-      void startAudioPlayback();
+    if (audio.followFocusPlayback.value) {
+      void audio.startPlayback();
     }
   }
 }
 
 function resetFocusTimer() {
   store.resetTimer();
-  if (followFocusPlayback.value) {
-    stopAudioPlayback();
+  if (audio.followFocusPlayback.value) {
+    audio.stopPlayback();
   }
 }
 
@@ -2102,20 +1665,20 @@ function restartFocusTimer() {
   store.resetTimer();
   store.startTimer();
 
-  if (followFocusPlayback.value) {
-    void startAudioPlayback();
+  if (audio.followFocusPlayback.value) {
+    void audio.startPlayback();
   }
 }
 
 function handleFocusFinished() {
-  stopAudioPlayback();
+  audio.stopPlayback();
 
   if (autoRestartOnFinish.value) {
     store.resetTimer();
     store.startTimer();
 
-    if (followFocusPlayback.value) {
-      void startAudioPlayback();
+    if (audio.followFocusPlayback.value) {
+      void audio.startPlayback();
     }
 
     $q.notify({
@@ -2153,7 +1716,7 @@ function seatButtonClass(seat: Seat) {
   const otherMate = getMateAtSeat(seat.id);
   if (otherMate) return 'border-teal-500/30 bg-teal-500/5 cursor-default';
 
-  return 'border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10';
+  return 'border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-white/5 hover:border-slate-200 dark:hover:border-white/20 hover:bg-slate-100 dark:hover:bg-white/10';
 }
 
 function formatTime(seconds: number): string {
@@ -2191,16 +1754,11 @@ watch(
 );
 
 onMounted(() => {
-  loadAudioPreferences();
   loadFocusPreferences();
   loadResumeCandidate();
   void reconnectRoomSession();
   startFloorPollingTimer();
   document.addEventListener('visibilitychange', handleVisibilityChange);
-
-  if (audioAutoPlayOnLoad.value && selectedAudioTrack.value !== 'silence') {
-    void startAudioPlayback();
-  }
 });
 
 let hasHandledPageLeaveCleanup = false;
@@ -2223,45 +1781,10 @@ onBeforeRouteLeave(() => {
 
 onUnmounted(() => {
   cleanupSessionOnPageLeave();
-  saveAudioPreferences();
   saveFocusPreferences();
-  stopAudioPlayback();
-  if (audioElement) {
-    audioElement.removeEventListener('error', handleAudioPlaybackError);
-  }
-  audioElement = null;
   clearFloorPollingTimer();
   document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
-
-watch(
-  [
-    selectedAudioTrack,
-    defaultAudioTrack,
-    followFocusPlayback,
-    audioLoopEnabled,
-    audioAutoPlayOnLoad,
-  ],
-  () => {
-    if (audioElement) {
-      audioElement.loop = audioLoopEnabled.value;
-    }
-
-    if (selectedAudioTrack.value === 'silence' && defaultAudioTrack.value !== 'silence') {
-      selectedAudioTrack.value = defaultAudioTrack.value;
-    }
-
-    saveAudioPreferences();
-  },
-);
-
-watch(
-  () => defaultAudioTrack.value,
-  () => {
-    selectedAudioTrack.value = defaultAudioTrack.value;
-    switchAudioTrack();
-  },
-);
 
 watch(
   () => currentZone.value?.name,

@@ -1,1 +1,21 @@
 @import 'tailwindcss';
+
+// Quasar's Dark plugin (toggled from MainLayout.vue) adds/removes `body--dark` /
+// `body--light` on <body>, not the `.dark` class Tailwind's default dark-mode
+// convention expects. Point Tailwind's `dark:` variant at Quasar's own class so
+// the whole app (not just MainLayout's own chrome) can react to the same toggle.
+@custom-variant dark (&:where(body.body--dark, body.body--dark *));
+
+// Quasar ships a global `.hidden { display: none !important }` helper class that
+// collides by NAME with Tailwind's own `.hidden` utility. Because it's `!important`,
+// it always wins over Tailwind's responsive overrides (e.g. `hidden sm:flex`), so
+// those elements stay hidden even above the breakpoint. Rather than touch Quasar's
+// global behavior (other Quasar components may rely on it), this app uses its own
+// differently-named utility for the "hidden below `sm`" pattern. It's scoped to the
+// same (non-overlapping) media range as Tailwind's `sm:` variant, so there's no
+// ordering ambiguity with Tailwind's own responsive utilities.
+@utility hide-below-sm {
+  @media (max-width: 639.98px) {
+    display: none;
+  }
+}

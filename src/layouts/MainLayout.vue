@@ -14,26 +14,26 @@
       >
         <q-btn 
           flat dense round icon="menu" 
-          class="lg:hidden shrink-0 text-amber-200" 
+          class="lg:hidden shrink-0 text-amber-600 dark:text-amber-200"
           @click="toggleLeftDrawer" 
         />
 
         <div class="flex items-center gap-2 sm:gap-3">
           <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-rose-300 to-amber-400 font-black text-[10px] text-amber-950 shadow-lg shadow-orange-500/20 sm:h-9 sm:w-9 sm:text-base">FI</div>
-          <div class="hidden sm:block">
-            <div class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-200/60 leading-none mb-1">Cute Library</div>
+          <div class="hide-below-sm sm:block">
+            <div class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:text-amber-200/80 leading-none mb-1">Cute Library</div>
             <div class="text-base font-black text-white leading-none">Focus Island</div>
           </div>
         </div>
 
         <div class="ml-auto flex items-center gap-1.5 sm:gap-3">
-          <div class="hidden flex-col items-end sm:flex">
+          <div class="hide-below-sm flex-col items-end sm:flex">
             <span class="text-[10px] font-bold uppercase tracking-widest" :class="subtleTextClass">
               {{ t.headerGoalLabel }}
             </span>
             <span class="text-xs font-black" :class="accentTextClass">6h Focused</span>
           </div>
-          <div class="hidden h-8 w-[1px] bg-white/10 mx-1 sm:block"></div>
+          <div class="hide-below-sm h-8 w-[1px] bg-white/10 mx-1 sm:block"></div>
           <button
             type="button"
             class="rounded-lg border px-2 py-1 text-[10px] font-black tracking-[0.18em] transition-all sm:px-2.5"
@@ -42,7 +42,7 @@
           >
             <span class="inline-flex items-center gap-1">
               <q-icon name="translate" size="12px" />
-              <span class="hidden sm:inline">{{ t.languageButton }}</span>
+              <span class="hide-below-sm sm:inline">{{ t.languageButton }}</span>
             </span>
           </button>
           <button
@@ -53,7 +53,7 @@
           >
             <span class="inline-flex items-center gap-1">
               <q-icon :name="isDarkMode ? 'dark_mode' : 'light_mode'" size="12px" />
-              <span class="hidden sm:inline">{{ isDarkMode ? t.darkButton : t.lightButton }}</span>
+              <span class="hide-below-sm sm:inline">{{ isDarkMode ? t.darkButton : t.lightButton }}</span>
             </span>
           </button>
           <button
@@ -64,10 +64,10 @@
           >
             <span class="inline-flex items-center gap-1">
               <q-icon name="star" size="12px" />
-              <span class="hidden sm:inline">{{ t.favoriteButton }}</span>
+              <span class="hide-below-sm sm:inline">{{ t.favoriteButton }}</span>
             </span>
           </button>
-          <span class="hidden rounded-lg border px-2 py-1 text-[10px] font-mono sm:inline-flex" :class="chipClass">v{{ $q.version }}</span>
+          <span class="hide-below-sm rounded-lg border px-2 py-1 text-[10px] font-mono sm:inline-flex" :class="chipClass">v{{ $q.version }}</span>
         </div>
       </div>
     </q-header>
@@ -253,7 +253,7 @@ const drawerCardClass = computed(() =>
   isDarkMode.value ? 'border-white/5 bg-white/5' : 'border-slate-200 bg-slate-50',
 );
 const chipClass = computed(() =>
-  isDarkMode.value ? 'border-white/10 bg-white/5 text-amber-100/70' : 'border-slate-200 bg-slate-50 text-slate-700',
+  isDarkMode.value ? 'border-white/10 bg-white/5 text-amber-100/85' : 'border-slate-200 bg-slate-50 text-slate-700',
 );
 const favoriteButtonClass = computed(() =>
   favoriteRoute.value
@@ -263,9 +263,9 @@ const favoriteButtonClass = computed(() =>
     : chipClass.value,
 );
 const mainTextClass = computed(() => (isDarkMode.value ? 'text-slate-300' : 'text-slate-800'));
-const mutedTextClass = computed(() => (isDarkMode.value ? 'text-amber-100/35' : 'text-slate-500'));
-const subtleTextClass = computed(() => (isDarkMode.value ? 'text-amber-200/40' : 'text-slate-500'));
-const accentTextClass = computed(() => (isDarkMode.value ? 'text-amber-100/65' : 'text-slate-700'));
+const mutedTextClass = computed(() => (isDarkMode.value ? 'text-amber-100/55' : 'text-slate-500'));
+const subtleTextClass = computed(() => (isDarkMode.value ? 'text-amber-200/60' : 'text-slate-500'));
+const accentTextClass = computed(() => (isDarkMode.value ? 'text-amber-100/80' : 'text-slate-700'));
 
 const focusDateLabel = computed(() => {
   return new Intl.DateTimeFormat(locale.value, {
