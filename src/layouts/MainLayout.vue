@@ -5,6 +5,8 @@
       <div class="absolute -left-24 -top-20 h-96 w-96 rounded-full bg-rose-500/10 blur-[120px]"></div>
       <div class="absolute -right-24 bottom-0 h-96 w-96 rounded-full bg-amber-500/10 blur-[120px]"></div>
       <div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(251,191,36,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(251,191,36,0.02)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
+      <div class="hidden dark:!block absolute inset-0 starfield-far"></div>
+      <div class="hidden dark:!block absolute inset-0 starfield-near"></div>
     </div>
 
     <q-header class="bg-transparent px-2 pt-2 sm:px-4 sm:pt-4" flat>
@@ -401,5 +403,41 @@ onUnmounted(() => {
 }
 .q-layout {
   min-height: 100vh;
+}
+
+/* 星空背景（僅深色模式）：兩層不同大小/密度的星點，加上緩慢閃爍 */
+.starfield-far,
+.starfield-near {
+  background-repeat: repeat;
+  animation: starfield-twinkle 6s ease-in-out infinite;
+}
+.starfield-far {
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 90px 90px, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 150px 50px, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1px 1px at 60px 140px, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1px 1px at 170px 160px, rgba(255, 255, 255, 0.3), transparent);
+  background-size: 200px 200px;
+  opacity: 0.5;
+  animation-delay: 0s;
+}
+.starfield-near {
+  background-image:
+    radial-gradient(1.5px 1.5px at 40px 80px, rgba(251, 191, 36, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 130px 20px, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(2px 2px at 190px 110px, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1.5px 1.5px at 100px 170px, rgba(251, 191, 36, 0.5), transparent);
+  background-size: 260px 260px;
+  opacity: 0.6;
+  animation-delay: 3s;
+}
+@keyframes starfield-twinkle {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 </style>
