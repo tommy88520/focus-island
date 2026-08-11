@@ -1,6 +1,6 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 
-export type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain';
+export type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain' | 'warm' | 'glow';
 
 export interface AudioTrackMeta {
   name: string;
@@ -48,6 +48,20 @@ export const audioTracks: Record<AudioTrackKey, AudioTrackMeta> = {
     url: '/music/liecio-light-rain-109591.mp3',
     gain: 0.11,
   },
+  warm: {
+    name: '溫暖背景樂',
+    description: '柔和氛圍感',
+    icon: 'graphic_eq',
+    url: '/music/absolutesound-background-music-560443.mp3',
+    gain: 0.11,
+  },
+  glow: {
+    name: '浮光',
+    description: '空靈飄浮感',
+    icon: 'auto_awesome',
+    url: '/music/paulyudin-background-background-music-574010.mp3',
+    gain: 0.11,
+  },
 };
 
 export const audioTrackOrder: AudioTrackKey[] = [
@@ -55,6 +69,8 @@ export const audioTrackOrder: AudioTrackKey[] = [
   'ocean',
   'lofi',
   'rain',
+  'warm',
+  'glow',
   'silence',
 ];
 
