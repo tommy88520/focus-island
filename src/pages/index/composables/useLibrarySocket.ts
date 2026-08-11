@@ -1,6 +1,6 @@
 import { ref, computed, type ComputedRef, type Ref } from 'vue';
 import type { QVueGlobals } from 'quasar';
-import { useLocale } from 'src/composables/useLocale';
+import { useLocale, type LocaleKey } from 'src/composables/useLocale';
 import {
   clampOccupancy,
   getFloorLoadPercent as getFloorLoadPercentHelper,
@@ -47,10 +47,23 @@ export type SeatSnapshotMap = Record<
   }
 >;
 
-const zoneDescriptionMap: Record<string, string> = {
-  靜謐森林: '完全靜音深度專注',
-  城市咖啡廳: '環境音輕柔交流',
-  深海舱: '封閉式專注座艙',
+// Zone IDs (A/B/C) and their Chinese names are hardcoded on the backend
+// (COMEANC13-backend library_handler.go zoneDefs) and stable across floors,
+// so we key the display translation off the zone ID rather than matching on
+// the backend-supplied name text.
+const zoneLocaleMap: Record<string, { name: Record<LocaleKey, string>; description: Record<LocaleKey, string> }> = {
+  A: {
+    name: { 'zh-TW': '靜謐森林', 'en-US': 'Quiet Forest' },
+    description: { 'zh-TW': '完全靜音深度專注', 'en-US': 'Silent, deep-focus zone' },
+  },
+  B: {
+    name: { 'zh-TW': '城市咖啡', 'en-US': 'City Café' },
+    description: { 'zh-TW': '環境音輕柔交流', 'en-US': 'Soft ambient sound, casual chat okay' },
+  },
+  C: {
+    name: { 'zh-TW': '深海艙', 'en-US': 'Deep Sea Cabin' },
+    description: { 'zh-TW': '封閉式專注座艙', 'en-US': 'Enclosed, cabin-style focus pod' },
+  },
 };
 
 export function normalizeSeatId(seatId?: string | null) {
@@ -91,7 +104,7 @@ interface UseLibrarySocketOptions {
  * page leave, mount) — this composable is the toolbox, not the scheduler.
  */
 export function useLibrarySocket(options: UseLibrarySocketOptions) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const {
     userId,
     sessionId,
@@ -145,7 +158,9 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     (floorMetaData.value.find((floor) => floor.floor === currentFloor.value)?.zones || []).map(
       (zoneMeta) => {
         const zoneId = zoneMeta.zone || 'A';
-        const zoneName = zoneMeta.name || `Zone ${zoneId}`;
+        const zoneLocale = zoneLocaleMap[zoneId];
+        const zoneName = zoneLocale?.name[locale.value] || zoneMeta.name || `Zone ${zoneId}`;
+        const zoneDescription = zoneLocale?.description[locale.value] || t.value.common.customZone;
         const zoneCapacity =
           typeof zoneMeta.capacity === 'number' && zoneMeta.capacity > 0
             ? zoneMeta.capacity
@@ -161,7 +176,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
         return {
           id: zoneId,
           name: zoneName,
-          description: zoneDescriptionMap[zoneName] || '自訂分區',
+          description: zoneDescription,
           capacity: zoneCapacity,
           occupancy: `${occupied}/${zoneCapacity}`,
         };

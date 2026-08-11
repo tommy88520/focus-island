@@ -20,6 +20,7 @@ const translations = {
       loadHigh: '高',
       loadMedium: '中',
       loadLow: '低',
+      customZone: '自訂分區',
     },
     layout: {
       menuLabel: '選單',
@@ -129,6 +130,7 @@ const translations = {
       loadHigh: 'High',
       loadMedium: 'Medium',
       loadLow: 'Low',
+      customZone: 'Custom Zone',
     },
     layout: {
       menuLabel: 'Menu',
