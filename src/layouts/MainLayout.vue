@@ -31,7 +31,7 @@
         <div class="ml-auto flex items-center gap-1.5 sm:gap-3">
           <div class="hide-below-sm flex-col items-end sm:flex">
             <span class="text-[10px] font-bold uppercase tracking-widest" :class="subtleTextClass">
-              {{ t.headerGoalLabel }}
+              {{ t.layout.headerGoalLabel }}
             </span>
             <span class="text-xs font-black" :class="accentTextClass">6h Focused</span>
           </div>
@@ -44,7 +44,7 @@
           >
             <span class="inline-flex items-center gap-1">
               <q-icon name="translate" size="12px" />
-              <span class="hide-below-sm sm:inline">{{ t.languageButton }}</span>
+              <span class="hide-below-sm sm:inline">{{ t.layout.languageButton }}</span>
             </span>
           </button>
           <button
@@ -55,7 +55,7 @@
           >
             <span class="inline-flex items-center gap-1">
               <q-icon :name="isDarkMode ? 'dark_mode' : 'light_mode'" size="12px" />
-              <span class="hide-below-sm sm:inline">{{ isDarkMode ? t.darkButton : t.lightButton }}</span>
+              <span class="hide-below-sm sm:inline">{{ isDarkMode ? t.layout.darkButton : t.layout.lightButton }}</span>
             </span>
           </button>
           <button
@@ -66,7 +66,7 @@
           >
             <span class="inline-flex items-center gap-1">
               <q-icon name="star" size="12px" />
-              <span class="hide-below-sm sm:inline">{{ t.favoriteButton }}</span>
+              <span class="hide-below-sm sm:inline">{{ t.layout.favoriteButton }}</span>
             </span>
           </button>
           <span class="hide-below-sm rounded-lg border px-2 py-1 text-[10px] font-mono sm:inline-flex" :class="chipClass">v{{ $q.version }}</span>
@@ -84,17 +84,17 @@
         <aside class="flex h-full flex-col rounded-[28px] border p-4 shadow-2xl backdrop-blur-xl sm:rounded-[32px] sm:p-6" :class="drawerSurfaceClass">
           <div class="mb-6 rounded-2xl border p-3 sm:mb-8 sm:p-4" :class="drawerCardClass">
             <div class="mb-2 text-[10px] font-black uppercase tracking-[0.2em]" :class="subtleTextClass">
-              {{ t.currentStatusLabel }}
+              {{ t.layout.currentStatusLabel }}
             </div>
             <div class="text-lg font-black text-white sm:text-xl">{{ focusDateLabel }}</div>
             <p class="mt-2 text-[10px] leading-relaxed italic" :class="mutedTextClass">
-              "{{ t.currentStatusQuote }}"
+              "{{ t.layout.currentStatusQuote }}"
             </p>
           </div>
 
           <nav class="space-y-2 flex-1">
             <div class="px-2 pb-2 text-[10px] font-black uppercase tracking-[0.3em]" :class="subtleTextClass">
-              {{ t.menuLabel }}
+              {{ t.layout.menuLabel }}
             </div>
             <button
               v-for="link in localizedLinksList"
@@ -128,10 +128,10 @@
 
           <div class="mt-auto pt-5 border-t border-white/5 sm:pt-6">
             <div class="rounded-2xl border p-3" :class="drawerCardClass">
-              <p class="text-[10px] font-black uppercase tracking-[0.2em]" :class="subtleTextClass">{{ t.currentRoomLabel }}</p>
-              <p class="mt-1 text-sm font-black" :class="mainTextClass">{{ currentRoomInfo.roomID }}</p>
-              <p class="mt-1 text-[11px]" :class="accentTextClass">{{ currentRoomInfo.roomName }}</p>
-              <p class="mt-1 text-[10px]" :class="mutedTextClass">{{ currentRoomInfo.zoneDescription }}</p>
+              <p class="text-[10px] font-black uppercase tracking-[0.2em]" :class="subtleTextClass">{{ t.layout.currentRoomLabel }}</p>
+              <p class="mt-1 text-sm font-black" :class="mainTextClass">{{ displayedRoomInfo.roomID }}</p>
+              <p class="mt-1 text-[11px]" :class="accentTextClass">{{ displayedRoomInfo.roomName }}</p>
+              <p class="mt-1 text-[10px]" :class="mutedTextClass">{{ displayedRoomInfo.zoneDescription }}</p>
             </div>
           </div>
         </aside>
@@ -149,27 +149,31 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Dark, useQuasar } from 'quasar';
+import { useLocale } from 'src/composables/useLocale';
 
 const leftDrawerOpen = ref(false);
 const router = useRouter();
 const route = useRoute();
 const $q = useQuasar();
 const CURRENT_ROOM_INFO_KEY = 'focus_island_current_room_info_v1';
-const APP_LOCALE_KEY = 'focus_island_app_locale_v1';
 const APP_THEME_KEY = 'focus_island_app_theme_v1';
 const FAVORITE_ROUTE_KEY = 'focus_island_favorite_route_v1';
 
-type LocaleKey = 'zh-TW' | 'en-US';
-
-const locale = ref<LocaleKey>((localStorage.getItem(APP_LOCALE_KEY) as LocaleKey | null) || 'zh-TW');
+const { locale, t, toggleLocale } = useLocale();
 const isDarkMode = ref(localStorage.getItem(APP_THEME_KEY) !== 'light');
 const favoriteRoute = ref(localStorage.getItem(FAVORITE_ROUTE_KEY) || '');
 
 const currentRoomInfo = ref({
-  roomID: '--',
-  roomName: '尚未選擇房間',
-  zoneDescription: '請先到選位入座頁面選擇分區',
+  roomID: '',
+  roomName: '',
+  zoneDescription: '',
 });
+
+const displayedRoomInfo = computed(() => ({
+  roomID: currentRoomInfo.value.roomID || '--',
+  roomName: currentRoomInfo.value.roomName || t.value.layout.defaultRoomName,
+  zoneDescription: currentRoomInfo.value.zoneDescription || t.value.layout.defaultRoomHint,
+}));
 
 const linksList = [
   { key: 'seat', icon: '🪑', badge: 'LIVE', to: '/', enabled: true },
@@ -189,53 +193,11 @@ const linksList = [
   },
 ];
 
-const translations = {
-  'zh-TW': {
-    menuLabel: '選單',
-    currentStatusLabel: '目前狀態',
-    currentStatusQuote: '放慢速度，坐下來，現在專注。',
-    currentRoomLabel: '目前房間',
-    headerGoalLabel: "Today's Goal",
-    languageButton: '中 / EN',
-    darkButton: '黑',
-    lightButton: '白',
-    favoriteButton: '最愛',
-    favoriteSaved: '已設為最愛快捷',
-    favoriteNone: '已將目前頁面設為最愛',
-    favoriteJumped: '已前往最愛頁面',
-    menuItems: {
-      seat: { title: '選位入座', caption: '選擇座位並開始專注' },
-      progress: { title: '今日進度', caption: '查看完成與累積時間' },
-      settings: { title: '環境設定', caption: '調整音效與外觀' },
-    },
-  },
-  'en-US': {
-    menuLabel: 'Menu',
-    currentStatusLabel: 'Current Status',
-    currentStatusQuote: 'Slow down. Sit down. Focus now.',
-    currentRoomLabel: 'Current Room',
-    headerGoalLabel: "Today's Goal",
-    languageButton: '中 / EN',
-    darkButton: 'Dark',
-    lightButton: 'Light',
-    favoriteButton: 'Fav',
-    favoriteSaved: 'Favorite shortcut saved',
-    favoriteNone: 'This page is now your favorite',
-    favoriteJumped: 'Opened favorite page',
-    menuItems: {
-      seat: { title: 'Seat In', caption: 'Choose a seat and start focus' },
-      progress: { title: 'Progress', caption: 'Track focus sessions today' },
-      settings: { title: 'Settings', caption: 'Adjust sound and appearance' },
-    },
-  },
-} as const;
-
-const t = computed(() => translations[locale.value]);
 const localizedLinksList = computed(() =>
   linksList.map((link) => ({
     ...link,
-    title: t.value.menuItems[link.key as keyof typeof t.value.menuItems].title,
-    caption: t.value.menuItems[link.key as keyof typeof t.value.menuItems].caption,
+    title: t.value.layout.menuItems[link.key as keyof typeof t.value.layout.menuItems].title,
+    caption: t.value.layout.menuItems[link.key as keyof typeof t.value.layout.menuItems].caption,
   })),
 );
 const layoutThemeClass = computed(() =>
@@ -276,7 +238,6 @@ const focusDateLabel = computed(() => {
 });
 
 function persistLayoutPreferences() {
-  localStorage.setItem(APP_LOCALE_KEY, locale.value);
   localStorage.setItem(APP_THEME_KEY, isDarkMode.value ? 'dark' : 'light');
   if (favoriteRoute.value) {
     localStorage.setItem(FAVORITE_ROUTE_KEY, favoriteRoute.value);
@@ -286,8 +247,7 @@ function persistLayoutPreferences() {
 }
 
 function toggleLanguage() {
-  locale.value = locale.value === 'zh-TW' ? 'en-US' : 'zh-TW';
-  persistLayoutPreferences();
+  toggleLocale();
   $q.notify({
     message: locale.value === 'zh-TW' ? '已切換為繁體中文' : 'Language switched to English',
     color: 'primary',
@@ -302,7 +262,7 @@ function toggleTheme() {
   Dark.set(isDarkMode.value);
   persistLayoutPreferences();
   $q.notify({
-    message: isDarkMode.value ? '已切換深色模式' : '已切換淺色模式',
+    message: isDarkMode.value ? t.value.layout.darkModeOn : t.value.layout.lightModeOn,
     color: 'primary',
     icon: isDarkMode.value ? 'dark_mode' : 'light_mode',
     timeout: 1400,
@@ -315,7 +275,7 @@ function handleFavoriteShortcut() {
     favoriteRoute.value = route.path;
     persistLayoutPreferences();
     $q.notify({
-      message: t.value.favoriteNone,
+      message: t.value.layout.favoriteNone,
       color: 'positive',
       icon: 'star',
       timeout: 1400,
@@ -326,7 +286,7 @@ function handleFavoriteShortcut() {
 
   if (favoriteRoute.value === route.path) {
     $q.notify({
-      message: t.value.favoriteSaved,
+      message: t.value.layout.favoriteSaved,
       color: 'positive',
       icon: 'star',
       timeout: 1200,
@@ -338,7 +298,7 @@ function handleFavoriteShortcut() {
   void router.push(favoriteRoute.value);
   leftDrawerOpen.value = false;
   $q.notify({
-    message: t.value.favoriteJumped,
+    message: t.value.layout.favoriteJumped,
     color: 'positive',
     icon: 'star',
     timeout: 1200,
@@ -375,9 +335,9 @@ function refreshCurrentRoomInfo() {
     };
 
     currentRoomInfo.value = {
-      roomID: parsed.roomID || '--',
-      roomName: parsed.roomName || '尚未選擇房間',
-      zoneDescription: parsed.zoneDescription || '請先到選位入座頁面選擇分區',
+      roomID: parsed.roomID || '',
+      roomName: parsed.roomName || '',
+      zoneDescription: parsed.zoneDescription || '',
     };
   } catch {
     // ignore malformed room payload

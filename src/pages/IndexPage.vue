@@ -9,7 +9,7 @@
                 <div
                   class="rounded-md bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-950 shadow-lg shadow-amber-400/20"
                 >
-                  樓層 {{ currentFloor }}
+                  {{ t.indexPage.floorBadgePrefix }}{{ currentFloor }}
                 </div>
                 <div class="h-1 w-1 rounded-full bg-slate-200 dark:!bg-white/20"></div>
                 <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:!text-white/55">
@@ -17,7 +17,7 @@
                 </p>
               </div>
               <h3 class="text-[1.6rem] font-black tracking-tight text-slate-900 dark:!text-white sm:text-4xl">
-                {{ store.isRunning ? '深度專注中' : '挑個好位子，入座。' }}
+                {{ store.isRunning ? t.indexPage.headerTitleRunning : t.indexPage.headerTitleIdle }}
               </h3>
             </div>
 
@@ -93,11 +93,13 @@ import { useLibrarySocket, buildSeatId } from 'src/pages/index/composables/useLi
 import {
   getHeatColor as getHeatColorHelper,
   getZoneHeatTextClass as getZoneHeatTextClassHelper,
-  getFloorLoadLabel as getFloorLoadLabelHelper,
+  getFloorLoadLevel as getFloorLoadLevelHelper,
   getFloorLoadLabelClass as getFloorLoadLabelClassHelper,
   formatTime as formatTimeHelper,
 } from 'src/pages/index/functions/uiHelpers';
+import { useLocale } from 'src/composables/useLocale';
 const $q = useQuasar();
+const { t } = useLocale();
 
 const store = usePomodoroStore();
 const DEFAULT_ZONE_CAPACITY = 15;
@@ -110,11 +112,11 @@ const selectedSeatId = ref<string | null>(null);
 const isShake = ref(false);
 const isSwitching = ref(false);
 
-const userId = ref(localStorage.getItem('lib_uid') || createRandomId('使用者'));
+const userId = ref(localStorage.getItem('lib_uid') || createRandomId('user'));
 localStorage.setItem('lib_uid', userId.value);
 
 const displayName = ref(
-  localStorage.getItem('lib_display_name') || `讀者-${userId.value.slice(-4)}`,
+  localStorage.getItem('lib_display_name') || `${t.value.indexPage.displayNameDefaultPrefix}${userId.value.slice(-4)}`,
 );
 
 // --- 背景音樂 ---
@@ -131,7 +133,7 @@ function handleFocusDurationSelect(minutes: number) {
 
   if (store.isRunning) {
     $q.notify({
-      message: '請先結束目前專注，再切換時長',
+      message: t.value.indexPage.notifyDurationLocked,
       color: 'warning',
       icon: 'timer_off',
       timeout: 1600,
@@ -332,7 +334,7 @@ const resumeCandidateLabel = computed(() => {
   const candidate = resumeCandidate.value;
   if (!candidate) return '';
   const remain = Math.max(1, Math.floor((candidate.expiresAt - Date.now()) / 1000));
-  return `可續接 ${formatTimeHelper(candidate.timeLeft)}（${remain}s 內）`;
+  return t.value.indexPage.resumeCandidateLabel(formatTimeHelper(candidate.timeLeft), remain);
 });
 
 async function resumePreviousFocus() {
@@ -342,7 +344,7 @@ async function resumePreviousFocus() {
   if (candidate.expiresAt <= Date.now()) {
     clearResumeCandidate();
     $q.notify({
-      message: '續接已過期，請重新入座',
+      message: t.value.indexPage.notifyResumeExpired,
       color: 'warning',
       icon: 'schedule',
       timeout: 1600,
@@ -360,7 +362,7 @@ async function resumePreviousFocus() {
   if (librarySocket.getMateAtSeat(candidate.seatId)) {
     clearResumeCandidate();
     $q.notify({
-      message: '座位已被占用，請重新選位',
+      message: t.value.indexPage.notifySeatTakenResume,
       color: 'negative',
       icon: 'event_busy',
       timeout: 1800,
@@ -476,6 +478,12 @@ function getZoneHeatTextClass(occupancyStr: string) {
   return getZoneHeatTextClassHelper(occupancyStr);
 }
 
+const floorLoadLabels: Record<ReturnType<typeof getFloorLoadLevelHelper>, () => string> = {
+  high: () => t.value.common.loadHigh,
+  medium: () => t.value.common.loadMedium,
+  low: () => t.value.common.loadLow,
+};
+
 const floorTabItems = computed<FloorTabItem[]>(() =>
   librarySocket.floorHeatData.value.map((f) => {
     const percent = librarySocket.getFloorLoadPercent(f);
@@ -485,7 +493,7 @@ const floorTabItems = computed<FloorTabItem[]>(() =>
       capacity: f.capacity,
       percent,
       heatClass: getHeatColor(percent),
-      label: getFloorLoadLabelHelper(percent),
+      label: floorLoadLabels[getFloorLoadLevelHelper(percent)](),
       labelClass: getFloorLoadLabelClassHelper(percent, currentFloor.value === f.floor),
     };
   }),
@@ -576,8 +584,8 @@ const selectedSeatLabel = computed(() => {
   if (store.isRunning && selectedSeatId.value)
     return `${displayName.value} @ ${selectedSeatId.value}`;
   return selectedSeatId.value
-    ? `${displayName.value} 已預留 ${selectedSeatId.value}`
-    : '請先選擇座位';
+    ? t.value.indexPage.seatReserved(displayName.value, selectedSeatId.value)
+    : t.value.indexPage.pickSeatFirst;
 });
 
 function selectSeat(id: string) {
@@ -604,7 +612,7 @@ function selectSeat(id: string) {
 function toggleFocus() {
   if (!selectedSeatId.value && !store.isRunning) {
     $q.notify({
-      message: '請先選擇一個座位才能入座',
+      message: t.value.indexPage.notifyPickSeatFirst,
       color: 'warning',
       icon: 'event_seat',
       timeout: 1600,
@@ -644,7 +652,7 @@ function resetFocusTimer() {
 function restartFocusTimer() {
   if (!selectedSeatId.value && !store.isRunning) {
     $q.notify({
-      message: '請先入座再重新開始',
+      message: t.value.indexPage.notifyPickSeatToRestart,
       color: 'warning',
       icon: 'event_seat',
       timeout: 1600,
@@ -673,7 +681,7 @@ function handleFocusFinished() {
     }
 
     $q.notify({
-      message: '本輪專注完成，已自動開始下一輪',
+      message: t.value.indexPage.notifyAutoRestarted,
       color: 'amber-9',
       icon: 'autorenew',
       timeout: 2200,
@@ -684,7 +692,7 @@ function handleFocusFinished() {
   }
 
   $q.notify({
-    message: '本輪專注完成，辛苦了',
+    message: t.value.indexPage.notifySessionComplete,
     color: 'positive',
     icon: 'task_alt',
     timeout: 2600,
@@ -720,9 +728,9 @@ watch([currentFloor, activeZoneId], () => {
 });
 
 watch(
-  () => store.timeLeft,
-  (newTime) => {
-    const status = store.isRunning ? '專注中' : '待命中';
+  [() => store.timeLeft, () => t.value],
+  ([newTime]) => {
+    const status = store.isRunning ? t.value.indexPage.documentTitleFocused : t.value.indexPage.documentTitleIdle;
     document.title = `${formatTime(newTime)} | ${status}`;
   },
   { immediate: true },

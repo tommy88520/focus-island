@@ -38,10 +38,12 @@ export function getFloorLoadPercent(floor: FloorLoadLike) {
   return clampPercent((floor.occupancy / floor.capacity) * 100);
 }
 
-export function getFloorLoadLabel(percent: number) {
-  if (percent >= 80) return '高';
-  if (percent >= 40) return '中';
-  return '低';
+export type FloorLoadLevel = 'high' | 'medium' | 'low';
+
+export function getFloorLoadLevel(percent: number): FloorLoadLevel {
+  if (percent >= 80) return 'high';
+  if (percent >= 40) return 'medium';
+  return 'low';
 }
 
 export function getFloorLoadLabelClass(percent: number, isCurrentFloor: boolean) {

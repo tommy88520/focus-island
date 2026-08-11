@@ -3,36 +3,36 @@
     <div class="mx-auto max-w-6xl space-y-6">
       <header class="rounded-3xl border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/50 p-5 shadow-2xl backdrop-blur-xl sm:p-8">
         <p class="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500 dark:!text-amber-300/80">Today</p>
-        <h1 class="mt-2 text-2xl font-black text-slate-900 dark:!text-white sm:text-4xl">今日進度</h1>
-        <p class="mt-2 text-sm text-slate-500 dark:!text-white/65">追蹤今天專注完成輪數與累積專注時間。</p>
+        <h1 class="mt-2 text-2xl font-black text-slate-900 dark:!text-white sm:text-4xl">{{ t.progressPage.title }}</h1>
+        <p class="mt-2 text-sm text-slate-500 dark:!text-white/65">{{ t.progressPage.subtitle }}</p>
       </header>
 
       <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <article class="rounded-3xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 p-5 shadow-xl backdrop-blur">
-          <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500 dark:!text-white/60">完成輪數</p>
+          <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500 dark:!text-white/60">{{ t.progressPage.completedSessionsLabel }}</p>
           <p class="mt-3 text-4xl font-black text-amber-500 dark:!text-amber-300">{{ store.todayCompletedSessions }}</p>
-          <p class="mt-2 text-xs text-slate-500 dark:!text-white/60">每完成一輪 25 分鐘即 +1</p>
+          <p class="mt-2 text-xs text-slate-500 dark:!text-white/60">{{ t.progressPage.completedSessionsHint }}</p>
         </article>
 
         <article class="rounded-3xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 p-5 shadow-xl backdrop-blur">
-          <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500 dark:!text-white/60">累積分鐘</p>
+          <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500 dark:!text-white/60">{{ t.progressPage.focusedMinutesLabel }}</p>
           <p class="mt-3 text-4xl font-black text-teal-600 dark:!text-teal-300">{{ store.todayFocusedMinutes }}</p>
-          <p class="mt-2 text-xs text-slate-500 dark:!text-white/60">由每秒 TICK 累積，較接近真實專注時長</p>
+          <p class="mt-2 text-xs text-slate-500 dark:!text-white/60">{{ t.progressPage.focusedMinutesHint }}</p>
         </article>
 
         <article class="rounded-3xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 p-5 shadow-xl backdrop-blur sm:col-span-2 lg:col-span-1">
-          <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500 dark:!text-white/60">累積小時</p>
+          <p class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500 dark:!text-white/60">{{ t.progressPage.focusedHoursLabel }}</p>
           <p class="mt-3 text-4xl font-black text-rose-500 dark:!text-rose-300">{{ store.todayFocusedHoursText }}</p>
-          <p class="mt-2 text-xs text-slate-500 dark:!text-white/60">今天已專注 {{ store.todayFocusedHoursText }} 小時</p>
+          <p class="mt-2 text-xs text-slate-500 dark:!text-white/60">{{ t.progressPage.focusedHoursHint(store.todayFocusedHoursText) }}</p>
         </article>
       </section>
 
       <section class="rounded-3xl border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/45 p-5 shadow-xl backdrop-blur sm:p-6">
         <div class="flex items-center justify-between">
-          <h2 class="text-lg font-black text-slate-900 dark:!text-white">近 7 天</h2>
+          <h2 class="text-lg font-black text-slate-900 dark:!text-white">{{ t.progressPage.last7DaysTitle }}</h2>
           <div class="flex items-center gap-1.5 rounded-full border border-amber-300 dark:!border-amber-300/40 bg-amber-50 dark:!bg-amber-400/10 px-3 py-1">
             <span class="text-sm">🔥</span>
-            <span class="text-xs font-black text-amber-700 dark:!text-amber-200">連續 {{ store.currentStreak }} 天</span>
+            <span class="text-xs font-black text-amber-700 dark:!text-amber-200">{{ t.progressPage.streakLabel(store.currentStreak) }}</span>
           </div>
         </div>
 
@@ -63,11 +63,9 @@
       </section>
 
       <section class="rounded-3xl border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/45 p-5 shadow-xl backdrop-blur sm:p-6">
-        <h2 class="text-lg font-black text-slate-900 dark:!text-white">說明</h2>
+        <h2 class="text-lg font-black text-slate-900 dark:!text-white">{{ t.progressPage.explanationTitle }}</h2>
         <ul class="mt-3 space-y-2 text-sm text-slate-600 dark:!text-white/75">
-          <li>計時完成會自動計入完成輪數。</li>
-          <li>累積分鐘使用秒級累加，重整後會保留。</li>
-          <li>跨日會自動歸零，開始新的統計。</li>
+          <li v-for="item in t.progressPage.explanationItems" :key="item">{{ item }}</li>
         </ul>
       </section>
     </div>
@@ -77,8 +75,10 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { usePomodoroStore } from 'src/stores/pomodoro';
+import { useLocale } from 'src/composables/useLocale';
 
 const store = usePomodoroStore();
+const { locale, t } = useLocale();
 
 onMounted(() => {
   store.loadProgress();
@@ -86,16 +86,16 @@ onMounted(() => {
 });
 
 const todayKey = new Date().toLocaleDateString('sv-SE');
-const weekdayLabels = ['日', '一', '二', '三', '四', '五', '六'];
 
 function isToday(date: string) {
   return date === todayKey;
 }
 
 function formatDayLabel(date: string) {
-  if (isToday(date)) return '今天';
+  if (isToday(date)) return t.value.progressPage.todayLabel;
   const d = new Date(`${date}T00:00:00`);
-  return `週${weekdayLabels[d.getDay()]}`;
+  const weekday = t.value.progressPage.weekdayLabels[d.getDay()];
+  return locale.value === 'zh-TW' ? `週${weekday}` : weekday;
 }
 
 function barHeight(focusedSeconds: number) {
@@ -109,7 +109,7 @@ function barHeight(focusedSeconds: number) {
 
 const chartAriaLabel = computed(() =>
   store.last7Days
-    .map((day) => `${formatDayLabel(day.date)} ${Math.floor(day.focusedSeconds / 60)} 分鐘`)
-    .join('，'),
+    .map((day) => `${formatDayLabel(day.date)} ${Math.floor(day.focusedSeconds / 60)}${t.value.progressPage.minutesUnit}`)
+    .join(t.value.progressPage.listSeparator),
 );
 </script>

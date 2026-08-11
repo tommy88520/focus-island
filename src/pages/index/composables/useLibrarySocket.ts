@@ -1,5 +1,6 @@
 import { ref, computed, type ComputedRef, type Ref } from 'vue';
 import type { QVueGlobals } from 'quasar';
+import { useLocale } from 'src/composables/useLocale';
 import {
   clampOccupancy,
   getFloorLoadPercent as getFloorLoadPercentHelper,
@@ -90,6 +91,7 @@ interface UseLibrarySocketOptions {
  * page leave, mount) — this composable is the toolbox, not the scheduler.
  */
 export function useLibrarySocket(options: UseLibrarySocketOptions) {
+  const { t } = useLocale();
   const {
     userId,
     sessionId,
@@ -504,7 +506,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
 
             if (msg.userId !== userId.value) {
               $q.notify({
-                message: `👋 新同學 ${joinReader.displayName} 進入了圖書館`,
+                message: t.value.librarySocket.newReaderJoined(joinReader.displayName),
                 color: 'amber-9',
                 icon: 'sensors',
                 position: 'top-right',
@@ -530,7 +532,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
             if (isSomeoneElse && isTargetingMySeat) {
               onSeatStolen();
               $q.notify({
-                message: '🛑 哎呀！這個位子剛剛被搶先入座了',
+                message: t.value.librarySocket.seatTakenBySomeoneWhileYouWereAway,
                 color: 'negative',
                 icon: 'priority_high',
                 position: 'top',
@@ -598,7 +600,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
             if (msg.message === 'SEAT_TAKEN') {
               onSeatStolen();
               $q.notify({
-                message: '🛑 慢了一步！這個位子剛剛被別人搶走了',
+                message: t.value.librarySocket.seatTakenBySomeoneElse,
                 color: 'negative',
                 icon: 'block',
                 position: 'top',
@@ -652,7 +654,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
         state: ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][currentSocket.readyState],
       });
       $q.notify({
-        message: '連線發生錯誤，正在嘗試重新連線',
+        message: t.value.librarySocket.connectionError,
         color: 'negative',
         icon: 'wifi_off',
         position: 'top',
@@ -683,7 +685,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
         hasToken: !!tokenPayload?.token,
       });
       $q.notify({
-        message: '無法取得安全連線權杖，請稍後再試',
+        message: t.value.librarySocket.tokenFetchFailed,
         color: 'negative',
         icon: 'vpn_key_off',
         position: 'top',

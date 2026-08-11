@@ -1,4 +1,5 @@
 import { defineRouter } from '#q-app/wrappers';
+import { watch } from 'vue';
 import {
   createMemoryHistory,
   createRouter,
@@ -6,68 +7,8 @@ import {
   createWebHistory,
 } from 'vue-router';
 import routes from './routes';
-
-interface RouteSeoMeta {
-  title?: string;
-  description?: string;
-  robots?: string;
-}
-
-const DEFAULT_SEO: Required<RouteSeoMeta> = {
-  title: 'Focus Island | 專注自習室與番茄鐘',
-  description: 'Focus Island 是可視化的線上專注自習室，提供座位同步、番茄鐘、白噪音與每日專注進度追蹤。',
-  robots: 'index,follow',
-};
-
-const SITE_URL = 'https://focus-island.huangyanming.com';
-const SEO_IMAGE_URL = 'https://imgs.huangyanming.com/Focus-Island.png';
-
-function upsertMeta(attrName: 'name' | 'property', attrValue: string, content: string) {
-  if (typeof document === 'undefined') return;
-
-  let tag = document.head.querySelector(`meta[${attrName}="${attrValue}"]`);
-  if (!tag) {
-    tag = document.createElement('meta');
-    tag.setAttribute(attrName, attrValue);
-    document.head.appendChild(tag);
-  }
-  tag.setAttribute('content', content);
-}
-
-function upsertCanonical(href: string) {
-  if (typeof document === 'undefined') return;
-
-  let tag = document.head.querySelector('link[rel="canonical"]');
-  if (!tag) {
-    tag = document.createElement('link');
-    tag.setAttribute('rel', 'canonical');
-    document.head.appendChild(tag);
-  }
-  tag.setAttribute('href', href);
-}
-
-function applySeoMeta(path: string, seo?: RouteSeoMeta) {
-  if (typeof document === 'undefined') return;
-
-  const title = seo?.title ? `${seo.title} | Focus Island` : DEFAULT_SEO.title;
-  const description = seo?.description || DEFAULT_SEO.description;
-  const robots = seo?.robots || DEFAULT_SEO.robots;
-  const canonical = `${SITE_URL}${path.startsWith('/') ? path : `/${path}`}`;
-
-  document.title = title;
-  upsertMeta('name', 'description', description);
-  upsertMeta('name', 'robots', robots);
-  upsertMeta('property', 'og:title', title);
-  upsertMeta('property', 'og:description', description);
-  upsertMeta('property', 'og:url', canonical);
-  upsertMeta('property', 'og:type', 'website');
-  upsertMeta('property', 'og:image', SEO_IMAGE_URL);
-  upsertMeta('name', 'twitter:title', title);
-  upsertMeta('name', 'twitter:description', description);
-  upsertMeta('name', 'twitter:image', SEO_IMAGE_URL);
-  upsertMeta('name', 'twitter:card', 'summary_large_image');
-  upsertCanonical(canonical);
-}
+import { useLocale } from 'src/composables/useLocale';
+import { applySeoMeta, type RouteSeoMeta } from 'src/utils/seo';
 
 /*
  * If not building with SSR mode, you can
@@ -93,8 +34,17 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     history: createHistory(process.env.VUE_ROUTER_BASE),
   });
 
+  const { locale } = useLocale();
+
   Router.afterEach((to) => {
-    applySeoMeta(to.path, to.meta?.seo as RouteSeoMeta | undefined);
+    applySeoMeta(to.path, locale.value, to.meta?.seo as RouteSeoMeta | undefined);
+  });
+
+  // A language toggle doesn't trigger navigation, so re-apply SEO meta for
+  // the current route whenever the user switches locale.
+  watch(locale, () => {
+    const current = Router.currentRoute.value;
+    applySeoMeta(current.path, locale.value, current.meta?.seo as RouteSeoMeta | undefined);
   });
 
   return Router;

@@ -24,7 +24,7 @@
         class="rounded-3xl border border-slate-200 dark:!border-white/10 bg-slate-50 dark:!bg-slate-900/70 px-3 py-3 shadow-[inset_0_0_40px_rgba(15,23,42,0.55)] sm:px-5 sm:py-5"
       >
         <div class="mb-3 flex items-end justify-between">
-          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-amber-300/90">剩餘時間</p>
+          <p class="text-[10px] font-black uppercase tracking-[0.24em] text-amber-300/90">{{ t.focusClockPanel.remainingTimeLabel }}</p>
           <p class="text-[10px] font-black tracking-[0.14em] text-slate-500 dark:!text-white/60">
             Base {{ formattedBaseDuration }}
           </p>
@@ -40,7 +40,7 @@
 
         <div class="mt-3">
           <div class="mb-1.5 flex items-center justify-between text-[10px] font-black tracking-[0.12em] text-slate-500 dark:!text-white/60">
-            <span>進度</span>
+            <span>{{ t.focusClockPanel.progressLabel }}</span>
             <span>{{ progressPercent }}%</span>
           </div>
           <div class="h-2 rounded-full bg-slate-100 dark:!bg-white/10">
@@ -58,14 +58,14 @@
           class="w-full rounded-2xl py-3.5 text-sm font-black tracking-[0.14em] shadow-2xl transition-all active:scale-[0.98]"
           :class="isRunning ? 'bg-rose-500 text-white shadow-rose-500/30 hover:bg-rose-400' : 'bg-white text-slate-900 shadow-white/20 hover:bg-amber-50'"
         >
-          {{ isRunning ? '結束專注' : '入座' }}
+          {{ isRunning ? t.focusClockPanel.endFocusButton : t.focusClockPanel.startFocusButton }}
         </button>
 
         <button
           @click="$emit('restart-focus-timer')"
           class="w-full rounded-xl border border-amber-300 dark:!border-amber-300/35 bg-amber-50 dark:!bg-amber-400/10 px-3 py-2.5 text-[11px] font-black tracking-[0.08em] text-amber-700 dark:!text-amber-200 transition-all hover:border-amber-400 dark:hover:!border-amber-300/60 hover:bg-amber-100 dark:hover:!bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-45"
         >
-          重新開始
+          {{ t.focusClockPanel.restartButton }}
         </button>
 
         <button
@@ -73,7 +73,7 @@
           @click="$emit('resume-previous-focus')"
           class="w-full rounded-2xl border border-emerald-300/50 bg-emerald-400/10 px-3 py-2.5 text-[11px] font-black tracking-[0.08em] text-emerald-200 transition-all hover:border-emerald-300/70 hover:bg-emerald-400/20"
         >
-          繼續上一段專注
+          {{ t.focusClockPanel.resumeButton }}
           <span class="ml-1 text-emerald-100/80">{{ resumeCandidateLabel }}</span>
         </button>
       </div>
@@ -83,7 +83,7 @@
         @click="showAdvancedFocusControls = !showAdvancedFocusControls"
         class="w-full rounded-xl border border-slate-200 dark:!border-white/15 bg-slate-100 dark:!bg-white/5 px-3 py-2 text-[11px] font-black tracking-[0.1em] text-slate-600 dark:!text-white/85 transition-all hover:border-slate-300 dark:hover:!border-white/30 hover:bg-slate-100 dark:hover:!bg-white/10"
       >
-        {{ showAdvancedFocusControls ? '收合進階設定' : '展開進階設定' }}
+        {{ showAdvancedFocusControls ? t.focusClockPanel.hideAdvancedButton : t.focusClockPanel.showAdvancedButton }}
       </button>
 
       <div
@@ -91,7 +91,7 @@
         class="space-y-3 rounded-2xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 p-3"
       >
         <div class="space-y-2 rounded-xl border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/35 p-3">
-          <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:!text-white/60">專注時長</p>
+          <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 dark:!text-white/60">{{ t.focusClockPanel.focusDurationLabel }}</p>
           <div class="grid grid-cols-3 gap-2">
             <button
               v-for="minutes in focusDurationOptions"
@@ -105,7 +105,7 @@
                   : 'border-slate-200 dark:!border-white/15 bg-white dark:!bg-slate-900/45 text-slate-600 dark:!text-white/85 hover:border-slate-300 dark:hover:!border-white/30 hover:text-slate-900 dark:!text-white'
               "
             >
-              {{ minutes }} 分鐘
+              {{ minutes }} {{ t.focusClockPanel.minutesSuffix }}
             </button>
           </div>
         </div>
@@ -116,14 +116,14 @@
             :disabled="timeLeft === baseDuration && !isRunning"
             class="rounded-xl border border-slate-200 dark:!border-white/15 bg-white dark:!bg-slate-900/45 px-2.5 py-2 text-[11px] font-black tracking-[0.08em] text-slate-700 dark:!text-white/90 transition-all hover:border-slate-300 dark:hover:!border-white/30 hover:bg-slate-50 dark:hover:!bg-slate-900/65 disabled:cursor-not-allowed disabled:opacity-45"
           >
-            重置時間
+            {{ t.focusClockPanel.resetTimeButton }}
           </button>
         </div>
 
         <label
           class="flex items-center justify-between rounded-xl border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/35 px-3 py-2 text-[11px] text-slate-600 dark:!text-white/85"
         >
-          <span class="font-bold tracking-[0.06em]">結束自動重來</span>
+          <span class="font-bold tracking-[0.06em]">{{ t.focusClockPanel.autoRestartLabel }}</span>
           <input
             :checked="autoRestartOnFinish"
             @change="$emit('update:autoRestartOnFinish', ($event.target as HTMLInputElement).checked)"
@@ -134,7 +134,7 @@
 
         <div class="rounded-xl border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/35 p-3 text-left">
           <label for="display-name" class="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:!text-white/65">
-            顯示名稱
+            {{ t.focusClockPanel.displayNameLabel }}
           </label>
           <input
             id="display-name"
@@ -143,7 +143,7 @@
             maxlength="20"
             :disabled="!isEditingDisplayName"
             class="w-full rounded-xl border border-slate-200 dark:!border-white/15 bg-slate-50 dark:!bg-slate-950/70 px-3 py-2 text-sm font-black text-slate-900 dark:!text-white placeholder:text-slate-300 dark:placeholder:text-white/45 focus:outline-none focus:ring-2 focus:ring-amber-400/60 disabled:cursor-not-allowed disabled:opacity-60"
-            placeholder="輸入你想顯示的名稱"
+            :placeholder="t.focusClockPanel.displayNamePlaceholder"
             @keyup.enter="applyDisplayName"
           />
           <div class="mt-3 flex justify-end">
@@ -152,14 +152,14 @@
               class="rounded-lg border border-slate-200 dark:!border-white/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 dark:!text-white/80 hover:border-slate-300 dark:hover:!border-white/40 hover:text-slate-900 dark:!text-white"
               @click="isEditingDisplayName = true"
             >
-              編輯
+              {{ t.focusClockPanel.editButton }}
             </button>
             <button
               v-else
               class="rounded-lg bg-amber-400 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-950 hover:bg-amber-300"
               @click="applyDisplayName"
             >
-              儲存
+              {{ t.focusClockPanel.saveButton }}
             </button>
           </div>
         </div>
@@ -175,6 +175,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { formatTime } from 'src/pages/index/functions/uiHelpers';
+import { useLocale } from 'src/composables/useLocale';
+
+const { t } = useLocale();
 
 const props = defineProps<{
   isRunning: boolean;

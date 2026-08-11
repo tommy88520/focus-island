@@ -16,13 +16,13 @@
               <div
                 class="h-9 w-9 sm:h-12 sm:w-12 rounded-full bg-slate-800 border-2 border-amber-400 text-amber-100 shadow-[0_0_15px_rgba(251,191,36,0.4)] flex items-center justify-center text-xs sm:text-sm font-black"
               >
-                我
+                {{ t.common.meLabel }}
               </div>
               <div
                 class="absolute -bottom-0.5 -right-0.5 h-3 w-3 sm:h-4 sm:w-4 rounded-full border-2 border-slate-900 bg-amber-400 shadow-lg"
               ></div>
             </div>
-            <span class="absolute -bottom-6 text-[8px] font-black uppercase tracking-widest text-amber-400">我</span>
+            <span class="absolute -bottom-6 text-[8px] font-black uppercase tracking-widest text-amber-400">{{ t.common.meLabel }}</span>
           </div>
 
           <div v-else-if="getMateAtSeat(seat.id)" class="flex flex-col items-center">
@@ -55,7 +55,7 @@
     >
       <div class="flex flex-col items-center gap-4">
         <div class="h-12 w-12 border-4 border-amber-400/20 border-t-amber-400 rounded-full animate-spin"></div>
-        <p class="text-amber-400/80 font-black text-[10px] tracking-[0.4em] uppercase">同步樓層 {{ currentFloor }}...</p>
+        <p class="text-amber-400/80 font-black text-[10px] tracking-[0.4em] uppercase">{{ t.seatGrid.syncingFloor(currentFloor) }}</p>
       </div>
     </div>
   </div>
@@ -63,6 +63,9 @@
 
 <script setup lang="ts">
 import type { Reader } from 'src/pages/index/composables/useLibrarySocket';
+import { useLocale } from 'src/composables/useLocale';
+
+const { t } = useLocale();
 
 export interface Seat {
   id: string;

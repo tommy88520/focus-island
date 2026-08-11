@@ -1,10 +1,11 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useLocale, type LocaleKey } from 'src/composables/useLocale';
 
 export type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain' | 'warm' | 'glow';
 
 export interface AudioTrackMeta {
-  name: string;
-  description: string;
+  name: Record<LocaleKey, string>;
+  description: Record<LocaleKey, string>;
   icon: string;
   url: string;
   // 手動音量倍率，用來補償現有素材音檔本身大小聲不一致的問題。
@@ -14,50 +15,50 @@ export interface AudioTrackMeta {
 
 export const audioTracks: Record<AudioTrackKey, AudioTrackMeta> = {
   forest: {
-    name: '靜謐森林',
-    description: '柔和樹葉感',
+    name: { 'zh-TW': '靜謐森林', 'en-US': 'Quiet Forest' },
+    description: { 'zh-TW': '柔和樹葉感', 'en-US': 'Gentle rustling leaves' },
     icon: 'park',
     url: '/music/dany_photo-forestbirds-319791.mp3',
     gain: 0.12,
   },
   ocean: {
-    name: '深海艙',
-    description: '低頻潮汐感',
+    name: { 'zh-TW': '深海艙', 'en-US': 'Deep Sea Cabin' },
+    description: { 'zh-TW': '低頻潮汐感', 'en-US': 'Low tidal hum' },
     icon: 'waves',
     url: '/music/rmultimediaeu-ocean-waves-250310.mp3',
     gain: 0.14,
   },
   silence: {
-    name: '無聲',
-    description: '關閉播放',
+    name: { 'zh-TW': '無聲', 'en-US': 'Silence' },
+    description: { 'zh-TW': '關閉播放', 'en-US': 'Playback off' },
     icon: 'volume_off',
     url: '',
     gain: 0,
   },
   lofi: {
-    name: 'Lofi',
-    description: '暖色低保真',
+    name: { 'zh-TW': 'Lofi', 'en-US': 'Lofi' },
+    description: { 'zh-TW': '暖色低保真', 'en-US': 'Warm lo-fi tone' },
     icon: 'music_note',
     url: '/music/alex-morgan-study-lofi-music-548638.mp3',
     gain: 0.11,
   },
   rain: {
-    name: '下雨聲',
-    description: '細碎雨滴聲',
+    name: { 'zh-TW': '下雨聲', 'en-US': 'Rainfall' },
+    description: { 'zh-TW': '細碎雨滴聲', 'en-US': 'Soft pattering rain' },
     icon: 'water_drop',
     url: '/music/liecio-light-rain-109591.mp3',
     gain: 0.11,
   },
   warm: {
-    name: '溫暖背景樂',
-    description: '柔和氛圍感',
+    name: { 'zh-TW': '溫暖背景樂', 'en-US': 'Warm Ambience' },
+    description: { 'zh-TW': '柔和氛圍感', 'en-US': 'Soft ambient warmth' },
     icon: 'graphic_eq',
     url: '/music/absolutesound-background-music-560443.mp3',
     gain: 0.11,
   },
   glow: {
-    name: '浮光',
-    description: '空靈飄浮感',
+    name: { 'zh-TW': '浮光', 'en-US': 'Glow' },
+    description: { 'zh-TW': '空靈飄浮感', 'en-US': 'Airy, weightless feel' },
     icon: 'auto_awesome',
     url: '/music/paulyudin-background-background-music-574010.mp3',
     gain: 0.11,
@@ -101,6 +102,7 @@ function normalizeVolume(value: unknown) {
  * playback" should auto-start/stop without importing the pomodoro store directly.
  */
 export function useAmbientAudio(isFocusRunning: () => boolean) {
+  const { locale } = useLocale();
   let audioElement: HTMLAudioElement | null = null;
   let fadeTaskId = 0;
 
@@ -256,9 +258,9 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     }
 
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: track.name,
+      title: track.name[locale.value],
       artist: 'Focus Island',
-      album: track.description,
+      album: track.description[locale.value],
     });
   }
 

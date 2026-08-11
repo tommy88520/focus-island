@@ -24,7 +24,7 @@
               : 'text-slate-400 dark:!text-white/50 group-hover:text-slate-500 dark:group-hover:text-white/75'
           "
         >
-          {{ item.floor }}樓
+          {{ t.floorTabs.floorLabel(item.floor) }}
         </span>
         <div class="mt-1 h-1 w-1 rounded-full animate-pulse" :class="item.heatClass"></div>
         <span
@@ -42,6 +42,10 @@
 </template>
 
 <script setup lang="ts">
+import { useLocale } from 'src/composables/useLocale';
+
+const { t } = useLocale();
+
 export interface FloorTabItem {
   floor: number;
   occupancy: number;

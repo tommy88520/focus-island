@@ -16,7 +16,7 @@
         <div class="flex items-center gap-1.5">
           <q-icon :name="audio.selectedAudioTrackMeta.value.icon" size="12px" class="text-amber-600 dark:!text-amber-300/85" />
           <div class="truncate text-[10px] font-black uppercase tracking-[0.15em] text-slate-600 dark:!text-white/80">
-            {{ audio.selectedAudioTrackMeta.value.name }}
+            {{ audio.selectedAudioTrackMeta.value.name[locale] }}
           </div>
         </div>
         <div class="mt-1.5 flex items-center gap-1.5">
@@ -55,7 +55,7 @@
         class="w-full rounded-t-3xl border border-slate-200 dark:!border-white/10 border-b-0 bg-white dark:!bg-slate-950 p-4 sm:mx-auto sm:max-w-md sm:rounded-3xl sm:border-b"
       >
         <div class="mb-3 flex items-center justify-between">
-          <p class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:!text-white/65">音源設定</p>
+          <p class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 dark:!text-white/65">{{ t.ambientAudioPlayer.audioSettingsTitle }}</p>
           <button type="button" class="text-slate-400 dark:!text-white/55 hover:text-slate-900 dark:hover:!text-white" @click="showSettings = false">
             <q-icon name="close" size="18px" />
           </button>
@@ -75,7 +75,7 @@
             "
           >
             <q-icon :name="audio.audioTracks[trackKey].icon" size="18px" />
-            <span class="text-[9px] font-black tracking-tight">{{ audio.audioTracks[trackKey].name }}</span>
+            <span class="text-[9px] font-black tracking-tight">{{ audio.audioTracks[trackKey].name[locale] }}</span>
           </button>
         </div>
 
@@ -83,31 +83,31 @@
           <label
             class="flex items-center justify-between rounded-xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 px-3 py-2 text-[11px] text-slate-600 dark:!text-white/85"
           >
-            跟隨專注自動播放
+            {{ t.ambientAudioPlayer.followFocusLabel }}
             <input v-model="followFocusPlayback" type="checkbox" class="accent-amber-400" />
           </label>
           <label
             class="flex items-center justify-between rounded-xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 px-3 py-2 text-[11px] text-slate-600 dark:!text-white/85"
           >
-            循環播放
+            {{ t.ambientAudioPlayer.loopLabel }}
             <input v-model="audioLoopEnabled" type="checkbox" class="accent-amber-400" />
           </label>
           <label
             class="flex items-center justify-between rounded-xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 px-3 py-2 text-[11px] text-slate-600 dark:!text-white/85"
           >
-            進頁自動播放
+            {{ t.ambientAudioPlayer.autoplayOnLoadLabel }}
             <input v-model="audioAutoPlayOnLoad" type="checkbox" class="accent-amber-400" />
           </label>
           <label
             class="flex items-center justify-between rounded-xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 px-3 py-2 text-[11px] text-slate-600 dark:!text-white/85"
           >
-            預設音源
+            {{ t.ambientAudioPlayer.defaultTrackLabel }}
             <select
               v-model="defaultAudioTrack"
               class="rounded bg-white dark:!bg-slate-900/80 px-2 py-1 text-[10px] text-slate-900 dark:!text-white outline-none"
             >
               <option v-for="trackKey in audio.audioTrackOrder" :key="`default-${trackKey}`" :value="trackKey">
-                {{ audio.audioTracks[trackKey].name }}
+                {{ audio.audioTracks[trackKey].name[locale] }}
               </option>
             </select>
           </label>
@@ -120,11 +120,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { AmbientAudio, AudioTrackKey } from '../composables/useAmbientAudio';
+import { useLocale } from 'src/composables/useLocale';
 
 const props = defineProps<{
   audio: AmbientAudio;
 }>();
 
+const { locale, t } = useLocale();
 const showSettings = ref(false);
 
 // v-model can't write through a prop path directly (vue/no-mutating-props) even
