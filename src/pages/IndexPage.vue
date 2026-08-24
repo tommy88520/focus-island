@@ -105,8 +105,13 @@ const store = usePomodoroStore();
 const DEFAULT_ZONE_CAPACITY = 15;
 
 // --- 狀態控制 ---
-const currentFloor = ref(2);
-const activeZoneId = ref('A');
+// 進站時如果本地記得上一次選的座位，樓層/分區直接從那裡帶入，這樣
+// onMounted 的第一次 reconnectRoomSession 抓的就是正確的房間快照，不用
+// 再多一次樓層切換。`loadLastSeat` 是下面定義的 function declaration，
+// 因為會 hoist 所以這裡可以先用。
+const initialLastSeat = loadLastSeat();
+const currentFloor = ref(initialLastSeat?.floor ?? 2);
+const activeZoneId = ref(initialLastSeat?.zoneId ?? 'A');
 const isLoading = ref(false);
 const selectedSeatId = ref<string | null>(null);
 const isShake = ref(false);
@@ -150,6 +155,42 @@ function handleFocusDurationSelect(minutes: number) {
 
 const FOCUS_PREFS_KEY = 'focus_island_focus_prefs_v1';
 const CURRENT_ROOM_INFO_KEY = 'focus_island_current_room_info_v1';
+
+// --- 上次選的座位（跨次造訪記住座位偏好） ---
+const LAST_SEAT_KEY = 'focus_island_last_seat_v1';
+
+type LastSeatPayload = {
+  seatId: string;
+  floor: number;
+  zoneId: string;
+};
+
+function loadLastSeat(): LastSeatPayload | null {
+  try {
+    const raw = localStorage.getItem(LAST_SEAT_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<LastSeatPayload>;
+    const floor = Number(parsed.floor);
+    const zoneId = String(parsed.zoneId || '');
+    const seatId = String(parsed.seatId || '');
+
+    if (!Number.isFinite(floor) || floor <= 0 || !zoneId || !seatId) return null;
+
+    return { floor, zoneId, seatId };
+  } catch {
+    return null;
+  }
+}
+
+function saveLastSeat(seatId: string, floor: number, zoneId: string) {
+  try {
+    const payload: LastSeatPayload = { seatId, floor, zoneId };
+    localStorage.setItem(LAST_SEAT_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore storage errors (e.g. private mode)
+  }
+}
 
 // --- 入座狀態 flag ---
 const IS_SEATED_FLAG_KEY = 'focus_island_is_seated_v1';
@@ -595,6 +636,7 @@ function selectSeat(id: string) {
   // 標記切換中
   isSwitching.value = true;
   selectedSeatId.value = id;
+  saveLastSeat(id, currentFloor.value, activeZoneId.value);
 
   if (store.isRunning) {
     void audio.startPlayback();
@@ -606,6 +648,31 @@ function selectSeat(id: string) {
   setTimeout(() => {
     isSwitching.value = false;
   }, 500);
+}
+
+// 進站時的座位分配：優先坐回上次選的位置；如果那個位置現在有別人坐著（或
+// 這是第一次來、沒有上次紀錄），就從目前這個分區裡隨機挑一個空位。只在
+// onMounted 執行一次，手動切換樓層/分區不會觸發（那時使用者是自己在瀏覽，
+// 不該幫他亂選位置）。
+function autoAssignSeatOnLoad() {
+  if (selectedSeatId.value || store.isRunning) return;
+
+  const availableSeats = currentSeats.value.filter((seat) => seat.available);
+  if (availableSeats.length === 0) return;
+
+  const lastSeatId = initialLastSeat?.seatId ?? null;
+  const canResumeLastSeat =
+    lastSeatId !== null && availableSeats.some((seat) => seat.id === lastSeatId);
+
+  if (canResumeLastSeat && lastSeatId) {
+    selectSeat(lastSeatId);
+    return;
+  }
+
+  const randomSeat = availableSeats[Math.floor(Math.random() * availableSeats.length)];
+  if (!randomSeat) return;
+
+  selectSeat(randomSeat.id);
 }
 
 // --- 操作方法 ---
@@ -755,7 +822,11 @@ watch(
 onMounted(() => {
   loadFocusPreferences();
   loadResumeCandidate();
-  void reconnectRoomSession();
+  // 等第一次 reconnectRoomSession 把座位快照抓回來（seatSnapshotMap 才會有
+  // 正確的佔用狀態）才能判斷上次的座位還在不在，所以自動選位接在它後面。
+  void reconnectRoomSession().then(() => {
+    autoAssignSeatOnLoad();
+  });
   librarySocket.startFloorPollingTimer();
   document.addEventListener('visibilitychange', librarySocket.handleVisibilityChange);
 });
