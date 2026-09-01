@@ -1,5 +1,5 @@
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-slate-950 p-3 pb-24 text-amber-50 sm:p-4 sm:pb-28">
+  <div class="no-scrollbar flex h-screen items-center justify-center overflow-y-auto bg-slate-950 p-3 pb-24 text-amber-50 sm:p-4 sm:pb-28">
     <div class="w-full max-w-sm">
       <FocusClockPanel
         :is-running="store.isRunning"
@@ -174,3 +174,16 @@ onMounted(() => {
   loadFocusPreferences();
 });
 </script>
+
+<style scoped>
+/* Iframe embed — the browser's default scrollbar chrome looks out of place
+   in a small floating panel, so hide it while keeping the scroll itself. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+</style>

@@ -165,7 +165,10 @@
         </div>
       </div>
 
-      <div class="rounded-xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 px-3.5 py-2.5 text-left mt-3.5">
+      <div
+        v-if="selectedSeatLabel"
+        class="rounded-xl border border-slate-200 dark:!border-white/10 bg-slate-100 dark:!bg-white/5 px-3.5 py-2.5 text-left mt-3.5"
+      >
         <p class="text-[11px] font-bold tracking-[0.06em] text-slate-500 dark:!text-white/70">{{ selectedSeatLabel }}</p>
       </div>
     </div>
