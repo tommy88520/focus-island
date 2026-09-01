@@ -38,6 +38,23 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
+  // Standalone, layout-less route meant to be loaded inside an <iframe> on
+  // other sites — just the Pomodoro timer, no header/nav/seat-map chrome.
+  {
+    path: '/widget',
+    component: () => import('pages/WidgetPage.vue'),
+    meta: {
+      seo: {
+        title: { 'en-US': 'Focus Island Widget', 'zh-TW': 'Focus Island 小工具' },
+        description: {
+          'en-US': 'Embeddable Pomodoro timer widget for other sites.',
+          'zh-TW': '可嵌入其他網站的番茄鐘小工具。',
+        },
+        robots: 'noindex,nofollow',
+      },
+    },
+  },
+
   // Always leave this as last one,
   // but you can also remove it
   {
