@@ -1,5 +1,5 @@
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-slate-950 p-3 text-amber-50 sm:p-4">
+  <div class="flex min-h-screen items-center justify-center bg-slate-950 p-3 pb-24 text-amber-50 sm:p-4 sm:pb-28">
     <div class="w-full max-w-sm">
       <FocusClockPanel
         :is-running="store.isRunning"
@@ -22,13 +22,16 @@
       />
     </div>
   </div>
+
+  <AmbientAudioPlayer :audio="audio" />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useQuasar } from 'quasar';
+import { Dark, useQuasar } from 'quasar';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 import { useAmbientAudio } from 'src/pages/index/composables/useAmbientAudio';
+import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vue';
 import FocusClockPanel from 'src/pages/index/components/FocusClockPanel.vue';
 import { formatTime } from 'src/pages/index/functions/uiHelpers';
 import { useLocale } from 'src/composables/useLocale';
@@ -39,6 +42,14 @@ import { useLocale } from 'src/composables/useLocale';
 // gated on having a seat selected.
 const $q = useQuasar();
 const { t } = useLocale();
+
+// MainLayout.vue is what normally calls Dark.set() (it's a light/dark
+// toggle there) — this route skips MainLayout entirely, so without this
+// Tailwind's `dark:` variant (scoped to body.body--dark, see app.scss)
+// never activates and every dark: class throughout FocusClockPanel /
+// AmbientAudioPlayer falls back to its light-mode look. This widget is
+// meant for dark-themed host pages, so just force it on.
+Dark.set(true);
 
 const store = usePomodoroStore();
 
