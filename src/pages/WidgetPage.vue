@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { Dark, useQuasar } from 'quasar';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 import { useAmbientAudio } from 'src/pages/index/composables/useAmbientAudio';
@@ -169,6 +169,52 @@ function resetFocusTimer() {
     audio.stopPlayback();
   }
 }
+
+// The timer.worker posts FINISHED when it naturally counts down to 0, and
+// the store just flips isRunning to false in response — it never touches
+// audio.stopPlayback() (audio is owned outside the store on purpose). Without
+// this watcher, a session that ends on its own (as opposed to the user
+// clicking "結束專注") leaves the ambient track looping forever.
+function handleFocusFinished() {
+  audio.stopPlayback();
+
+  if (autoRestartOnFinish.value) {
+    store.resetTimer();
+    store.startTimer();
+
+    if (audio.followFocusPlayback.value) {
+      void audio.startPlayback();
+    }
+
+    $q.notify({
+      message: t.value.indexPage.notifyAutoRestarted,
+      color: 'amber-9',
+      icon: 'autorenew',
+      timeout: 2200,
+      position: 'top',
+      classes: 'font-black tracking-tighter',
+    });
+    return;
+  }
+
+  $q.notify({
+    message: t.value.indexPage.notifySessionComplete,
+    color: 'positive',
+    icon: 'task_alt',
+    timeout: 2600,
+    position: 'top',
+    classes: 'font-black tracking-tighter',
+  });
+}
+
+watch(
+  () => store.isRunning,
+  (isRunning, wasRunning) => {
+    if (wasRunning && !isRunning && store.timeLeft <= 0) {
+      handleFocusFinished();
+    }
+  },
+);
 
 onMounted(() => {
   loadFocusPreferences();
