@@ -11,12 +11,11 @@
       @blur="keys.clear()"
     >
       <canvas ref="canvasRef" class="block h-full w-full" />
-      <p
-        class="pointer-events-none absolute bottom-2 left-2 right-2 rounded-lg bg-slate-950/55 px-2 py-1 text-center text-[10px] font-bold tracking-wide text-white/75 backdrop-blur-sm"
-      >
-        {{ isTouch ? t.seatScene.hintTouch : t.seatScene.hintDesktop }}
-      </p>
     </div>
+
+    <p class="mt-2 px-2 text-center text-[10px] font-bold tracking-wide text-slate-500 dark:!text-white/55">
+      {{ isTouch ? t.seatScene.hintTouch : t.seatScene.hintDesktop }}
+    </p>
 
     <div
       v-if="isLoading"
