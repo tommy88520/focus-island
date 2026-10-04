@@ -42,9 +42,11 @@
               :is-shake="isShake"
               :is-loading="isLoading"
               :current-floor="currentFloor"
+              :floors="floorTabItems.map((f) => f.floor)"
               :disabled="store.isRunning"
               :get-mate-at-seat="librarySocket.getMateAtSeat"
               @select="selectSeat"
+              @change-floor="currentFloor = $event"
               @webgl-failed="use3d = false"
             />
             <SeatGrid

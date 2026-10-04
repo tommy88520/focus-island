@@ -4,7 +4,7 @@
 // 合成的做法是「穩定的底噪 + 隨機觸發的事件（雨滴、浪、翻書…）」，每次聽都不一樣，
 // 也沒有循環點。所有隨機事件都是排程在 AudioContext 時間軸上，不依賴 setTimeout 的精度。
 
-export type SynthKind = 'rain' | 'ocean' | 'library';
+export type SynthKind = 'rain' | 'ocean' | 'library' | 'blues' | 'classical';
 
 interface NoiseBuffers {
   pink: AudioBuffer;
@@ -395,10 +395,360 @@ const buildLibrary: SessionFactory = (ctx, noise, out, track) => {
   );
 };
 
+
+// ---------- 音樂：樂器 ----------
+
+const midiToHz = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
+const pick = <T>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)] as T;
+
+// 房間迴響：用指數衰減的雙聲道噪音當脈衝響應
+function createReverbBus(ctx: AudioContext, out: AudioNode, seconds: number, wetLevel: number): GainNode {
+  const length = Math.floor(ctx.sampleRate * seconds);
+  const impulse = ctx.createBuffer(2, length, ctx.sampleRate);
+  for (let channel = 0; channel < 2; channel += 1) {
+    const data = impulse.getChannelData(channel);
+    for (let i = 0; i < length; i += 1) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 2.6;
+    }
+  }
+  const convolver = ctx.createConvolver();
+  convolver.buffer = impulse;
+  const send = gainNode(ctx, wetLevel);
+  const bus = gainNode(ctx, 1);
+  bus.connect(out);
+  bus.connect(send).connect(convolver).connect(out);
+  return bus;
+}
+
+// 每個音符都是一組臨時的振盪器；必須在排定時間才啟動（包絡的增益預設是 1，提早啟動會立刻出聲），結束後自己斷線並從追蹤清單移除
+function voiceEnd(track: Tracker, sources: AudioScheduledSourceNode[], nodes: AudioNode[], startTime: number, endTime: number): void {
+  for (const source of sources) {
+    track.addSource(source);
+    source.start(startTime);
+    source.stop(endTime);
+  }
+  const last = sources[0];
+  if (!last) return;
+  last.onended = () => {
+    for (const node of nodes) node.disconnect();
+    track.sources = track.sources.filter((src) => !sources.includes(src));
+  };
+}
+
+// 電鋼琴（Rhodes 風格）：FM 合成，調變量隨時間衰減，所以音頭明亮、尾巴圓潤
+function playRhodes(ctx: AudioContext, bus: AudioNode, track: Tracker, when: number, midi: number, duration: number, velocity: number, pan: number): void {
+  const frequency = midiToHz(midi);
+  const carrier = ctx.createOscillator();
+  carrier.frequency.value = frequency;
+  const modulator = ctx.createOscillator();
+  modulator.frequency.value = frequency;
+  const modulation = ctx.createGain();
+  const index = frequency * (0.9 + velocity * 1.6);
+  modulation.gain.setValueAtTime(index, when);
+  modulation.gain.exponentialRampToValueAtTime(frequency * 0.08, when + duration * 0.7);
+  modulator.connect(modulation).connect(carrier.frequency);
+
+  // 高八度的金屬音叉泛音
+  const tine = ctx.createOscillator();
+  tine.frequency.value = frequency * 4;
+  const tineGain = gainNode(ctx, 0);
+  tineGain.gain.setValueAtTime(velocity * 0.05, when);
+  tineGain.gain.exponentialRampToValueAtTime(0.0001, when + 0.18);
+  tine.connect(tineGain);
+
+  const envelope = ctx.createGain();
+  envelope.gain.setValueAtTime(0.0001, when);
+  envelope.gain.linearRampToValueAtTime(velocity * 0.22, when + 0.006);
+  envelope.gain.setTargetAtTime(0, when + 0.02, duration / 3.2);
+  const panner = ctx.createStereoPanner();
+  panner.pan.value = pan;
+
+  carrier.connect(envelope);
+  tineGain.connect(envelope);
+  envelope.connect(panner).connect(bus);
+  voiceEnd(track, [carrier, modulator, tine], [envelope, modulation, tineGain, panner], when, when + duration + 0.4);
+}
+
+// 貝斯：三角波加一個八度下的正弦，低通後很圓
+function playBass(ctx: AudioContext, bus: AudioNode, track: Tracker, when: number, midi: number, duration: number, velocity: number): void {
+  const frequency = midiToHz(midi);
+  const body = ctx.createOscillator();
+  body.type = 'triangle';
+  body.frequency.value = frequency;
+  const sub = ctx.createOscillator();
+  sub.frequency.value = frequency;
+  const filter = biquad(ctx, 'lowpass', 520 + velocity * 500, 0.8);
+  const envelope = ctx.createGain();
+  envelope.gain.setValueAtTime(0.0001, when);
+  envelope.gain.linearRampToValueAtTime(velocity * 0.42, when + 0.012);
+  envelope.gain.setTargetAtTime(0, when + 0.05, duration / 3);
+  body.connect(filter);
+  sub.connect(filter);
+  filter.connect(envelope).connect(bus);
+  voiceEnd(track, [body, sub], [filter, envelope], when, when + duration + 0.3);
+}
+
+// 主奏（吉他／薩克斯之間的音色）：鋸齒波低通，帶輕微顫音
+function playLead(ctx: AudioContext, bus: AudioNode, track: Tracker, when: number, midi: number, duration: number, velocity: number, pan: number): void {
+  const frequency = midiToHz(midi);
+  const oscillator = ctx.createOscillator();
+  oscillator.type = 'sawtooth';
+  oscillator.frequency.value = frequency;
+  const vibrato = ctx.createOscillator();
+  vibrato.frequency.value = rand(4.6, 5.8);
+  const vibratoDepth = gainNode(ctx, 0);
+  vibratoDepth.gain.setValueAtTime(0, when);
+  vibratoDepth.gain.linearRampToValueAtTime(rand(6, 12), when + duration * 0.6);
+  vibrato.connect(vibratoDepth).connect(oscillator.detune);
+  const filter = biquad(ctx, 'lowpass', 1500 + velocity * 1400, 1.1);
+  filter.frequency.setValueAtTime(900, when);
+  filter.frequency.linearRampToValueAtTime(1500 + velocity * 1400, when + 0.08);
+  const envelope = ctx.createGain();
+  envelope.gain.setValueAtTime(0.0001, when);
+  envelope.gain.linearRampToValueAtTime(velocity * 0.06, when + 0.035);
+  envelope.gain.setTargetAtTime(velocity * 0.04, when + 0.06, 0.15);
+  envelope.gain.setTargetAtTime(0, when + duration, 0.07);
+  const panner = ctx.createStereoPanner();
+  panner.pan.value = pan;
+  oscillator.connect(filter).connect(envelope).connect(panner).connect(bus);
+  voiceEnd(track, [oscillator, vibrato], [vibratoDepth, filter, envelope, panner], when, when + duration + 0.6);
+}
+
+// 原音鋼琴：基音 + 泛音 + 輕微失諧的第二根弦，低音比高音共鳴更久
+function playPiano(ctx: AudioContext, bus: AudioNode, track: Tracker, when: number, midi: number, velocity: number, pan: number): void {
+  const frequency = midiToHz(midi);
+  const decay = Math.max(1.3, Math.min(3.6, 3.7 - (midi - 48) * 0.035));
+  const fundamental = ctx.createOscillator();
+  fundamental.frequency.value = frequency;
+  const second = ctx.createOscillator();
+  second.frequency.value = frequency * 2;
+  const stringPair = ctx.createOscillator();
+  stringPair.type = 'triangle';
+  stringPair.frequency.value = frequency * 1.0035;
+
+  const partials = ctx.createGain();
+  const secondGain = gainNode(ctx, 0.3);
+  const pairGain = gainNode(ctx, 0.35);
+  fundamental.connect(partials);
+  second.connect(secondGain).connect(partials);
+  stringPair.connect(pairGain).connect(partials);
+
+  const filter = biquad(ctx, 'lowpass', 1800 + velocity * 3200, 0.5);
+  filter.frequency.setValueAtTime(1800 + velocity * 3200, when);
+  filter.frequency.exponentialRampToValueAtTime(900, when + decay * 0.8);
+  const envelope = ctx.createGain();
+  envelope.gain.setValueAtTime(0.0001, when);
+  envelope.gain.linearRampToValueAtTime(velocity * 0.2, when + 0.004);
+  envelope.gain.setTargetAtTime(0, when + 0.012, decay / 4.2);
+  const panner = ctx.createStereoPanner();
+  panner.pan.value = pan;
+  partials.connect(filter).connect(envelope).connect(panner).connect(bus);
+  voiceEnd(track, [fundamental, second, stringPair], [partials, secondGain, pairGain, filter, envelope, panner], when, when + decay + 0.6);
+}
+
+// 弦樂長音墊底（大提琴低音）
+function playPad(ctx: AudioContext, bus: AudioNode, track: Tracker, when: number, midi: number, duration: number, level: number): void {
+  const frequency = midiToHz(midi);
+  const sources: OscillatorNode[] = [];
+  const filter = biquad(ctx, 'lowpass', 520, 0.6);
+  const envelope = ctx.createGain();
+  envelope.gain.setValueAtTime(0.0001, when);
+  envelope.gain.linearRampToValueAtTime(level, when + duration * 0.35);
+  envelope.gain.linearRampToValueAtTime(0.0001, when + duration);
+  for (const detune of [-7, 7]) {
+    const oscillator = ctx.createOscillator();
+    oscillator.type = 'sawtooth';
+    oscillator.frequency.value = frequency;
+    oscillator.detune.value = detune;
+    oscillator.connect(filter);
+    sources.push(oscillator);
+  }
+  filter.connect(envelope).connect(bus);
+  voiceEnd(track, sources, [filter, envelope], when, when + duration + 0.2);
+}
+
+function playKick(ctx: AudioContext, bus: AudioNode, track: Tracker, when: number, velocity: number): void {
+  const oscillator = ctx.createOscillator();
+  oscillator.frequency.setValueAtTime(115, when);
+  oscillator.frequency.exponentialRampToValueAtTime(42, when + 0.13);
+  const envelope = ctx.createGain();
+  envelope.gain.setValueAtTime(velocity * 0.28, when);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, when + 0.28);
+  oscillator.connect(envelope).connect(bus);
+  voiceEnd(track, [oscillator], [envelope], when, when + 0.32);
+}
+
+// ---------- 音樂：藍調 ----------
+
+const BLUES_BPM = 68;
+const BLUES_ROOT_MIDI = 57; // A3
+// 十二小節藍調：I I I I IV IV I I V IV I V（以半音距離表示和弦根音）
+const BLUES_PROGRESSION = [0, 0, 0, 0, 5, 5, 0, 0, 7, 5, 0, 7];
+const BLUES_SCALE = [0, 3, 5, 6, 7, 10, 12, 15, 17, 18, 19, 22];
+const COMP_PATTERNS: number[][] = [[0, 7], [0, 5, 8], [0, 6], [0, 4, 8], [0, 7, 10]];
+
+function seventhVoicing(rootMidi: number): number[] {
+  const base = [rootMidi + 4, rootMidi + 7, rootMidi + 10, rootMidi + 14];
+  const mean = base.reduce((sum, note) => sum + note, 0) / base.length;
+  const shift = Math.round((64 - mean) / 12) * 12;
+  return base.map((note) => note + shift);
+}
+
+const buildBlues: SessionFactory = (ctx, noise, out, track) => {
+  const bus = createReverbBus(ctx, out, 2.0, 0.22);
+  const beat = 60 / BLUES_BPM;
+  const stepSeconds = beat / 3; // 每拍三連音，兩短一長就是搖擺感
+  let step = 0;
+  let compPattern = COMP_PATTERNS[0] as number[];
+
+  scheduleEvents(
+    ctx,
+    track,
+    (rawWhen) => {
+      const when = rawWhen + rand(-0.006, 0.012);
+      const barInChorus = Math.floor(step / 12) % 12;
+      const chorus = Math.floor(step / 144);
+      const stepInBar = step % 12;
+      const rootOffset = BLUES_PROGRESSION[barInChorus] as number;
+      const nextOffset = BLUES_PROGRESSION[(barInChorus + 1) % 12] as number;
+      const rootMidi = BLUES_ROOT_MIDI + rootOffset;
+
+      if (stepInBar === 0) compPattern = pick(COMP_PATTERNS);
+
+      // 電鋼琴伴奏：七和弦，音符之間有一點掃弦的時差
+      if (compPattern.includes(stepInBar)) {
+        const voicing = seventhVoicing(rootMidi);
+        const velocity = stepInBar === 0 ? rand(0.55, 0.75) : rand(0.35, 0.55);
+        voicing.forEach((note, index) => {
+          if (Math.random() < 0.9) {
+            playRhodes(ctx, bus, track, when + index * 0.014, note, beat * 1.6, velocity, rand(-0.3, 0.3));
+          }
+        });
+      }
+
+      // 走動貝斯：根音、三音、五音、六音；換和弦前用半音接到下一個根音
+      if (stepInBar % 3 === 0) {
+        const beatIndex = stepInBar / 3;
+        const bassRoot = rootMidi - 12;
+        const walk = [0, 4, 7, 9];
+        let note = bassRoot + (walk[beatIndex] as number);
+        if (beatIndex === 3 && nextOffset !== rootOffset) {
+          note = BLUES_ROOT_MIDI - 12 + nextOffset + (nextOffset > rootOffset ? -1 : 1);
+        }
+        playBass(ctx, bus, track, when, note, beat * 0.85, beatIndex === 0 ? rand(0.7, 0.9) : rand(0.5, 0.7));
+      }
+
+      // 鼓：搖擺的 ride、輕柔的底鼓、刷子軍鼓
+      if (stepInBar % 3 !== 1) {
+        burst(ctx, bus, track, {
+          buffer: noise.pink,
+          when,
+          duration: stepInBar % 3 === 0 ? 0.22 : 0.12,
+          attack: 0.002,
+          peak: stepInBar % 3 === 0 ? rand(0.05, 0.08) : rand(0.025, 0.045),
+          filter: 'highpass',
+          frequency: 7200,
+          q: 0.7,
+          pan: 0.25,
+        });
+      }
+      if (stepInBar === 0 || (stepInBar === 6 && Math.random() < 0.6)) {
+        playKick(ctx, bus, track, when, rand(0.35, 0.55));
+      }
+      if (stepInBar === 3 || stepInBar === 9) {
+        burst(ctx, bus, track, {
+          buffer: noise.pink,
+          when,
+          duration: 0.2,
+          attack: 0.008,
+          peak: rand(0.05, 0.08),
+          filter: 'bandpass',
+          frequency: 3000,
+          q: 0.6,
+          pan: -0.2,
+        });
+      }
+
+      // 主奏：奇數合唱必定即興，偶數合唱偶爾出現；只在小節開頭起句
+      if (stepInBar === 0 && barInChorus % 2 === 0 && Math.random() < (chorus % 2 === 1 ? 0.75 : 0.25)) {
+        let index = Math.floor(rand(4, 9));
+        let offsetSteps = Math.floor(rand(1, 4));
+        const noteCount = Math.floor(rand(3, 7));
+        for (let i = 0; i < noteCount && offsetSteps < 20; i += 1) {
+          const last = i === noteCount - 1;
+          const length = last ? Math.floor(rand(4, 8)) : Math.floor(rand(1, 4));
+          playLead(ctx, bus, track, when + offsetSteps * stepSeconds, BLUES_ROOT_MIDI + (BLUES_SCALE[index] as number), length * stepSeconds, rand(0.6, 0.9), 0.15);
+          offsetSteps += length;
+          index = Math.max(0, Math.min(BLUES_SCALE.length - 1, index + (pick([-2, -1, -1, 0, 1, 1, 2]))));
+        }
+      }
+
+      step += 1;
+      return stepSeconds;
+    },
+    0.4,
+  );
+};
+
+// ---------- 音樂：古典鋼琴 ----------
+
+const CLASSICAL_BPM = 62;
+// 每小節五個音（低音、次低音、三個高音），照巴哈 C 大調前奏曲的和聲走向，最後回到主和弦後循環
+const CLASSICAL_BARS: number[][] = [
+  [60, 64, 67, 72, 76],
+  [60, 62, 69, 74, 77],
+  [59, 62, 67, 74, 77],
+  [60, 64, 67, 72, 76],
+  [60, 64, 69, 76, 81],
+  [60, 62, 69, 74, 78],
+  [59, 62, 67, 74, 79],
+  [59, 60, 64, 67, 72],
+  [57, 60, 64, 67, 72],
+  [54, 60, 62, 69, 72],
+  [55, 59, 62, 67, 71],
+  [55, 60, 62, 65, 67],
+  [48, 55, 60, 64, 67],
+];
+
+const buildClassical: SessionFactory = (ctx, _noise, out, track) => {
+  const bus = createReverbBus(ctx, out, 2.8, 0.34);
+  const baseStep = 60 / CLASSICAL_BPM / 4;
+  let step = 0;
+
+  scheduleEvents(
+    ctx,
+    track,
+    (rawWhen) => {
+      const when = rawWhen + rand(-0.004, 0.014);
+      const barIndex = Math.floor(step / 16) % CLASSICAL_BARS.length;
+      const stepInBar = step % 16;
+      const chord = CLASSICAL_BARS[barIndex] as number[];
+
+      // 每小節 8 個音的琶音，重複兩次：低、次低、高三音上去再回來
+      const pattern = [0, 1, 2, 3, 4, 2, 3, 4];
+      const note = chord[pattern[stepInBar % 8] as number] as number;
+      const accent = stepInBar % 8 === 0 ? 1.15 : stepInBar % 2 === 0 ? 0.95 : 0.8;
+      playPiano(ctx, bus, track, when, note, rand(0.5, 0.7) * accent, (note - 66) / 40);
+
+      // 小節開頭加一條低八度的弦樂長音
+      if (stepInBar === 0) {
+        playPad(ctx, bus, track, when, (chord[0] as number) - 12, baseStep * 16 * 1.05, 0.06);
+      }
+
+      step += 1;
+      // 速度緩慢地呼吸：像真人演奏的 rubato
+      return baseStep * (1 + 0.05 * Math.sin(step / 38));
+    },
+    0.4,
+  );
+};
+
 const factories: Record<SynthKind, SessionFactory> = {
   rain: buildRain,
   ocean: buildOcean,
   library: buildLibrary,
+  blues: buildBlues,
+  classical: buildClassical,
 };
 
 // ---------- 播放器 ----------

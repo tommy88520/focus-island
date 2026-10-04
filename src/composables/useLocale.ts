@@ -91,6 +91,12 @@ const translations = {
     seatGrid: {
       syncingFloor: (floor: number) => `同步樓層 ${floor}...`,
     },
+    seatScene: {
+      hintDesktop: 'WASD／方向鍵移動 · 空白鍵入座 · 點地板或座位走過去',
+      hintTouch: '點地板走過去 · 點座位入座 · 走到樓梯換樓層',
+      stairUp: (floor: number) => `↑ ${floor}F`,
+      stairDown: (floor: number) => `↓ ${floor}F`,
+    },
     floorTabs: {
       floorLabel: (floor: number) => `${floor}樓`,
     },
@@ -200,6 +206,12 @@ const translations = {
     },
     seatGrid: {
       syncingFloor: (floor: number) => `Syncing floor ${floor}...`,
+    },
+    seatScene: {
+      hintDesktop: 'WASD / arrows to move · Space to sit · click the floor or a seat to walk there',
+      hintTouch: 'Tap the floor to walk · tap a seat to sit · walk to the stairs to change floor',
+      stairUp: (floor: number) => `↑ ${floor}F`,
+      stairDown: (floor: number) => `↓ ${floor}F`,
     },
     floorTabs: {
       floorLabel: (floor: number) => `F${floor}`,

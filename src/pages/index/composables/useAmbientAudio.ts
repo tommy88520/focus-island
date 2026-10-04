@@ -2,7 +2,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useLocale, type LocaleKey } from 'src/composables/useLocale';
 import { createSynthPlayer, type SynthKind } from 'src/pages/index/composables/synthAmbience';
 
-export type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain' | 'warm' | 'glow' | 'library';
+export type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain' | 'warm' | 'glow' | 'library' | 'blues' | 'classical';
 
 export interface AudioTrackMeta {
   name: Record<LocaleKey, string>;
@@ -31,6 +31,22 @@ export const audioTracks: Record<AudioTrackKey, AudioTrackMeta> = {
     url: '',
     synth: 'ocean',
     gain: 0.5,
+  },
+  blues: {
+    name: { 'zh-TW': '藍調', 'en-US': 'Blues' },
+    description: { 'zh-TW': '慢速搖擺、電鋼琴與走動貝斯', 'en-US': 'Slow shuffle, electric piano, walking bass' },
+    icon: 'nightlife',
+    url: '',
+    synth: 'blues',
+    gain: 0.15,
+  },
+  classical: {
+    name: { 'zh-TW': '古典鋼琴', 'en-US': 'Classical Piano' },
+    description: { 'zh-TW': '巴哈風格的緩慢琶音', 'en-US': 'Slow Bach-style arpeggios' },
+    icon: 'piano',
+    url: '',
+    synth: 'classical',
+    gain: 0.26,
   },
   library: {
     name: { 'zh-TW': '圖書館', 'en-US': 'Library' },
@@ -82,8 +98,10 @@ export const audioTrackOrder: AudioTrackKey[] = [
   'library',
   'forest',
   'ocean',
-  'lofi',
   'rain',
+  'lofi',
+  'blues',
+  'classical',
   'warm',
   'glow',
   'silence',
