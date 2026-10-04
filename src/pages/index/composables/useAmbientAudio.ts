@@ -1,13 +1,16 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useLocale, type LocaleKey } from 'src/composables/useLocale';
+import { createSynthPlayer, type SynthKind } from 'src/pages/index/composables/synthAmbience';
 
-export type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain' | 'warm' | 'glow';
+export type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain' | 'warm' | 'glow' | 'library';
 
 export interface AudioTrackMeta {
   name: Record<LocaleKey, string>;
   description: Record<LocaleKey, string>;
   icon: string;
   url: string;
+  // 有值時改用 Web Audio 即時合成，不載入 url 的音檔（見 synthAmbience.ts）。
+  synth?: SynthKind;
   // 手動音量倍率，用來補償現有素材音檔本身大小聲不一致的問題。
   // 之後換成音量已經正規化過的音源，這個欄位應該可以整個拿掉。
   gain: number;
@@ -22,11 +25,20 @@ export const audioTracks: Record<AudioTrackKey, AudioTrackMeta> = {
     gain: 0.12,
   },
   ocean: {
-    name: { 'zh-TW': '深海艙', 'en-US': 'Deep Sea Cabin' },
-    description: { 'zh-TW': '低頻潮汐感', 'en-US': 'Low tidal hum' },
+    name: { 'zh-TW': '海浪', 'en-US': 'Ocean Waves' },
+    description: { 'zh-TW': '一道道湧上岸的浪', 'en-US': 'Waves rolling onto the shore' },
     icon: 'waves',
-    url: '/music/rmultimediaeu-ocean-waves-250310.mp3',
-    gain: 0.14,
+    url: '',
+    synth: 'ocean',
+    gain: 0.5,
+  },
+  library: {
+    name: { 'zh-TW': '圖書館', 'en-US': 'Library' },
+    description: { 'zh-TW': '空調、翻書與遠處打字聲', 'en-US': 'Air-con hum, page turns, distant typing' },
+    icon: 'local_library',
+    url: '',
+    synth: 'library',
+    gain: 0.6,
   },
   silence: {
     name: { 'zh-TW': '無聲', 'en-US': 'Silence' },
@@ -46,8 +58,9 @@ export const audioTracks: Record<AudioTrackKey, AudioTrackMeta> = {
     name: { 'zh-TW': '下雨聲', 'en-US': 'Rainfall' },
     description: { 'zh-TW': '細碎雨滴聲', 'en-US': 'Soft pattering rain' },
     icon: 'water_drop',
-    url: '/music/liecio-light-rain-109591.mp3',
-    gain: 0.11,
+    url: '',
+    synth: 'rain',
+    gain: 0.5,
   },
   warm: {
     name: { 'zh-TW': '溫暖背景樂', 'en-US': 'Warm Ambience' },
@@ -66,6 +79,7 @@ export const audioTracks: Record<AudioTrackKey, AudioTrackMeta> = {
 };
 
 export const audioTrackOrder: AudioTrackKey[] = [
+  'library',
   'forest',
   'ocean',
   'lofi',
@@ -104,6 +118,7 @@ function normalizeVolume(value: unknown) {
 export function useAmbientAudio(isFocusRunning: () => boolean) {
   const { locale } = useLocale();
   let audioElement: HTMLAudioElement | null = null;
+  const synthPlayer = createSynthPlayer();
   let fadeTaskId = 0;
 
   const selectedAudioTrack = ref<AudioTrackKey>('lofi');
@@ -209,7 +224,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   }
 
   function handleAudioPlaybackError() {
-    const fallbackOrder: AudioTrackKey[] = ['rain', 'forest', 'silence'];
+    const fallbackOrder: AudioTrackKey[] = ['lofi', 'forest', 'silence'];
     const fallback = fallbackOrder.find((key) => key !== selectedAudioTrack.value);
 
     if (!fallback) {
@@ -231,6 +246,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
 
   function stopPlayback() {
     fadeTaskId += 1;
+    synthPlayer.stop();
     if (audioElement) {
       try {
         audioElement.pause();
@@ -287,13 +303,36 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     }
   }
 
+  async function startSynthPlayback(kind: SynthKind) {
+    // 從 mp3 切過來：先淡出並停掉 <audio>，避免兩邊同時出聲
+    if (audioElement && !audioElement.paused) {
+      await fadeAudioVolume(0);
+      audioElement.pause();
+    }
+
+    try {
+      await synthPlayer.start(kind, getTrackVolume());
+      isAudioPlaying.value = true;
+      updateMediaSessionMetadata();
+      updateMediaSessionPlaybackState();
+    } catch {
+      isAudioPlaying.value = false;
+    }
+  }
+
   async function startPlayback() {
     const track = audioTracks[selectedAudioTrack.value];
-    if (!track || selectedAudioTrack.value === 'silence' || !track.url) {
+    if (!track || selectedAudioTrack.value === 'silence' || (!track.url && !track.synth)) {
       stopPlayback();
       return;
     }
 
+    if (track.synth) {
+      await startSynthPlayback(track.synth);
+      return;
+    }
+
+    if (synthPlayer.isPlaying) synthPlayer.stop();
     const player = ensureAudioElement();
     player.loop = audioLoopEnabled.value;
 
@@ -370,6 +409,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     if (audioElement) {
       audioElement.volume = getTrackVolume();
     }
+    synthPlayer.setVolume(getTrackVolume());
 
     saveAudioPreferences();
   }
@@ -420,6 +460,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   onUnmounted(() => {
     saveAudioPreferences();
     stopPlayback();
+    synthPlayer.dispose();
     if (audioElement) {
       audioElement.removeEventListener('error', handleAudioPlaybackError);
     }
