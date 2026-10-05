@@ -1,12 +1,12 @@
 <template>
   <div
-    class="mb-6 flex items-center gap-4 overflow-x-auto border-b border-slate-200 dark:!border-white/5 no-scrollbar sm:mb-10 sm:gap-6"
+    class="mb-3 flex items-center gap-4 overflow-x-auto border-b border-slate-200 dark:!border-white/5 no-scrollbar sm:gap-6"
   >
     <button
       v-for="zone in zones"
       :key="zone.id"
       @click="$emit('update:activeZoneId', zone.id)"
-      class="group flex-shrink-0 pb-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative sm:pb-4"
+      class="group flex-shrink-0 pb-2.5 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative"
       :class="
         activeZoneId === zone.id ? 'text-amber-400' : 'text-slate-300 dark:!text-white/45 hover:text-slate-400 dark:hover:!text-white/55'
       "
@@ -21,7 +21,7 @@
       </div>
       <div
         v-if="activeZoneId === zone.id"
-        class="absolute bottom-0 left-0 w-full h-1 bg-amber-400 rounded-full"
+        class="absolute bottom-0 left-0 w-full h-0.5 bg-amber-400 rounded-full"
       ></div>
     </button>
   </div>

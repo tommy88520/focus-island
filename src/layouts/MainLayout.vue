@@ -11,31 +11,71 @@
 
     <q-header class="bg-transparent px-2 pt-2 sm:px-4 sm:pt-4" flat>
       <div
-        class="mx-auto flex max-w-7xl items-center gap-2 rounded-[20px] border px-3 py-2 shadow-2xl backdrop-blur-md sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3"
+        class="mx-auto flex max-w-[1500px] items-center gap-2 rounded-[20px] border px-3 py-2 shadow-2xl backdrop-blur-md sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-2"
         :class="headerSurfaceClass"
       >
-        <q-btn 
-          flat dense round icon="menu" 
-          class="lg:hidden shrink-0 text-amber-600 dark:!text-amber-200"
-          @click="toggleLeftDrawer" 
-        />
+        <button
+          type="button"
+          aria-label="menu"
+          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-amber-600 dark:!text-amber-200 md:!hidden"
+          @click="toggleLeftDrawer"
+        >
+          <q-icon name="menu" size="20px" />
+        </button>
 
         <div class="flex items-center gap-2 sm:gap-3">
           <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-rose-300 to-amber-400 font-black text-[10px] text-amber-950 shadow-lg shadow-orange-500/20 sm:h-9 sm:w-9 sm:text-base">FI</div>
           <div class="hide-below-sm sm:block">
             <div class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:!text-amber-200/80 leading-none mb-1">Cute Library</div>
-            <div class="text-base font-black text-white leading-none">Focus Island</div>
+            <div class="text-base font-black leading-none text-slate-900 dark:!text-white">Focus Island</div>
           </div>
         </div>
 
+        <nav class="ml-1 flex items-center gap-1 max-md:!hidden">
+          <button
+            v-for="link in localizedLinksList"
+            :key="link.key"
+            type="button"
+            :disabled="!link.enabled"
+            :title="link.caption"
+            class="flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold transition-all"
+            :class="[
+              link.enabled
+                ? 'border-transparent hover:border-slate-200 hover:bg-slate-100 dark:hover:!border-white/10 dark:hover:!bg-white/5'
+                : 'cursor-not-allowed border-transparent opacity-45',
+              link.enabled && isRouteActive(link.to) ? '!border-amber-300/35 bg-amber-400/10' : '',
+              mainTextClass,
+            ]"
+            @click="handleMenuClick(link)"
+          >
+            <span class="text-sm leading-none">{{ link.icon }}</span>
+            <span>{{ link.title }}</span>
+            <span
+              v-if="!link.enabled && link.badge"
+              class="rounded-full bg-orange-500/20 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter text-orange-400"
+            >
+              {{ link.badge }}
+            </span>
+          </button>
+        </nav>
+
         <div class="ml-auto flex items-center gap-1.5 sm:gap-3">
-          <div class="hide-below-sm flex-col items-end sm:flex">
+          <div
+            v-if="currentRoomInfo.roomID"
+            class="flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-black tracking-[0.12em] max-lg:!hidden"
+            :class="chipClass"
+            :title="displayedRoomInfo.zoneDescription"
+          >
+            <span>{{ displayedRoomInfo.roomID }}</span>
+            <span class="font-bold opacity-70">{{ displayedRoomInfo.roomName }}</span>
+          </div>
+          <div class="flex flex-col items-end max-xl:!hidden">
             <span class="text-[10px] font-bold uppercase tracking-widest" :class="subtleTextClass">
               {{ t.layout.headerGoalLabel }}
             </span>
             <span class="text-xs font-black" :class="accentTextClass">6h Focused</span>
           </div>
-          <div class="hide-below-sm h-8 w-[1px] bg-white/10 mx-1 sm:block"></div>
+          <div class="mx-1 h-8 w-[1px] bg-white/10 max-xl:!hidden"></div>
           <button
             type="button"
             class="rounded-lg border px-2 py-1 text-[10px] font-black tracking-[0.18em] transition-all sm:px-2.5"
@@ -76,7 +116,7 @@
 
     <q-drawer
       v-model="leftDrawerOpen"
-      show-if-above
+      behavior="mobile"
       :width="$q.screen.lt.sm ? 320 : 280"
       class="bg-transparent"
     >
@@ -86,7 +126,7 @@
             <div class="mb-2 text-[10px] font-black uppercase tracking-[0.2em]" :class="subtleTextClass">
               {{ t.layout.currentStatusLabel }}
             </div>
-            <div class="text-lg font-black text-white sm:text-xl">{{ focusDateLabel }}</div>
+            <div class="text-lg font-black text-slate-900 dark:!text-white sm:text-xl">{{ focusDateLabel }}</div>
             <p class="mt-2 text-[10px] leading-relaxed italic" :class="mutedTextClass">
               "{{ t.layout.currentStatusQuote }}"
             </p>
@@ -114,7 +154,7 @@
             >
               <span class="text-lg transition-transform group-hover:scale-125 sm:text-xl">{{ link.icon }}</span>
               <div class="flex-1">
-                <span class="block text-sm font-bold group-hover:text-white sm:text-sm" :class="mainTextClass">{{ link.title }}</span>
+                <span class="block text-sm font-bold group-hover:text-slate-900 dark:group-hover:!text-white sm:text-sm" :class="mainTextClass">{{ link.title }}</span>
                 <span class="block text-[10px] leading-tight" :class="mutedTextClass">{{ link.caption }}</span>
               </div>
               <span

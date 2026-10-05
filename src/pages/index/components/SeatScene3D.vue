@@ -2,7 +2,7 @@
   <div class="relative" :class="{ 'shake-error': isShake }">
     <div
       ref="containerRef"
-      class="relative h-[400px] w-full overflow-hidden rounded-2xl outline-none transition-opacity duration-500 focus-visible:ring-2 focus-visible:ring-amber-400/40 sm:h-[500px]"
+      class="relative h-[52vh] min-h-[340px] w-full overflow-hidden rounded-2xl outline-none transition-opacity duration-500 focus-visible:ring-2 focus-visible:ring-amber-400/40 lg:h-[calc(100vh-330px)] lg:min-h-[460px]"
       :class="isLoading ? 'opacity-0' : 'opacity-100'"
       style="touch-action: pan-y"
       tabindex="0"
@@ -80,6 +80,9 @@ const APPROACH_OFFSET_Z = 1.62;
 const CHAIR_OFFSET_Z = 0.95;
 const SIT_TWEEN_SECONDS = 0.4;
 const SIT_REACH = 1.3;
+// 名牌與樓梯牌固定以螢幕像素為準，鏡頭拉遠或畫布變小時字也不會跟著縮
+const LABEL_PX = 26;
+const SIGN_PX = 34;
 
 interface SeatNode {
   seatId: string;
@@ -105,7 +108,13 @@ let scene: THREE.Scene | null = null;
 let camera: THREE.PerspectiveCamera | null = null;
 let ambient: THREE.HemisphereLight | null = null;
 let sun: THREE.DirectionalLight | null = null;
-let floorMaterial: THREE.MeshStandardMaterial | null = null;
+let concretePlain: THREE.CanvasTexture | null = null;
+let concreteHoles: THREE.CanvasTexture | null = null;
+let oakTexture: THREE.CanvasTexture | null = null;
+let shellGroup: THREE.Group | null = null;
+let shellDeskCount = -1;
+// 隨深淺色切換要調整的材質，由建立它的地方自己登記
+let themeHooks: ((dark: boolean) => void)[] = [];
 let sceneRoot: THREE.Group | null = null;
 let seatNodes: SeatNode[] = [];
 let resizeObserver: ResizeObserver | null = null;
@@ -118,6 +127,7 @@ let deskCount = 0;
 let nav: Navigation | null = null;
 let stairs: StairInfo[] = [];
 let stairGroup: THREE.Group | null = null;
+let stairSigns: THREE.Sprite[] = [];
 let stairLock = false;
 let pendingSpawn: { point: Point; floor: number } | null = null;
 let nearSeatId: string | null = null;
@@ -130,6 +140,8 @@ const pointer = new THREE.Vector2();
 const labelTextureCache = new Map<string, THREE.CanvasTexture>();
 const staticDisposables: { dispose: () => void }[] = [];
 const seatDisposables: { dispose: () => void }[] = [];
+// 外殼（地板、書牆、落地窗）的深度跟桌子排數有關，排數變了才重建，所以也單獨記錄
+const shellDisposables: { dispose: () => void }[] = [];
 // 座位／桌子在切樓層時會重建，它們的資源要能單獨釋放，所以和靜態場景分開記錄
 let trackTarget = staticDisposables;
 
@@ -154,14 +166,15 @@ function isDark(): boolean {
 }
 
 function applyTheme(): void {
-  if (!ambient || !sun || !floorMaterial) return;
+  if (!ambient || !sun) return;
   const dark = isDark();
-  ambient.intensity = dark ? 0.55 : 1.05;
-  ambient.color.set(dark ? 0xb8c4ff : 0xffffff);
-  ambient.groundColor.set(dark ? 0x1b1410 : 0xcfc2ab);
-  sun.intensity = dark ? 0.55 : 1.4;
-  sun.color.set(dark ? 0xaab8ff : 0xfff1d6);
-  floorMaterial.color.set(dark ? 0x2a2018 : 0xc9a97c);
+  // 深色模式是「入夜後開著燈的圖書館」，不是關燈：整體亮度只略降，靠層板燈與檯燈帶出暖色
+  ambient.intensity = dark ? 1.05 : 1.0;
+  ambient.color.set(dark ? 0xcdd6f5 : 0xffffff);
+  ambient.groundColor.set(dark ? 0x5a5048 : 0xb9b2a6);
+  sun.intensity = dark ? 1.1 : 1.6;
+  sun.color.set(dark ? 0xffe0b8 : 0xfff0d8);
+  themeHooks.forEach((hook) => hook(dark));
 }
 
 function makeMaterial(color: number, roughness = 0.8): THREE.MeshStandardMaterial {
@@ -215,12 +228,12 @@ function buildSeat(seatId: string, index: number): SeatNode {
   const group = new THREE.Group();
   group.position.set(x, 0, z);
 
-  const wood = makeMaterial(0x6b4a2f, 0.7);
-  const fabric = makeMaterial(0x3b4a6b, 0.9);
+  const wood = makeMaterial(0xb88d5c, 0.65);
+  const fabric = makeMaterial(0x4c5564, 0.9);
 
   // 椅子：座面、椅背（朝後 +z）
   const chairSeat = addMesh(group, new THREE.BoxGeometry(0.62, 0.08, 0.6), fabric, [0, 0.42, 0.95]);
-  addMesh(group, new THREE.BoxGeometry(0.62, 0.62, 0.08), fabric, [0, 0.78, 1.25]);
+  addMesh(group, new THREE.BoxGeometry(0.62, 0.5, 0.06), wood, [0, 0.84, 1.25]);
   for (const lx of [-0.25, 0.25]) {
     for (const lz of [0.7, 1.2]) {
       addMesh(group, new THREE.CylinderGeometry(0.03, 0.03, 0.4, 6), wood, [lx, 0.2, lz], false);
@@ -346,6 +359,7 @@ function buildStairs(): void {
   stairGroup = new THREE.Group();
   sceneRoot.add(stairGroup);
   stairs = [];
+  stairSigns = [];
   const hasUp = props.floors.includes(props.currentFloor + 1);
   const hasDown = props.floors.includes(props.currentFloor - 1);
   if (hasDown) stairs.push({ direction: -1, x: -STAIR_X });
@@ -353,10 +367,18 @@ function buildStairs(): void {
 
   for (const stair of stairs) {
     const up = stair.direction === 1;
-    const stepMaterial = makeMaterial(up ? 0x8b7355 : 0x5c4b3a, 0.8);
+    // 清水模台階 + 橡木踏板，跟書牆同一套材質；踏板前緣的色條分辨上樓（琥珀）或下樓（青）
+    const riserMaterial = makeMaterial(0xb9b5ad, 0.85);
+    const treadMaterial = track(new THREE.MeshStandardMaterial({ map: oakTexture, roughness: 0.55, metalness: 0.03 }));
+    const nosingMaterial = track(
+      new THREE.MeshStandardMaterial({ color: up ? 0xfbbf24 : 0x2dd4bf, emissive: up ? 0xfbbf24 : 0x2dd4bf, emissiveIntensity: 0.6 }),
+    );
     for (let i = 0; i < 3; i += 1) {
       const height = 0.14 * (3 - i);
-      addMesh(stairGroup, new THREE.BoxGeometry(1.3, height, 0.28), stepMaterial, [stair.x, height / 2, -3.01 + 0.14 + i * 0.28]);
+      const z = -3.01 + 0.14 + i * 0.28;
+      addMesh(stairGroup, new THREE.BoxGeometry(1.3, height - 0.03, 0.28), riserMaterial, [stair.x, (height - 0.03) / 2, z]);
+      addMesh(stairGroup, new THREE.BoxGeometry(1.32, 0.03, 0.3), treadMaterial, [stair.x, height - 0.015, z]);
+      addMesh(stairGroup, new THREE.BoxGeometry(1.32, 0.012, 0.025), nosingMaterial, [stair.x, height + 0.001, z + 0.14], false);
     }
     // 觸發區的地面標記
     const marker = new THREE.Mesh(
@@ -370,9 +392,17 @@ function buildStairs(): void {
     const targetFloor = props.currentFloor + stair.direction;
     const text = up ? t.value.seatScene.stairUp(targetFloor) : t.value.seatScene.stairDown(targetFloor);
     const sign = new THREE.Sprite(
-      track(new THREE.SpriteMaterial({ map: getLabelTexture(text, up ? '#fbbf24' : '#2dd4bf'), depthTest: false, transparent: true })),
+      track(
+        new THREE.SpriteMaterial({
+          map: getLabelTexture(text, up ? '#fbbf24' : '#2dd4bf'),
+          depthTest: false,
+          transparent: true,
+          sizeAttenuation: false,
+        }),
+      ),
     );
-    sign.scale.set(0.9, 0.25, 1);
+    applyScreenScale(sign, SIGN_PX);
+    stairSigns.push(sign);
     sign.position.set(stair.x, 1.35, -2.5);
     sign.renderOrder = 10;
     stairGroup.add(sign);
@@ -620,28 +650,53 @@ function getLabelTexture(text: string, color: string): THREE.CanvasTexture {
   const cached = labelTextureCache.get(key);
   if (cached) return cached;
 
+  const label = text.length > 8 ? `${text.slice(0, 8)}…` : text;
+  const font = '800 36px system-ui, -apple-system, "PingFang TC", sans-serif';
   const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 72;
+  const measure = canvas.getContext('2d');
+  if (measure) measure.font = font;
+  // 底板寬度跟著文字走，短名字不會頂著一條長長的空白膠囊
+  const width = Math.min(256, Math.max(72, Math.ceil((measure?.measureText(label).width ?? 120) + 44)));
+  // 畫兩倍解析度，高 DPI 螢幕上才不會糊
+  canvas.width = width * 2;
+  canvas.height = 72 * 2;
   const ctx = canvas.getContext('2d');
   if (ctx) {
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+    ctx.scale(2, 2);
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
     ctx.beginPath();
-    ctx.roundRect(4, 8, 248, 56, 28);
+    ctx.roundRect(3, 8, width - 6, 56, 28);
     ctx.fill();
     ctx.strokeStyle = color;
     ctx.lineWidth = 3;
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = '700 30px system-ui, sans-serif';
+    ctx.font = font;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text.length > 8 ? `${text.slice(0, 8)}…` : text, 128, 37);
+    ctx.fillText(label, width / 2, 37);
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.userData.aspect = width / 72;
   labelTextureCache.set(key, texture);
   return texture;
+}
+
+// sizeAttenuation: false 的 sprite，scale 是以 NDC 高度計；換算成想要的像素高度
+function applyScreenScale(sprite: THREE.Sprite, px: number): void {
+  const height = containerRef.value?.clientHeight || 500;
+  const focal = camera ? camera.projectionMatrix.elements[5] ?? 2.9 : 2.9;
+  const scaleY = ((px / height) * 2) / focal;
+  const aspect = (sprite.material.map?.userData.aspect as number | undefined) ?? 256 / 72;
+  sprite.scale.set(scaleY * aspect, scaleY, 1);
+}
+
+function rescaleLabels(): void {
+  for (const node of seatNodes) {
+    if (node.label) applyScreenScale(node.label, LABEL_PX);
+  }
+  for (const sign of stairSigns) applyScreenScale(sign, SIGN_PX);
 }
 
 function setLabel(node: SeatNode, text: string, color: string): void {
@@ -653,9 +708,9 @@ function setLabel(node: SeatNode, text: string, color: string): void {
   }
   node.labelText = text;
   if (!text) return;
-  const material = new THREE.SpriteMaterial({ map: getLabelTexture(text, color), depthTest: false, transparent: true });
+  const material = new THREE.SpriteMaterial({ map: getLabelTexture(text, color), depthTest: false, transparent: true, sizeAttenuation: false });
   const sprite = new THREE.Sprite(material);
-  sprite.scale.set(0.9, 0.25, 1);
+  applyScreenScale(sprite, LABEL_PX);
   sprite.position.set(0, 1.75, 0.9);
   sprite.renderOrder = 10;
   node.group.add(sprite);
@@ -709,8 +764,9 @@ function rebuildDesks(): void {
   if (!sceneRoot) return;
   if (deskGroup) sceneRoot.remove(deskGroup);
   deskGroup = new THREE.Group();
-  const top = makeMaterial(0xb98b5b, 0.6);
-  const leg = makeMaterial(0x4a3320, 0.8);
+  rebuildShell();
+  const top = track(new THREE.MeshStandardMaterial({ map: oakTexture, roughness: 0.55, metalness: 0.03 }));
+  const leg = makeMaterial(0x26282b, 0.5);
   const width = SEATS_PER_DESK * SEAT_SPACING;
   for (let d = 0; d < deskCount; d += 1) {
     const z = d * DESK_SPACING;
@@ -724,46 +780,326 @@ function rebuildDesks(): void {
   sceneRoot.add(deskGroup);
 }
 
+// ── 場景外殼：參考政大達賢圖書館──清水模、層退的木書牆、整面落地窗 ──
+const BACK_Z = -3.15;
+const SHELL_HALF_WIDTH = ROOM_HALF_WIDTH + 0.5;
+const TIER_DEPTH = 0.5;
+const TIER_HEIGHT = 0.8;
+const BAY_LENGTH = 1.5;
+const BOOK_COLORS = [0x7d2e2e, 0x2f4a6b, 0x35604f, 0xa88442, 0x4b3a63, 0xd9d0bd, 0x8a5a3b, 0x2e3033, 0xe8e2d2, 0x9a4a32];
+const CUSHION_COLORS = [0x8f9c8a, 0xc8b89e, 0x73808f];
+
+function seededRandom(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state * 16807) % 2147483647;
+    return state / 2147483647;
+  };
+}
+
+function makeCanvasTexture(size: number, paint: (ctx: CanvasRenderingContext2D, size: number) => void): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (ctx) paint(ctx, size);
+  const texture = track(new THREE.CanvasTexture(canvas));
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+// 清水模：一張貼圖是一塊模板，邊緣是模板接縫，tieHoles 是固定模板留下的螺栓孔
+function makeConcreteTexture(tieHoles: boolean): THREE.CanvasTexture {
+  return makeCanvasTexture(512, (ctx, size) => {
+    const rand = seededRandom(tieHoles ? 7 : 11);
+    ctx.fillStyle = '#c9c6bf';
+    ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < 26; i += 1) {
+      const x = rand() * size;
+      const y = rand() * size;
+      const r = 40 + rand() * 120;
+      const tone = rand() > 0.5 ? '255,255,255' : '60,58,54';
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
+      gradient.addColorStop(0, `rgba(${tone},0.07)`);
+      gradient.addColorStop(1, `rgba(${tone},0)`);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+    for (let i = 0; i < 9000; i += 1) {
+      ctx.fillStyle = rand() > 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(40,38,36,0.06)';
+      ctx.fillRect(rand() * size, rand() * size, 1.5, 1.5);
+    }
+    ctx.strokeStyle = 'rgba(60,58,54,0.3)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(0, 0, size, size);
+    if (tieHoles) {
+      ctx.fillStyle = 'rgba(50,48,45,0.42)';
+      for (const u of [1 / 6, 1 / 2, 5 / 6]) {
+        for (const v of [1 / 4, 3 / 4]) {
+          ctx.beginPath();
+          ctx.arc(u * size, v * size, 7, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  });
+}
+
+function makeOakTexture(): THREE.CanvasTexture {
+  return makeCanvasTexture(256, (ctx, size) => {
+    const rand = seededRandom(23);
+    ctx.fillStyle = '#d2ab78';
+    ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < 150; i += 1) {
+      ctx.fillStyle = rand() > 0.35 ? `rgba(110,70,32,${0.03 + rand() * 0.09})` : `rgba(255,236,200,${0.04 + rand() * 0.08})`;
+      ctx.fillRect(0, rand() * size, size, 1 + rand() * 2.5);
+    }
+  });
+}
+
 function buildStaticScene(): void {
   if (!scene) return;
   sceneRoot = new THREE.Group();
   scene.add(sceneRoot);
+  concretePlain = makeConcreteTexture(false);
+  concreteHoles = makeConcreteTexture(true);
+  oakTexture = makeOakTexture();
+}
 
-  floorMaterial = track(new THREE.MeshStandardMaterial({ color: 0xc9a97c, roughness: 0.9 }));
-  const floor = new THREE.Mesh(track(new THREE.PlaneGeometry(40, 40)), floorMaterial);
-  floor.rotation.x = -Math.PI / 2;
-  floor.receiveShadow = true;
-  scene.add(floor);
+function rebuildShell(): void {
+  if (!scene) return;
+  const desks = Math.max(deskCount, 1);
+  if (desks === shellDeskCount) return;
+  shellDeskCount = desks;
+  if (shellGroup) scene.remove(shellGroup);
+  shellDisposables.forEach((resource) => resource.dispose());
+  shellDisposables.length = 0;
+  themeHooks = [];
+  const previous = trackTarget;
+  trackTarget = shellDisposables;
+  try {
+    shellGroup = buildShell(desks);
+    scene.add(shellGroup);
+  } finally {
+    trackTarget = previous;
+  }
+  applyTheme();
+}
 
-  // 後方書牆：一排書櫃 + 隨機色書本
-  const shelfZ = -3.2;
-  const shelfMaterial = makeMaterial(0x5a3d26, 0.8);
-  addMesh(scene, new THREE.BoxGeometry(11, 3.2, 0.5), shelfMaterial, [0, 1.6, shelfZ - 0.25]);
-  const bookGeometry = track(new THREE.BoxGeometry(0.16, 0.5, 0.36));
-  const bookPalette = [0x8a3b3b, 0x3b5a8a, 0x3b8a68, 0xb38a3b, 0x6b3b8a, 0xd8cdb8, 0x8a5a3b];
-  const bookMaterials = bookPalette.map((c) => makeMaterial(c, 0.8));
-  const booksPerRow = 40;
-  const rows = 4;
-  for (let r = 0; r < rows; r += 1) {
-    for (let i = 0; i < booksPerRow; i += 1) {
-      const seed = (r * 131 + i * 17) % 97;
-      const mesh = new THREE.Mesh(bookGeometry, bookMaterials[seed % bookMaterials.length]);
-      mesh.position.set(-5 + (i + 0.5) * (10 / booksPerRow), 0.5 + r * 0.7 + (seed % 3) * 0.02, shelfZ + 0.05);
-      mesh.scale.y = 0.8 + (seed % 5) * 0.08;
-      mesh.castShadow = false;
-      scene.add(mesh);
+function buildShell(desks: number): THREE.Group {
+  const group = new THREE.Group();
+  const frontZ = (desks - 1) * DESK_SPACING + 2.8;
+  const backTiers = 3;
+  const backWallZ = BACK_Z - backTiers * TIER_DEPTH;
+  const outerHalfWidth = SHELL_HALF_WIDTH + 1.2;
+  const sideLength = frontZ - BACK_Z - 0.3;
+  const sideCenterZ = BACK_Z + sideLength / 2;
+
+  const concrete = (repeatX: number, repeatY: number, tieHoles: boolean, roughness = 0.85): THREE.MeshStandardMaterial => {
+    const source = tieHoles ? concreteHoles : concretePlain;
+    const material = track(new THREE.MeshStandardMaterial({ roughness, metalness: 0.02 }));
+    if (source) {
+      const map = track(source.clone());
+      map.repeat.set(repeatX, repeatY);
+      map.needsUpdate = true;
+      material.map = map;
     }
-    addMesh(scene, new THREE.BoxGeometry(10.4, 0.05, 0.5), shelfMaterial, [0, 0.22 + r * 0.7, shelfZ + 0.1], false);
+    themeHooks.push((dark) => material.color.set(dark ? 0xdfe2ec : 0xffffff));
+    return material;
+  };
+
+  // 地板：磨石感的清水模樓板，做成有厚度的一塊，邊緣才不會像紙片
+  const floorDepth = frontZ - backWallZ + 0.2;
+  addMesh(
+    group,
+    new THREE.BoxGeometry(outerHalfWidth * 2, 0.3, floorDepth),
+    concrete((outerHalfWidth * 2) / 1.8, floorDepth / 1.8, false, 0.5),
+    [0, -0.15, backWallZ - 0.2 + floorDepth / 2],
+    false,
+  );
+
+  const carcass = makeMaterial(0x6f4e33, 0.75);
+  const board = track(new THREE.MeshStandardMaterial({ map: oakTexture, roughness: 0.6, metalness: 0.03 }));
+  const ledMaterial = track(new THREE.MeshStandardMaterial({ color: 0xffe2b0, emissive: 0xffc878, emissiveIntensity: 1 }));
+  themeHooks.push((dark) => {
+    ledMaterial.emissiveIntensity = dark ? 2.4 : 0.9;
+  });
+  const portalMaterial = makeMaterial(0x2a2c30, 0.9);
+  const bookGeometry = track(new THREE.BoxGeometry(0.11, 0.5, 0.26));
+  const bookMaterial = track(new THREE.MeshStandardMaterial({ roughness: 0.85 }));
+
+  // 層退書牆：每往上一層就往後退一階，像梯田。沿本地 x 軸延伸、正面朝 +z；gaps 是最下層留給樓梯口的缺口
+  const buildShelfRun = (length: number, tiers: number, gaps: [number, number][], seed: number): THREE.Group => {
+    const run = new THREE.Group();
+    const rand = seededRandom(seed);
+    const books: { matrix: THREE.Matrix4; color: THREE.Color }[] = [];
+    const bodyHeight = TIER_HEIGHT - 0.1;
+
+    for (let k = 0; k < tiers; k += 1) {
+      const baseY = k * TIER_HEIGHT;
+      const faceZ = -k * TIER_DEPTH;
+      const centerZ = faceZ - TIER_DEPTH / 2;
+      if (k > 0) {
+        addMesh(run, new THREE.BoxGeometry(length, baseY, TIER_DEPTH), concrete(length / 1.8, baseY / 0.9, true), [0, baseY / 2, centerZ]);
+      }
+
+      const segments: [number, number][] = [];
+      let cursor = -length / 2;
+      for (const [g0, g1] of k === 0 ? gaps : []) {
+        segments.push([cursor, g0]);
+        cursor = g1;
+        addMesh(run, new THREE.BoxGeometry(g1 - g0 - 0.1, TIER_HEIGHT - 0.06, 0.02), portalMaterial, [(g0 + g1) / 2, (TIER_HEIGHT - 0.06) / 2, -TIER_DEPTH + 0.011], false);
+      }
+      segments.push([cursor, length / 2]);
+
+      for (const [x0, x1] of segments) {
+        const width = x1 - x0;
+        const cx = (x0 + x1) / 2;
+        addMesh(run, new THREE.BoxGeometry(width, bodyHeight, TIER_DEPTH - 0.2), carcass, [cx, baseY + bodyHeight / 2, centerZ - 0.1]);
+        addMesh(run, new THREE.BoxGeometry(width, 0.06, TIER_DEPTH), board, [cx, baseY + 0.03, centerZ]);
+        addMesh(run, new THREE.BoxGeometry(width + 0.04, 0.05, TIER_DEPTH + 0.04), board, [cx, baseY + TIER_HEIGHT - 0.025, centerZ]);
+        addMesh(run, new THREE.BoxGeometry(width - 0.1, 0.015, 0.02), ledMaterial, [cx, baseY + TIER_HEIGHT - 0.06, faceZ - 0.03], false);
+
+        const bays = Math.max(1, Math.round(width / 1.1));
+        const bayWidth = width / bays;
+        for (let b = 0; b <= bays; b += 1) {
+          addMesh(run, new THREE.BoxGeometry(0.04, bodyHeight, TIER_DEPTH), board, [x0 + b * bayWidth, baseY + bodyHeight / 2, centerZ], false);
+        }
+        for (let b = 0; b < bays; b += 1) {
+          let x = x0 + b * bayWidth + 0.06;
+          const end = x0 + (b + 1) * bayWidth - 0.06;
+          while (x < end - 0.14) {
+            // 偶爾留一段空位，書架才不會像一整片色塊
+            if (rand() < 0.07) {
+              x += 0.16 + rand() * 0.2;
+              continue;
+            }
+            const thickness = 0.07 + rand() * 0.07;
+            const height = 0.36 + rand() * 0.2;
+            const lean = rand() < 0.06 ? (rand() - 0.5) * 0.3 : 0;
+            books.push({
+              matrix: new THREE.Matrix4().compose(
+                new THREE.Vector3(x + thickness / 2, baseY + 0.06 + height / 2, faceZ - 0.16),
+                new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, lean)),
+                new THREE.Vector3(thickness / 0.11, height / 0.5, 1),
+              ),
+              color: new THREE.Color(BOOK_COLORS[Math.floor(rand() * BOOK_COLORS.length)] ?? 0xd9d0bd),
+            });
+            x += thickness + 0.008;
+          }
+        }
+      }
+    }
+
+    const mesh = track(new THREE.InstancedMesh(bookGeometry, bookMaterial, books.length));
+    books.forEach((book, i) => {
+      mesh.setMatrixAt(i, book.matrix);
+      mesh.setColorAt(i, book.color);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.receiveShadow = true;
+    run.add(mesh);
+    return run;
+  };
+
+  // ㄇ 字的底：後方三層書牆，樓梯口開在最下層
+  const backRun = buildShelfRun(outerHalfWidth * 2, backTiers, [[-STAIR_X - 0.7, -STAIR_X + 0.7], [STAIR_X - 0.7, STAIR_X + 0.7]], 101);
+  backRun.position.set(0, 0, BACK_Z);
+  group.add(backRun);
+  addMesh(group, new THREE.BoxGeometry(outerHalfWidth * 2, 3.2, 0.2), concrete((outerHalfWidth * 2) / 1.8, 3.2 / 0.9, true), [0, 1.6, backWallZ - 0.1]);
+
+  // ㄇ 字的右邊：兩層書牆沿著側牆往前延伸
+  const sideRun = buildShelfRun(sideLength, 2, [], 211);
+  sideRun.rotation.y = -Math.PI / 2;
+  sideRun.position.set(SHELL_HALF_WIDTH, 0, sideCenterZ);
+  group.add(sideRun);
+  addMesh(group, new THREE.BoxGeometry(0.2, 2.4, sideLength), concrete(sideLength / 1.8, 2.4 / 0.9, true), [outerHalfWidth - 0.1, 1.2, sideCenterZ]);
+
+  // ㄇ 字的左邊：整面落地窗，窗下是可以坐的臥榻
+  const benchX = -SHELL_HALF_WIDTH - 0.5;
+  addMesh(group, new THREE.BoxGeometry(1, 0.36, sideLength), concrete(1, sideLength / 1.8, false), [benchX, 0.18, sideCenterZ]);
+  addMesh(group, new THREE.BoxGeometry(1.04, 0.05, sideLength), board, [benchX, 0.385, sideCenterZ]);
+
+  const frameMaterial = makeMaterial(0x2e3238, 0.45);
+  const windowX = -outerHalfWidth + 0.1;
+  const windowHeight = 3;
+  const bayCount = Math.max(1, Math.round(sideLength / BAY_LENGTH));
+  const bayLength = sideLength / bayCount;
+  for (let i = 0; i <= bayCount; i += 1) {
+    addMesh(group, new THREE.BoxGeometry(0.07, windowHeight, 0.07), frameMaterial, [windowX, windowHeight / 2, BACK_Z + i * bayLength]);
+  }
+  for (const y of [0.42, 2.1, windowHeight - 0.04]) {
+    addMesh(group, new THREE.BoxGeometry(0.07, 0.07, sideLength), frameMaterial, [windowX, y, sideCenterZ]);
+  }
+  const glassMaterial = track(
+    new THREE.MeshStandardMaterial({ color: 0xcfe9f7, transparent: true, opacity: 0.2, roughness: 0.05, metalness: 0.1, depthWrite: false }),
+  );
+  themeHooks.push((dark) => {
+    glassMaterial.color.set(dark ? 0x1d2742 : 0xcfe9f7);
+    glassMaterial.opacity = dark ? 0.34 : 0.2;
+  });
+  addMesh(group, new THREE.BoxGeometry(0.02, windowHeight, sideLength), glassMaterial, [windowX, windowHeight / 2, sideCenterZ], false);
+
+  // 臥榻上的抱枕與盆栽
+  const potMaterial = makeMaterial(0xa9a59c, 0.9);
+  const leafMaterials = [0x4f7a4a, 0x3d6b45, 0x6a9160].map((color) => {
+    const material = makeMaterial(color, 0.9);
+    material.flatShading = true;
+    return material;
+  });
+  const cushionMaterials = CUSHION_COLORS.map((color) => makeMaterial(color, 0.95));
+  const rand = seededRandom(307);
+  for (let i = 0; i < bayCount; i += 1) {
+    const z = BACK_Z + (i + 0.5) * bayLength;
+    if (i % 3 === 1) {
+      addMesh(group, new THREE.CylinderGeometry(0.17, 0.13, 0.3, 14), potMaterial, [benchX - 0.1, 0.56, z]);
+      for (let leaf = 0; leaf < 5; leaf += 1) {
+        const material = leafMaterials[leaf % leafMaterials.length];
+        if (!material) continue;
+        addMesh(
+          group,
+          new THREE.IcosahedronGeometry(0.15 + rand() * 0.1, 0),
+          material,
+          [benchX - 0.1 + (rand() - 0.5) * 0.28, 0.85 + rand() * 0.42, z + (rand() - 0.5) * 0.28],
+        );
+      }
+    } else {
+      const material = cushionMaterials[i % cushionMaterials.length];
+      if (material) addMesh(group, new THREE.BoxGeometry(0.78, 0.09, bayLength - 0.5), material, [benchX, 0.455, z]);
+    }
   }
 
-  // 一盞暖色吊燈光暈（純視覺，不增加光源數量）
-  const glow = new THREE.Mesh(
-    track(new THREE.CircleGeometry(4.5, 32)),
-    track(new THREE.MeshBasicMaterial({ color: 0xffd48a, transparent: true, opacity: 0.12 })),
+  // 從落地窗斜射進來的日光，純視覺的地面色塊；方向跟 sun 的陰影一致
+  const sunPatchMaterial = track(
+    new THREE.MeshBasicMaterial({ color: 0xfff3cf, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide }),
   );
-  glow.rotation.x = -Math.PI / 2;
-  glow.position.set(0, 0.01, 1.5);
-  scene.add(glow);
+  themeHooks.push((dark) => {
+    sunPatchMaterial.visible = !dark;
+  });
+  const patchNearX = -SHELL_HALF_WIDTH;
+  const patchFarX = patchNearX + 2.4;
+  const patchShift = -2.4 * 1.2;
+  for (let i = 0; i < bayCount; i += 1) {
+    const z0 = BACK_Z + i * bayLength + 0.12;
+    const z1 = BACK_Z + (i + 1) * bayLength - 0.12;
+    if (z0 + patchShift < BACK_Z + 0.15) continue;
+    const geometry = track(new THREE.BufferGeometry());
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(
+        [patchNearX, 0.012, z0, patchNearX, 0.012, z1, patchFarX, 0.012, z1 + patchShift, patchFarX, 0.012, z0 + patchShift],
+        3,
+      ),
+    );
+    geometry.setIndex([0, 1, 2, 0, 2, 3]);
+    group.add(new THREE.Mesh(geometry, sunPatchMaterial));
+  }
+
+  return group;
 }
 
 function fitCamera(): void {
@@ -774,14 +1110,14 @@ function fitCamera(): void {
   if (!width || !height) return;
 
   camera.aspect = width / height;
-  const sceneWidth = ROOM_HALF_WIDTH * 2 + 0.6;
-  const sceneDepth = Math.max(1, deskCount - 1) * DESK_SPACING + 5.2;
+  const sceneWidth = ROOM_HALF_WIDTH * 2 + 1.4;
+  const sceneDepth = Math.max(1, deskCount - 1) * DESK_SPACING + 9.1;
   const vFov = THREE.MathUtils.degToRad(camera.fov);
   const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
   const distForWidth = sceneWidth / 2 / Math.tan(hFov / 2);
   const distForDepth = sceneDepth / 2 / Math.tan(vFov / 2);
   const distance = Math.max(distForWidth, distForDepth * 0.82, 8);
-  const target = new THREE.Vector3(0, 0.4, ((deskCount - 1) * DESK_SPACING) / 2 + 0.2);
+  const target = new THREE.Vector3(0, 0.4, ((deskCount - 1) * DESK_SPACING) / 2 - 0.6);
   const elevation = THREE.MathUtils.degToRad(52);
   const horizontal = Math.cos(elevation) * distance;
   camera.position.set(
@@ -965,6 +1301,7 @@ function resize(): void {
   if (!renderer || !container) return;
   renderer.setSize(container.clientWidth, container.clientHeight, false);
   fitCamera();
+  rescaleLabels();
 }
 
 onMounted(() => {
@@ -980,7 +1317,9 @@ onMounted(() => {
   }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.3;
   renderer.setClearColor(0x000000, 0);
 
   scene = new THREE.Scene();
@@ -989,14 +1328,18 @@ onMounted(() => {
   ambient = new THREE.HemisphereLight(0xffffff, 0xcfc2ab, 1);
   scene.add(ambient);
   sun = new THREE.DirectionalLight(0xfff1d6, 1.2);
-  sun.position.set(-5, 10, 6);
+  sun.position.set(-5, 10, 9);
+  sun.target.position.set(0, 0, 3);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
-  sun.shadow.camera.left = -9;
-  sun.shadow.camera.right = 9;
-  sun.shadow.camera.top = 9;
-  sun.shadow.camera.bottom = -9;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.02;
+  sun.shadow.camera.left = -11;
+  sun.shadow.camera.right = 11;
+  sun.shadow.camera.top = 11;
+  sun.shadow.camera.bottom = -11;
   scene.add(sun);
+  scene.add(sun.target);
 
   isTouch.value = window.matchMedia('(pointer: coarse)').matches;
   buildStaticScene();
@@ -1094,6 +1437,8 @@ onBeforeUnmount(() => {
   staticDisposables.length = 0;
   seatDisposables.forEach((resource) => resource.dispose());
   seatDisposables.length = 0;
+  shellDisposables.forEach((resource) => resource.dispose());
+  shellDisposables.length = 0;
   renderer?.dispose();
   renderer = null;
   scene = null;

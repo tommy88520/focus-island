@@ -1,24 +1,21 @@
 <template>
-  <div class="relative min-h-[calc(100vh-80px)] px-3 py-3 pb-24 sm:px-6 sm:py-4 sm:pb-40 lg:py-8">
-    <div class="relative z-10 mx-auto max-w-7xl">
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-12 sm:gap-6">
-        <main class="order-2 space-y-4 lg:order-none lg:col-span-8 sm:space-y-6">
-          <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <div class="flex items-center gap-3 mb-2">
-                <div
-                  class="rounded-md bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-950 shadow-lg shadow-amber-400/20"
-                >
-                  {{ t.indexPage.floorBadgePrefix }}{{ currentFloor }}
-                </div>
-                <div class="h-1 w-1 rounded-full bg-slate-200 dark:!bg-white/20"></div>
-                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:!text-white/55">
-                  {{ librarySocket.currentZone.value?.name }} · {{ librarySocket.currentZone.value?.description }}
-                </p>
+  <div class="relative min-h-[calc(100vh-80px)] px-3 py-3 pb-24 sm:px-4 sm:py-3 sm:pb-24">
+    <div class="relative z-10 mx-auto max-w-[1500px]">
+      <div class="grid grid-cols-1 gap-3 lg:grid-cols-12 sm:gap-4">
+        <main class="order-2 space-y-3 lg:order-none lg:col-span-9">
+          <header class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex min-w-0 items-center gap-2">
+              <div
+                class="shrink-0 rounded-md bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-950 shadow-lg shadow-amber-400/20"
+              >
+                {{ t.indexPage.floorBadgePrefix }}{{ currentFloor }}
               </div>
-              <h3 class="text-[1.6rem] font-black tracking-tight text-slate-900 dark:!text-white sm:text-4xl">
+              <h3 class="truncate !text-sm !leading-tight font-black !tracking-tight text-slate-900 dark:!text-white sm:!text-base">
                 {{ store.isRunning ? t.indexPage.headerTitleRunning : t.indexPage.headerTitleIdle }}
               </h3>
+              <p class="hide-below-sm truncate text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:!text-white/55">
+                {{ librarySocket.currentZone.value?.name }} · {{ librarySocket.currentZone.value?.description }}
+              </p>
             </div>
 
             <FloorTabs
@@ -28,7 +25,7 @@
             />
           </header>
 
-          <section class="relative min-h-[440px] rounded-[32px] border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/40 p-3 shadow-2xl backdrop-blur-md sm:min-h-[550px] sm:rounded-[40px] sm:p-10">
+          <section class="relative rounded-[24px] border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/40 p-3 shadow-2xl backdrop-blur-md sm:rounded-[28px] sm:p-4">
             <ZoneTabs
               :zones="zoneTabItems"
               :active-zone-id="activeZoneId"
@@ -64,7 +61,7 @@
           </section>
         </main>
 
-        <aside class="order-1 space-y-4 lg:order-none lg:col-span-4 sm:space-y-6">
+        <aside class="order-1 lg:order-none lg:col-span-3">
           <FocusClockPanel
             :is-running="store.isRunning"
             :base-duration="store.baseDuration"
