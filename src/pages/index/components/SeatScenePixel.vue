@@ -123,6 +123,37 @@ interface StairInfo {
 
 type PlayerState = 'seated' | 'idle' | 'walking' | 'sitting';
 
+const POSITION_KEY = 'focus_island_player_position_v1';
+const POSITION_SAVE_INTERVAL_S = 0.5;
+
+interface SavedPosition {
+  // 房間 = 座位 id 去掉最後的編號，例如 "2-A"
+  room: string;
+  x: number;
+  y: number;
+  facing: Facing;
+  seated: boolean;
+}
+
+function loadSavedPosition(): SavedPosition | null {
+  try {
+    const raw = localStorage.getItem(POSITION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<SavedPosition>;
+    const facings: Facing[] = ['up', 'down', 'left', 'right'];
+    if (typeof parsed.room !== 'string' || !Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return null;
+    return {
+      room: parsed.room,
+      x: Number(parsed.x),
+      y: Number(parsed.y),
+      facing: facings.includes(parsed.facing as Facing) ? (parsed.facing as Facing) : 'down',
+      seated: parsed.seated === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 const player = {
   state: 'idle' as PlayerState,
   x: 15.5,
@@ -148,6 +179,12 @@ let stairs: StairInfo[] = [];
 let nav: Navigation | null = null;
 let stairLock = false;
 let pendingSpawn: { point: { x: number; y: number }; floor: number } | null = null;
+// 上次關掉頁面時站在哪：只在這次載入的第一個房間用一次
+let savedPosition: SavedPosition | null = loadSavedPosition();
+// 這次是從存檔站回原地（不是坐在位子上）：父層自動幫忙保留座位時，不要把人拉回椅子
+let restoredStanding = false;
+let lastSavedAt = 0;
+let lastSavedKey = '';
 let hoveredSeatId: string | null = null;
 let nearSeatId: string | null = null;
 let rafId = 0;
@@ -237,6 +274,7 @@ function placePlayer(x: number, y: number): void {
 }
 
 function snapToSeat(node: SeatNode): void {
+  restoredStanding = false;
   const c = seatCenter(node.slot);
   placePlayer(c.x, c.y);
   player.facing = node.slot.facing;
@@ -244,9 +282,57 @@ function snapToSeat(node: SeatNode): void {
   player.seatId = node.seatId;
 }
 
+function currentRoom(): string {
+  const first = props.seats[0]?.id ?? '';
+  return first.slice(0, first.lastIndexOf('-'));
+}
+
+// 存目前位置：走路時每 0.5 秒一次，位置沒變就不寫
+function savePosition(seconds: number, force = false): void {
+  const room = currentRoom();
+  if (!room || props.isLoading || player.state === 'sitting') return;
+  if (!force && seconds - lastSavedAt < POSITION_SAVE_INTERVAL_S) return;
+  lastSavedAt = seconds;
+  const payload: SavedPosition = {
+    room,
+    x: Math.round(player.x * 100) / 100,
+    y: Math.round(player.y * 100) / 100,
+    facing: player.facing,
+    seated: player.state === 'seated',
+  };
+  const key = JSON.stringify(payload);
+  if (key === lastSavedKey) return;
+  lastSavedKey = key;
+  try {
+    localStorage.setItem(POSITION_KEY, key);
+  } catch {
+    // ignore storage errors (e.g. private mode)
+  }
+}
+
+function handlePageHide(): void {
+  savePosition(performance.now() / 1000, true);
+}
+
+// 上次是站著離開、而且就是這個房間：站回原地（擋到東西就挪到最近的空地）
+function restoreStanding(): boolean {
+  const saved = savedPosition;
+  if (!saved || saved.seated || saved.room !== currentRoom() || !nav) return false;
+  const spot = nav.isBlocked(saved.x, saved.y) ? nav.nearestFree({ x: saved.x, z: saved.y }) : { x: saved.x, z: saved.y };
+  if (!spot) return false;
+  placePlayer(spot.x, spot.z);
+  player.facing = saved.facing;
+  player.state = 'idle';
+  player.seatId = null;
+  restoredStanding = true;
+  return true;
+}
+
 function spawnPlayer(): void {
   const mine = seatNodes.find((n) => n.seatId === props.selectedSeatId);
-  if (mine) {
+  if (!pendingSpawn && restoreStanding()) {
+    // 站回上次的位置
+  } else if (mine) {
     snapToSeat(mine);
   } else if (pendingSpawn && pendingSpawn.floor === props.currentFloor) {
     // 換樓層後座位資料會陸續到齊、地圖會重建不只一次，所以這裡不清掉，等載入完成才清
@@ -441,6 +527,8 @@ function updatePlayer(dt: number): void {
       const arrival = stair.spot.direction === 1 ? map.stairs.down : map.stairs.up;
       const trigger = stairTrigger(arrival);
       pendingSpawn = { point: { x: trigger.x, y: trigger.y + 0.2 }, floor: stair.target };
+      savedPosition = null;
+      restoredStanding = false;
       emit('change-floor', stair.target);
     }
   }
@@ -721,6 +809,7 @@ function animate(time: number): void {
   const dt = lastFrameTime ? Math.min(0.05, seconds - lastFrameTime) : 0;
   lastFrameTime = seconds;
   updatePlayer(dt);
+  savePosition(seconds);
   render(seconds);
 }
 
@@ -838,6 +927,7 @@ onMounted(() => {
   intersectionObserver.observe(container);
   themeObserver = new MutationObserver(readTheme);
   themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  window.addEventListener('pagehide', handlePageHide);
   rafId = requestAnimationFrame(animate);
 });
 
@@ -856,7 +946,11 @@ watch(
 watch(
   () => props.isLoading,
   (loading) => {
-    if (!loading) pendingSpawn = null;
+    if (!loading) {
+      pendingSpawn = null;
+      // 第一個房間載入完成後，存檔就用過了；之後換房間一律照一般規則出生
+      savedPosition = null;
+    }
   },
 );
 
@@ -867,6 +961,11 @@ watch(
   (id) => {
     if (id) {
       if ((player.state === 'seated' && player.seatId === id) || player.state === 'sitting') return;
+      // 剛從存檔站回原地：座位照樣幫你保留（椅子會亮），但人留在原地
+      if (restoredStanding && player.state !== 'seated') {
+        syncSeatStates();
+        return;
+      }
       const node = seatNodes.find((n) => n.seatId === id);
       if (node) snapToSeat(node);
     } else if (player.state === 'seated') {
@@ -886,6 +985,8 @@ watchEffect(() => {
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(rafId);
+  window.removeEventListener('pagehide', handlePageHide);
+  handlePageHide();
   resizeObserver?.disconnect();
   intersectionObserver?.disconnect();
   themeObserver?.disconnect();

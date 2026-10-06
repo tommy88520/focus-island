@@ -122,9 +122,11 @@ const DEFAULT_ZONE_CAPACITY = 15;
 // onMounted 的第一次 reconnectRoomSession 抓的就是正確的房間快照，不用
 // 再多一次樓層切換。`loadLastSeat` 是下面定義的 function declaration，
 // 因為會 hoist 所以這裡可以先用。
+// 最後所在的樓層／分區優先：走樓梯去別層逛、沒坐下就關掉，下次也回到那一層
 const initialLastSeat = loadLastSeat();
-const currentFloor = ref(initialLastSeat?.floor ?? 2);
-const activeZoneId = ref(initialLastSeat?.zoneId ?? 'A');
+const initialLocation = loadLastLocation();
+const currentFloor = ref(initialLocation?.floor ?? initialLastSeat?.floor ?? 2);
+const activeZoneId = ref(initialLocation?.zoneId ?? initialLastSeat?.zoneId ?? 'A');
 const isLoading = ref(false);
 const selectedSeatId = ref<string | null>(null);
 const isShake = ref(false);
@@ -202,6 +204,37 @@ function saveLastSeat(seatId: string, floor: number, zoneId: string) {
   try {
     const payload: LastSeatPayload = { seatId, floor, zoneId };
     localStorage.setItem(LAST_SEAT_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore storage errors (e.g. private mode)
+  }
+}
+
+// --- 最後所在的樓層與分區（不管有沒有坐下，換層／換區就記） ---
+const LAST_LOCATION_KEY = 'focus_island_last_location_v1';
+
+type LastLocationPayload = {
+  floor: number;
+  zoneId: string;
+};
+
+function loadLastLocation(): LastLocationPayload | null {
+  try {
+    const raw = localStorage.getItem(LAST_LOCATION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<LastLocationPayload>;
+    const floor = Number(parsed.floor);
+    const zoneId = String(parsed.zoneId || '');
+    if (!Number.isFinite(floor) || floor <= 0 || !zoneId) return null;
+    return { floor, zoneId };
+  } catch {
+    return null;
+  }
+}
+
+function saveLastLocation(floor: number, zoneId: string) {
+  try {
+    const payload: LastLocationPayload = { floor, zoneId };
+    localStorage.setItem(LAST_LOCATION_KEY, JSON.stringify(payload));
   } catch {
     // ignore storage errors (e.g. private mode)
   }
@@ -805,6 +838,7 @@ function formatTime(seconds: number): string {
 }
 
 watch([currentFloor, activeZoneId], () => {
+  saveLastLocation(currentFloor.value, activeZoneId.value);
   isLoading.value = true;
   void reconnectRoomSession();
 });
