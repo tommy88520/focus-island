@@ -24,7 +24,7 @@
         </button>
 
         <div class="flex items-center gap-2 sm:gap-3">
-          <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-rose-300 to-amber-400 font-black text-[10px] text-amber-950 shadow-lg shadow-orange-500/20 sm:h-9 sm:w-9 sm:text-base">FI</div>
+          <img src="/icons/logo.svg" alt="Focus Island" width="36" height="36" class="h-8 w-8 shrink-0 rounded-[9px] shadow-lg shadow-indigo-950/30 [image-rendering:pixelated] sm:h-9 sm:w-9" />
           <div class="hide-below-sm sm:block">
             <div class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:!text-amber-200/80 leading-none mb-1">Cute Library</div>
             <div class="text-base font-black leading-none text-slate-900 dark:!text-white">Focus Island</div>

@@ -32,8 +32,8 @@
               @update:active-zone-id="activeZoneId = $event"
             />
 
-            <SeatScene3D
-              v-if="use3d"
+            <SeatScenePixel
+              v-if="useCanvasScene"
               :seats="currentSeats"
               :selected-seat-id="selectedSeatId"
               :is-shake="isShake"
@@ -44,7 +44,7 @@
               :get-mate-at-seat="librarySocket.getMateAtSeat"
               @select="selectSeat"
               @change-floor="currentFloor = $event"
-              @webgl-failed="use3d = false"
+              @webgl-failed="useCanvasScene = false"
             />
             <SeatGrid
               v-else
@@ -99,7 +99,7 @@ import { useAmbientAudio } from 'src/pages/index/composables/useAmbientAudio';
 import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vue';
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
-import SeatScene3D from 'src/pages/index/components/SeatScene3D.vue';
+import SeatScenePixel from 'src/pages/index/components/SeatScenePixel.vue';
 import SeatGrid, { type Seat } from 'src/pages/index/components/SeatGrid.vue';
 import FocusClockPanel from 'src/pages/index/components/FocusClockPanel.vue';
 import { useLibrarySocket, buildSeatId } from 'src/pages/index/composables/useLibrarySocket';
@@ -129,7 +129,7 @@ const isLoading = ref(false);
 const selectedSeatId = ref<string | null>(null);
 const isShake = ref(false);
 // WebGL 不可用（或建立 renderer 失敗）時退回 2D 座位格子
-const use3d = ref(true);
+const useCanvasScene = ref(true);
 const isSwitching = ref(false);
 
 const userId = ref(localStorage.getItem('lib_uid') || createRandomId('user'));

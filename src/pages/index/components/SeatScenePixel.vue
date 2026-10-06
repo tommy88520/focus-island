@@ -1,0 +1,926 @@
+<template>
+  <div class="relative" :class="{ 'shake-error': isShake }">
+    <div
+      ref="containerRef"
+      class="relative h-[52vh] min-h-[340px] w-full overflow-hidden rounded-2xl bg-[#1b1d26] outline-none transition-opacity duration-500 focus-visible:ring-2 focus-visible:ring-amber-400/40 lg:h-[calc(100vh-330px)] lg:min-h-[460px]"
+      :class="isLoading ? 'opacity-0' : 'opacity-100'"
+      style="touch-action: pan-y"
+      tabindex="0"
+      @keydown="handleKeyDown"
+      @keyup="handleKeyUp"
+      @blur="keys.clear()"
+    >
+      <canvas ref="canvasRef" class="block h-full w-full" />
+    </div>
+
+    <p class="mt-2 px-2 text-center text-[10px] font-bold tracking-wide text-slate-500 dark:!text-white/55">
+      {{ isTouch ? t.seatScene.hintTouch : t.seatScene.hintDesktop }}
+    </p>
+
+    <div v-if="isLoading" class="pointer-events-none absolute inset-0 flex items-center justify-center px-4">
+      <div class="flex flex-col items-center gap-4">
+        <div class="h-12 w-12 animate-spin rounded-full border-4 border-amber-400/20 border-t-amber-400"></div>
+        <p class="text-[10px] font-black uppercase tracking-[0.4em] text-amber-400/80">
+          {{ t.seatGrid.syncingFloor(currentFloor) }}
+        </p>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
+import type { Reader } from 'src/pages/index/composables/useLibrarySocket';
+import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
+import { useLocale } from 'src/composables/useLocale';
+import { createNavigation, type Navigation, type Point } from 'src/pages/index/composables/seatNavigation';
+import {
+  TILE,
+  createPixelMap,
+  mapObstacles,
+  seatApproach,
+  seatCenter,
+  stairTrigger,
+  walkBounds,
+  type Facing,
+  type PixelMap,
+  type SeatSlot,
+  type StairSpot,
+} from 'src/pages/index/pixel/pixelMap';
+import {
+  AVATAR_SIZE,
+  KENNEY_SHEET_URL,
+  MY_AVATAR,
+  ARMCHAIR_COLORS,
+  POUF_COLORS,
+  SEATED_ROWS,
+  avatarColorsFor,
+  drawKenney,
+  getAvatarFrame,
+  loadImage,
+  paintCounter,
+  paintFloorLamp,
+  paintArmchairBack,
+  paintPouf,
+  paintStool,
+  paintStaticLayer,
+  type AvatarColors,
+} from 'src/pages/index/pixel/pixelArt';
+
+const props = defineProps<{
+  seats: Seat[];
+  selectedSeatId: string | null;
+  isShake: boolean;
+  isLoading: boolean;
+  currentFloor: number;
+  // 有哪些樓層可去，用來決定要不要畫上樓／下樓的樓梯
+  floors: number[];
+  disabled: boolean;
+  getMateAtSeat: (seatId: string) => Reader | null | undefined;
+}>();
+
+const emit = defineEmits<{
+  select: [seatId: string];
+  // 走進樓梯觸發區，要求父層切換到相鄰樓層
+  'change-floor': [floor: number];
+  // 瀏覽器拿不到 2D canvas 時通知父層退回 2D 座位格子
+  'webgl-failed': [];
+}>();
+
+const { t } = useLocale();
+
+const containerRef = ref<HTMLDivElement | null>(null);
+const canvasRef = ref<HTMLCanvasElement | null>(null);
+const isTouch = ref(false);
+
+const WALK_SPEED = 4.2;
+const PLAYER_RADIUS = 0.28;
+const STAIR_RADIUS = 0.6;
+const SIT_TWEEN_SECONDS = 0.25;
+const SIT_REACH = 1.25;
+// 能整張放進畫面就用最大的整數倍；放不下（手機）就固定 2 倍、鏡頭跟著人走
+const MIN_SCALE = 2;
+const LABEL_FONT_PX = 12;
+const COLOR_ME = '#fbbf24';
+const COLOR_MATE = '#2dd4bf';
+const TAKEN_AVATAR: AvatarColors = { hair: '#6b7280', hairLight: '#8b93a1', shirt: '#94a3b8', shirtShade: '#6f7d91' };
+
+type SeatState = 'empty' | 'me' | 'mate' | 'taken';
+
+interface SeatNode {
+  seatId: string;
+  slot: SeatSlot;
+  index: number;
+  state: SeatState;
+  label: string;
+  colors: AvatarColors;
+}
+
+interface StairInfo {
+  spot: StairSpot;
+  target: number;
+}
+
+type PlayerState = 'seated' | 'idle' | 'walking' | 'sitting';
+
+const player = {
+  state: 'idle' as PlayerState,
+  x: 15.5,
+  y: 5,
+  facing: 'down' as Facing,
+  seatId: null as string | null,
+  path: [] as Point[],
+  goalSeatId: null as string | null,
+  sitFrom: { x: 0, y: 0 },
+  sitTo: { x: 0, y: 0 },
+  sitSeatId: '',
+  sitElapsed: 0,
+  moving: false,
+  walkClock: 0,
+};
+
+let ctx: CanvasRenderingContext2D | null = null;
+let sheet: HTMLImageElement | null = null;
+let map: PixelMap = createPixelMap(0);
+let staticLayer: HTMLCanvasElement | null = null;
+let seatNodes: SeatNode[] = [];
+let stairs: StairInfo[] = [];
+let nav: Navigation | null = null;
+let stairLock = false;
+let pendingSpawn: { point: { x: number; y: number }; floor: number } | null = null;
+let hoveredSeatId: string | null = null;
+let nearSeatId: string | null = null;
+let rafId = 0;
+let lastFrameTime = 0;
+let isVisible = true;
+let dark = true;
+let resizeObserver: ResizeObserver | null = null;
+let intersectionObserver: IntersectionObserver | null = null;
+let themeObserver: MutationObserver | null = null;
+const keys = new Set<string>();
+// 目前的視角：世界像素放大幾倍、以及世界原點在畫布上的位置（CSS px）
+const view = { scale: MIN_SCALE, ox: 0, oy: 0, cssW: 0, cssH: 0, dpr: 1 };
+
+// ── 地圖與座位 ──
+
+function rebuildMap(): void {
+  map = createPixelMap(props.seats.length);
+  seatNodes = props.seats.flatMap((seat, index) => {
+    const slot = map.seats[index];
+    return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR }] : [];
+  });
+  rebuildStairs();
+  buildNavigation();
+  paintStatic();
+  spawnPlayer();
+  syncSeatStates();
+}
+
+function rebuildStairs(): void {
+  stairs = [];
+  if (props.floors.includes(props.currentFloor - 1)) stairs.push({ spot: map.stairs.down, target: props.currentFloor - 1 });
+  if (props.floors.includes(props.currentFloor + 1)) stairs.push({ spot: map.stairs.up, target: props.currentFloor + 1 });
+}
+
+function buildNavigation(): void {
+  nav = createNavigation(walkBounds(map), mapObstacles(map), PLAYER_RADIUS);
+}
+
+function paintStatic(): void {
+  const canvas = document.createElement('canvas');
+  canvas.width = map.width * TILE;
+  canvas.height = map.height * TILE;
+  const layer = canvas.getContext('2d');
+  if (layer) paintStaticLayer(layer, map);
+  staticLayer = canvas;
+}
+
+function syncSeatStates(): void {
+  for (const node of seatNodes) {
+    const seat = props.seats[node.index];
+    if (!seat) continue;
+    node.seatId = seat.id;
+    const mate = props.getMateAtSeat(seat.id);
+    let state: SeatState = 'empty';
+    if (props.selectedSeatId === seat.id) state = 'me';
+    else if (mate) state = 'mate';
+    else if (!seat.available) state = 'taken';
+    node.state = state;
+    if (state === 'me') {
+      node.label = t.value.common.meLabel;
+      node.colors = MY_AVATAR;
+    } else if (state === 'mate' && mate) {
+      node.label = mate.displayName;
+      node.colors = avatarColorsFor(mate.displayName);
+    } else {
+      node.label = '';
+      node.colors = TAKEN_AVATAR;
+    }
+  }
+}
+
+// ── 玩家移動（跟 3D 版同一套規則） ──
+
+function insideStairZone(x: number, y: number): StairInfo | undefined {
+  return stairs.find((stair) => {
+    const trigger = stairTrigger(stair.spot);
+    return Math.hypot(x - trigger.x, y - trigger.y) < STAIR_RADIUS;
+  });
+}
+
+function placePlayer(x: number, y: number): void {
+  player.x = x;
+  player.y = y;
+  player.path = [];
+  player.goalSeatId = null;
+  player.moving = false;
+}
+
+function snapToSeat(node: SeatNode): void {
+  const c = seatCenter(node.slot);
+  placePlayer(c.x, c.y);
+  player.facing = node.slot.facing;
+  player.state = 'seated';
+  player.seatId = node.seatId;
+}
+
+function spawnPlayer(): void {
+  const mine = seatNodes.find((n) => n.seatId === props.selectedSeatId);
+  if (mine) {
+    snapToSeat(mine);
+  } else if (pendingSpawn && pendingSpawn.floor === props.currentFloor) {
+    // 換樓層後座位資料會陸續到齊、地圖會重建不只一次，所以這裡不清掉，等載入完成才清
+    placePlayer(pendingSpawn.point.x, pendingSpawn.point.y);
+    player.state = 'idle';
+    player.seatId = null;
+  } else {
+    placePlayer(16, 5.2);
+    player.state = 'idle';
+    player.seatId = null;
+  }
+  stairLock = insideStairZone(player.x, player.y) !== undefined;
+}
+
+// 站起來：座位在伺服器端仍保留，所以只是人離開椅子，站到椅子後方
+function standUp(): void {
+  const node = seatNodes.find((n) => n.seatId === player.seatId);
+  if (node) {
+    const approach = seatApproach(node.slot);
+    placePlayer(approach.x, approach.y);
+  } else {
+    player.path = [];
+  }
+  player.state = 'idle';
+  player.seatId = null;
+  syncSeatStates();
+}
+
+function canInteract(): boolean {
+  return !props.disabled && !props.isLoading && nav !== null;
+}
+
+function sitCandidate(node: SeatNode | undefined): node is SeatNode {
+  if (!node) return false;
+  const seat = props.seats[node.index];
+  if (!seat || !seat.available) return false;
+  return !props.getMateAtSeat(node.seatId);
+}
+
+function findPath(to: { x: number; y: number }): Point[] | null {
+  if (!nav) return null;
+  return nav.findPath({ x: player.x, z: player.y }, { x: to.x, z: to.y });
+}
+
+function walkToSeat(node: SeatNode): void {
+  if (!sitCandidate(node) || player.state === 'sitting') return;
+  if (player.state === 'seated') {
+    if (player.seatId === node.seatId) return;
+    standUp();
+  }
+  const path = findPath(seatApproach(node.slot));
+  if (!path) return;
+  player.path = path.slice(1);
+  player.goalSeatId = node.seatId;
+  player.state = 'walking';
+}
+
+function walkToPoint(target: { x: number; y: number }): void {
+  if (!nav || player.state === 'sitting') return;
+  if (player.state === 'seated') standUp();
+  const path = findPath(target);
+  if (!path) return;
+  player.path = path.slice(1);
+  player.goalSeatId = null;
+  player.state = path.length > 1 ? 'walking' : 'idle';
+}
+
+function startSit(node: SeatNode): void {
+  player.state = 'sitting';
+  player.path = [];
+  player.goalSeatId = null;
+  player.sitFrom = { x: player.x, y: player.y };
+  player.sitTo = seatCenter(node.slot);
+  player.sitSeatId = node.seatId;
+  player.sitElapsed = 0;
+  player.facing = node.slot.facing;
+}
+
+async function finishSit(): Promise<void> {
+  const seatId = player.sitSeatId;
+  const node = seatNodes.find((n) => n.seatId === seatId);
+  if (!node) {
+    player.state = 'idle';
+    return;
+  }
+  snapToSeat(node);
+  syncSeatStates();
+  if (props.selectedSeatId !== seatId) {
+    emit('select', seatId);
+    await nextTick();
+    // 父層拒絕了這次入座（例如切換太快、座位剛被別人坐走）：退回站立
+    if (props.selectedSeatId !== seatId && player.state === 'seated' && player.seatId === seatId) standUp();
+  }
+}
+
+function nearestSittableSeat(): SeatNode | undefined {
+  let best: SeatNode | undefined;
+  let bestDist = SIT_REACH;
+  for (const node of seatNodes) {
+    if (!sitCandidate(node)) continue;
+    const approach = seatApproach(node.slot);
+    const dist = Math.hypot(player.x - approach.x, player.y - approach.y);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = node;
+    }
+  }
+  return best;
+}
+
+function facingFrom(dx: number, dy: number): Facing {
+  if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? 'right' : 'left';
+  return dy > 0 ? 'down' : 'up';
+}
+
+function updatePlayer(dt: number): void {
+  const active = canInteract();
+
+  if (active && (player.state === 'idle' || player.state === 'walking' || player.state === 'seated')) {
+    const dx = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
+    const dy = (keys.has('down') ? 1 : 0) - (keys.has('up') ? 1 : 0);
+    if (dx !== 0 || dy !== 0) {
+      if (player.state === 'seated') standUp();
+      player.path = [];
+      player.goalSeatId = null;
+      player.state = 'idle';
+      const length = Math.hypot(dx, dy);
+      const stepX = (dx / length) * WALK_SPEED * dt;
+      const stepY = (dy / length) * WALK_SPEED * dt;
+      // 分軸移動，貼著牆或桌子時可以順著滑過去
+      if (nav && !nav.isBlocked(player.x + stepX, player.y)) player.x += stepX;
+      if (nav && !nav.isBlocked(player.x, player.y + stepY)) player.y += stepY;
+      player.facing = facingFrom(dx, dy);
+      player.moving = true;
+    } else if (player.state === 'walking') {
+      const next = player.path[0];
+      if (!next) {
+        player.moving = false;
+        const goal = seatNodes.find((n) => n.seatId === player.goalSeatId);
+        player.state = 'idle';
+        if (goal && sitCandidate(goal)) startSit(goal);
+        player.goalSeatId = null;
+      } else {
+        const toX = next.x - player.x;
+        const toY = next.z - player.y;
+        const dist = Math.hypot(toX, toY);
+        const step = WALK_SPEED * dt;
+        if (dist <= step) {
+          player.x = next.x;
+          player.y = next.z;
+          player.path.shift();
+        } else {
+          player.x += (toX / dist) * step;
+          player.y += (toY / dist) * step;
+          player.facing = facingFrom(toX, toY);
+        }
+        player.moving = true;
+      }
+    } else {
+      player.moving = false;
+    }
+  } else if (player.state === 'sitting') {
+    player.sitElapsed += dt;
+    const t01 = Math.min(1, player.sitElapsed / SIT_TWEEN_SECONDS);
+    player.x = player.sitFrom.x + (player.sitTo.x - player.sitFrom.x) * t01;
+    player.y = player.sitFrom.y + (player.sitTo.y - player.sitFrom.y) * t01;
+    player.moving = false;
+    if (t01 >= 1) void finishSit();
+  } else {
+    player.moving = false;
+    // 開始專注（disabled）時還站著：直接回到自己的座位
+    if (props.disabled && player.state !== 'seated') {
+      const mine = seatNodes.find((n) => n.seatId === props.selectedSeatId);
+      if (mine) snapToSeat(mine);
+      syncSeatStates();
+    }
+  }
+  if (player.moving) player.walkClock += dt;
+
+  nearSeatId = active && (player.state === 'idle' || player.state === 'walking') ? (nearestSittableSeat()?.seatId ?? null) : null;
+
+  // 走進樓梯口 → 換樓層
+  if (active && (player.state === 'idle' || player.state === 'walking')) {
+    const stair = insideStairZone(player.x, player.y);
+    if (!stair) {
+      stairLock = false;
+    } else if (!stairLock) {
+      stairLock = true;
+      player.path = [];
+      player.state = 'idle';
+      // 上樓會從新樓層的「下樓」樓梯口出來，反之亦然
+      const arrival = stair.spot.direction === 1 ? map.stairs.down : map.stairs.up;
+      const trigger = stairTrigger(arrival);
+      pendingSpawn = { point: { x: trigger.x, y: trigger.y + 0.2 }, floor: stair.target };
+      emit('change-floor', stair.target);
+    }
+  }
+}
+
+// ── 繪製 ──
+
+interface Drawable {
+  sortY: number;
+  draw: (c: CanvasRenderingContext2D) => void;
+}
+
+function updateView(): void {
+  const container = containerRef.value;
+  const canvas = canvasRef.value;
+  if (!container || !canvas) return;
+  const cssW = container.clientWidth;
+  const cssH = container.clientHeight;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+  }
+  const worldW = map.width * TILE;
+  const worldH = map.height * TILE;
+  const fit = Math.floor(Math.min(cssW / worldW, cssH / worldH));
+  // 桌機畫面夠大就放大到 3 倍，跟 Gather 一樣只看得到人附近、鏡頭跟著走
+  const scale = Math.max(cssW >= 900 ? 3 : MIN_SCALE, fit);
+  const viewW = worldW * scale;
+  const viewH = worldH * scale;
+  // 放得下就置中；放不下就讓玩家在畫面中間，但不超出地圖邊緣
+  const follow = (size: number, world: number, focus: number) =>
+    world <= size ? (size - world) / 2 : Math.min(0, Math.max(size - world, size / 2 - focus));
+  const ox = follow(cssW, viewW, player.x * TILE * scale);
+  const oy = follow(cssH, viewH, player.y * TILE * scale);
+  // 對齊實體像素，畫面捲動時像素才不會閃
+  view.ox = Math.round(ox * dpr) / dpr;
+  view.oy = Math.round(oy * dpr) / dpr;
+  Object.assign(view, { scale, cssW, cssH, dpr });
+}
+
+function drawAvatar(c: CanvasRenderingContext2D, colors: AvatarColors, facing: Facing, frame: 'idle' | 'walkA' | 'walkB', footX: number, footY: number, seated: boolean): void {
+  const sprite = getAvatarFrame(colors, facing, frame);
+  const rows = seated ? SEATED_ROWS : AVATAR_SIZE.h;
+  c.drawImage(sprite, 0, 0, AVATAR_SIZE.w, rows, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - rows), AVATAR_SIZE.w, rows);
+}
+
+function seatDrawables(node: SeatNode, seconds: number): Drawable[] {
+  const { slot } = node;
+  const x = slot.tx * TILE;
+  const y = slot.ty * TILE;
+  const meSeated = node.state === 'me' && player.state === 'seated' && player.seatId === node.seatId;
+  const occupied = node.state === 'mate' || node.state === 'taken' || meSeated;
+  const highlighted = (hoveredSeatId === node.seatId || nearSeatId === node.seatId) && node.state === 'empty' && !props.disabled;
+  const reservedAway = node.state === 'me' && !meSeated;
+
+  const drawSeat = (c: CanvasRenderingContext2D) => {
+    if (!sheet) return;
+    if (slot.kind === 'chair') {
+      const tile = slot.facing === 'down' ? 'chairDown' : slot.facing === 'up' ? 'chairUp' : slot.facing === 'right' ? 'chairRight' : 'chairLeft';
+      drawKenney(c, sheet, tile, x, y);
+    } else if (slot.kind === 'stool') {
+      paintStool(c, x, y);
+    } else if (slot.kind === 'pouf') {
+      paintPouf(c, x, y, POUF_COLORS[node.index % POUF_COLORS.length] ?? '#c9774f');
+    } else {
+      paintArmchairBack(c, x, y, ARMCHAIR_COLORS[node.index % ARMCHAIR_COLORS.length] ?? '#b0603f');
+    }
+  };
+  const drawPerson = (c: CanvasRenderingContext2D) => {
+    if (!occupied) return;
+    const breathe = Math.sin(seconds * 1.6 + node.index) > 0.92 ? 1 : 0;
+    const lift = slot.kind === 'pouf' ? 5 : slot.kind === 'armchair' ? 6 : slot.facing === 'up' ? 2 : 4;
+    drawAvatar(c, node.colors, slot.facing, 'idle', x + 8, y + TILE - lift + breathe, true);
+  };
+  const drawGlow = (c: CanvasRenderingContext2D) => {
+    if (!highlighted && !reservedAway) return;
+    const pulse = reservedAway ? 0.35 + Math.sin(seconds * 3) * 0.15 : 0.55;
+    c.fillStyle = `rgba(251, 191, 36, ${pulse})`;
+    c.fillRect(x + 1, y + TILE - 3, TILE - 2, 2);
+    c.fillRect(x + 1, y + 1, 2, TILE - 4);
+    c.fillRect(x + TILE - 3, y + 1, 2, TILE - 4);
+  };
+
+  // 背對鏡頭的座位（面向上）：椅背要蓋在人前面
+  const backFacing = slot.facing === 'up';
+  return [
+    {
+      sortY: slot.ty + 1,
+      draw: (c) => {
+        drawGlow(c);
+        if (backFacing) {
+          drawPerson(c);
+          drawSeat(c);
+        } else {
+          drawSeat(c);
+          drawPerson(c);
+        }
+      },
+    },
+  ];
+}
+
+function propDrawables(): Drawable[] {
+  const list: Drawable[] = [];
+  for (const prop of map.props) {
+    const x = prop.tx * TILE;
+    const y = prop.ty * TILE;
+    const sortY = prop.ty + prop.h;
+    if (prop.kind === 'table') {
+      list.push({
+        sortY,
+        draw: (c) => {
+          if (!sheet) return;
+          drawKenney(c, sheet, 'tableTopLeft', x, y);
+          drawKenney(c, sheet, 'tableTopRight', x + TILE, y);
+          drawKenney(c, sheet, 'tableBottomLeft', x, y + TILE);
+          drawKenney(c, sheet, 'tableBottomRight', x + TILE, y + TILE);
+          // 桌上：攤開的書 + 一盞小檯燈
+          c.fillStyle = '#efe6d2';
+          c.fillRect(x + 6, y + 10, 8, 5);
+          c.fillStyle = '#c9b89a';
+          c.fillRect(x + 10, y + 10, 1, 5);
+          c.fillStyle = '#2b2d33';
+          c.fillRect(x + 24, y + 9, 2, 5);
+          c.fillStyle = '#f6e2b8';
+          c.fillRect(x + 22, y + 6, 6, 3);
+        },
+      });
+    } else if (prop.kind === 'roundTable') {
+      list.push({
+        sortY,
+        draw: (c) => {
+          if (!sheet) return;
+          drawKenney(c, sheet, 'roundTable', x, y);
+          c.fillStyle = '#f2efe8';
+          c.fillRect(x + 9, y + 5, 3, 3);
+          c.fillStyle = '#35604f';
+          c.fillRect(x + 4, y + 7, 4, 3);
+        },
+      });
+    } else if (prop.kind === 'counter') {
+      list.push({ sortY: prop.ty + 1, draw: (c) => paintCounter(c, x, y, prop.h * TILE) });
+    } else if (prop.kind === 'plant' || prop.kind === 'tallPlant') {
+      list.push({
+        sortY,
+        draw: (c) => {
+          if (sheet) drawKenney(c, sheet, prop.variant === 1 ? 'plantB' : 'plantA', x, y - (prop.kind === 'tallPlant' ? 4 : 0));
+        },
+      });
+    } else if (prop.kind === 'floorLamp') {
+      list.push({ sortY, draw: (c) => paintFloorLamp(c, x, y) });
+    }
+  }
+  return list;
+}
+
+function playerDrawable(): Drawable | null {
+  if (player.state === 'seated') return null;
+  const frame = player.moving ? (Math.floor(player.walkClock / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
+  return {
+    sortY: player.y + 0.35,
+    draw: (c) => {
+      // 影子
+      c.fillStyle = 'rgba(0, 0, 0, 0.18)';
+      c.fillRect(Math.round(player.x * TILE - 5), Math.round(player.y * TILE + 3), 10, 2);
+      drawAvatar(c, MY_AVATAR, player.facing, frame, player.x * TILE, player.y * TILE + 5, false);
+    },
+  };
+}
+
+function drawNightLighting(c: CanvasRenderingContext2D, seconds: number): void {
+  const w = map.width * TILE;
+  const h = map.height * TILE;
+  c.save();
+  c.globalCompositeOperation = 'multiply';
+  c.fillStyle = '#b4a9cf';
+  c.fillRect(0, 0, w, h);
+  c.globalCompositeOperation = 'lighter';
+  const glow = (x: number, y: number, r: number, color: string) => {
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, color);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g;
+    c.fillRect(x - r, y - r, r * 2, r * 2);
+  };
+  for (const prop of map.props) {
+    if (prop.kind === 'floorLamp') glow(prop.tx * TILE + 8, prop.ty * TILE - 6, 52, 'rgba(255, 196, 110, 0.38)');
+    if (prop.kind === 'table') glow(prop.tx * TILE + 25, prop.ty * TILE + 8, 30, 'rgba(255, 210, 140, 0.3)');
+  }
+  const tvX = (map.tv.tx + map.tv.w / 2) * TILE;
+  glow(tvX, TILE * 3, 60, `rgba(90, 150, 230, ${0.2 + Math.sin(seconds * 0.8) * 0.03})`);
+  for (const [y0, y1] of map.windows) glow(TILE, ((y0 + y1) / 2) * TILE, 40, 'rgba(150, 180, 255, 0.14)');
+  c.restore();
+}
+
+function drawSunlight(c: CanvasRenderingContext2D): void {
+  // 白天：落地窗斜照進來的光塊
+  c.save();
+  c.globalCompositeOperation = 'soft-light';
+  c.fillStyle = 'rgba(255, 244, 214, 0.55)';
+  for (const [y0, y1] of map.windows) {
+    c.beginPath();
+    c.moveTo(TILE, y0 * TILE);
+    c.lineTo(TILE, y1 * TILE);
+    c.lineTo(TILE * 4, y1 * TILE + TILE * 2);
+    c.lineTo(TILE * 4, y0 * TILE + TILE * 2);
+    c.closePath();
+    c.fill();
+  }
+  c.restore();
+}
+
+function drawPill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, color: string): void {
+  const label = text.length > 10 ? `${text.slice(0, 10)}…` : text;
+  c.font = `700 ${LABEL_FONT_PX}px system-ui, -apple-system, "PingFang TC", sans-serif`;
+  const width = Math.ceil(c.measureText(label).width) + 14;
+  const height = LABEL_FONT_PX + 8;
+  const x = Math.round(cx - width / 2);
+  const y = Math.round(bottom - height);
+  c.fillStyle = 'rgba(15, 23, 42, 0.86)';
+  c.beginPath();
+  c.roundRect(x, y, width, height, height / 2);
+  c.fill();
+  c.strokeStyle = color;
+  c.lineWidth = 1.5;
+  c.stroke();
+  c.fillStyle = '#ffffff';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText(label, cx, y + height / 2 + 0.5);
+}
+
+function render(seconds: number): void {
+  const canvas = canvasRef.value;
+  if (!ctx || !canvas) return;
+  updateView();
+  const { scale, ox, oy, dpr } = view;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = false;
+  ctx.setTransform(scale * dpr, 0, 0, scale * dpr, ox * dpr, oy * dpr);
+
+  if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
+  const drawables: Drawable[] = [...propDrawables(), ...seatNodes.flatMap((node) => seatDrawables(node, seconds))];
+  const me = playerDrawable();
+  if (me) drawables.push(me);
+  drawables.sort((a, b) => a.sortY - b.sortY);
+  for (const item of drawables) item.draw(ctx);
+  if (dark) drawNightLighting(ctx, seconds);
+  else drawSunlight(ctx);
+
+  // 名牌與樓梯牌用螢幕座標畫，字才清楚、不會跟著像素一起放大
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const toScreen = (wx: number, wy: number) => ({ x: ox + wx * scale, y: oy + wy * scale });
+  for (const stair of stairs) {
+    const p = toScreen((stair.spot.tx + 1) * TILE, TILE + 2);
+    const up = stair.spot.direction === 1;
+    drawPill(ctx, up ? t.value.seatScene.stairUp(stair.target) : t.value.seatScene.stairDown(stair.target), p.x, p.y, up ? COLOR_ME : COLOR_MATE);
+  }
+  for (const node of seatNodes) {
+    if (!node.label) continue;
+    const meSeated = node.state === 'me' && player.state === 'seated' && player.seatId === node.seatId;
+    if (node.state === 'me' && !meSeated) continue;
+    const p = toScreen(node.slot.tx * TILE + 8, node.slot.ty * TILE - 6);
+    drawPill(ctx, node.label, p.x, p.y, node.state === 'me' ? COLOR_ME : COLOR_MATE);
+  }
+  if (player.state !== 'seated') {
+    const p = toScreen(player.x * TILE, player.y * TILE - 16);
+    drawPill(ctx, t.value.common.meLabel, p.x, p.y, COLOR_ME);
+  }
+}
+
+function animate(time: number): void {
+  rafId = requestAnimationFrame(animate);
+  if (!ctx || !isVisible || document.hidden) return;
+  const seconds = time / 1000;
+  const dt = lastFrameTime ? Math.min(0.05, seconds - lastFrameTime) : 0;
+  lastFrameTime = seconds;
+  updatePlayer(dt);
+  render(seconds);
+}
+
+// ── 輸入 ──
+
+function toWorld(event: MouseEvent): { x: number; y: number } | null {
+  const canvas = canvasRef.value;
+  if (!canvas) return null;
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left - view.ox) / view.scale / TILE,
+    y: (event.clientY - rect.top - view.oy) / view.scale / TILE,
+  };
+}
+
+// 點到座位的格子，或坐著的人頭（座位上面那格）都算點座位
+function pickSeat(point: { x: number; y: number }): SeatNode | undefined {
+  const tx = Math.floor(point.x);
+  const ty = Math.floor(point.y);
+  return (
+    seatNodes.find((n) => n.slot.tx === tx && n.slot.ty === ty) ??
+    seatNodes.find((n) => n.slot.tx === tx && n.slot.ty - 1 === ty && n.state !== 'empty')
+  );
+}
+
+function handlePointerMove(event: PointerEvent): void {
+  if (event.pointerType !== 'mouse') return;
+  const point = toWorld(event);
+  const node = point ? pickSeat(point) : undefined;
+  hoveredSeatId = node?.seatId ?? null;
+  const canvas = canvasRef.value;
+  if (canvas) canvas.style.cursor = node && node.state === 'empty' && !props.disabled ? 'pointer' : 'default';
+}
+
+function handlePointerLeave(): void {
+  hoveredSeatId = null;
+}
+
+function handleClick(event: MouseEvent): void {
+  containerRef.value?.focus({ preventScroll: true });
+  if (!canInteract()) return;
+  const point = toWorld(event);
+  if (!point) return;
+  const node = pickSeat(point);
+  if (node) {
+    walkToSeat(node);
+    return;
+  }
+  walkToPoint(point);
+}
+
+const KEY_MAP: Record<string, 'up' | 'down' | 'left' | 'right'> = {
+  KeyW: 'up',
+  ArrowUp: 'up',
+  KeyS: 'down',
+  ArrowDown: 'down',
+  KeyA: 'left',
+  ArrowLeft: 'left',
+  KeyD: 'right',
+  ArrowRight: 'right',
+};
+
+function handleKeyDown(event: KeyboardEvent): void {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  const direction = KEY_MAP[event.code];
+  if (direction) {
+    event.preventDefault();
+    keys.add(direction);
+    return;
+  }
+  if ((event.code === 'Space' || event.code === 'KeyE' || event.code === 'Enter') && canInteract()) {
+    event.preventDefault();
+    if (player.state === 'idle' || player.state === 'walking') {
+      const node = nearestSittableSeat();
+      if (node) startSit(node);
+    }
+  }
+}
+
+function handleKeyUp(event: KeyboardEvent): void {
+  const direction = KEY_MAP[event.code];
+  if (direction) keys.delete(direction);
+}
+
+function readTheme(): void {
+  dark = document.body.classList.contains('body--dark');
+}
+
+onMounted(() => {
+  const canvas = canvasRef.value;
+  const container = containerRef.value;
+  if (!canvas || !container) return;
+  ctx = canvas.getContext('2d');
+  if (!ctx) {
+    emit('webgl-failed');
+    return;
+  }
+  isTouch.value = window.matchMedia('(pointer: coarse)').matches;
+  readTheme();
+  rebuildMap();
+  void loadImage(KENNEY_SHEET_URL)
+    .then((image) => {
+      sheet = image;
+    })
+    .catch(() => emit('webgl-failed'));
+
+  canvas.addEventListener('pointermove', handlePointerMove);
+  canvas.addEventListener('pointerleave', handlePointerLeave);
+  canvas.addEventListener('click', handleClick);
+  resizeObserver = new ResizeObserver(() => render(performance.now() / 1000));
+  resizeObserver.observe(container);
+  intersectionObserver = new IntersectionObserver((entries) => {
+    isVisible = entries[0]?.isIntersecting ?? true;
+  });
+  intersectionObserver.observe(container);
+  themeObserver = new MutationObserver(readTheme);
+  themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  rafId = requestAnimationFrame(animate);
+});
+
+// 座位數量或 id 清單變動（切樓層／分區）才重建；其餘狀態變化只更新外觀
+watch(
+  () => props.seats.map((seat) => seat.id).join(','),
+  () => rebuildMap(),
+);
+
+// 樓層清單到了才知道有沒有上下樓梯
+watch(
+  () => [props.floors.join(','), props.currentFloor],
+  () => rebuildStairs(),
+);
+
+watch(
+  () => props.isLoading,
+  (loading) => {
+    if (!loading) pendingSpawn = null;
+  },
+);
+
+// 父層端改變座位（自動入座、還原上次座位）時，人跟著坐過去；
+// 座位被釋放（切樓層斷線重連）時，如果人還坐在上面就讓他站起來
+watch(
+  () => props.selectedSeatId,
+  (id) => {
+    if (id) {
+      if ((player.state === 'seated' && player.seatId === id) || player.state === 'sitting') return;
+      const node = seatNodes.find((n) => n.seatId === id);
+      if (node) snapToSeat(node);
+    } else if (player.state === 'seated') {
+      standUp();
+    }
+    syncSeatStates();
+  },
+);
+
+watchEffect(() => {
+  // 讀取 props 與 getMateAtSeat 內的響應式資料，任何入座／離座都會觸發
+  void props.seats.map((seat) => [seat.id, seat.available, props.getMateAtSeat(seat.id)?.displayName]);
+  void props.selectedSeatId;
+  void t.value;
+  syncSeatStates();
+});
+
+onBeforeUnmount(() => {
+  cancelAnimationFrame(rafId);
+  resizeObserver?.disconnect();
+  intersectionObserver?.disconnect();
+  themeObserver?.disconnect();
+  const canvas = canvasRef.value;
+  if (canvas) {
+    canvas.removeEventListener('pointermove', handlePointerMove);
+    canvas.removeEventListener('pointerleave', handlePointerLeave);
+    canvas.removeEventListener('click', handleClick);
+  }
+  ctx = null;
+});
+</script>
+
+<style scoped>
+.shake-error {
+  animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes shake {
+  10%,
+  90% {
+    transform: translate3d(-1px, 0, 0);
+  }
+  20%,
+  80% {
+    transform: translate3d(2px, 0, 0);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate3d(-4px, 0, 0);
+  }
+  40%,
+  60% {
+    transform: translate3d(4px, 0, 0);
+  }
+}
+</style>
