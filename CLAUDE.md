@@ -1,44 +1,39 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Quasar (Vue 3 + TS, `<script setup>`) SPA on Vercel. Pinia, Tailwind v4 alongside Quasar. Backend is the sibling repo `COMEANC13-backend` (Go, on Koyeb).
 
 ## Commands
 
 ```bash
-npm run dev       # quasar dev - local dev server (SPA)
-npm run build     # quasar build -> dist/spa (deployed to Vercel)
-npm run lint      # eslint over src*/**/*.{ts,js,cjs,mjs,vue}
-npm run format    # prettier --write, respects .gitignore
-npm test          # no-op placeholder, there is no test suite
+npm run dev     # quasar dev
+npm run build   # -> dist/spa
+npm run lint
+npx vue-tsc --noEmit   # type-check (no test suite)
 ```
 
-Vercel deployment: framework preset `Other`, build command `npm run build`, output dir `dist/spa`, SPA rewrites handled by `vercel.json`.
+Env (in `.env.local` / Vercel): `VITE_BACKEND_API_URL`, `VITE_BACKEND_WS_URL` (falls back to `ws://localhost:8080`; REST derives `http://` from it).
 
-Runtime config is via Vite env vars, read directly with `import.meta.env` at call sites (not centralized): `VITE_BACKEND_API_URL` (REST base) and `VITE_BACKEND_WS_URL` (WS base, falls back to `ws://localhost:8080` — actions convert this to `http(s)://` for REST calls when `VITE_BACKEND_API_URL` is unset). No `.env` file is committed; set these locally in `.env.local` or in Vercel project settings.
+## Gotchas
 
-## Architecture
+- **Quasar's global CSS beats Tailwind utilities** (Tailwind v4 is layered, Quasar isn't). `hidden`, `flex`, and heading sizes on `h1`–`h6`/`p` get overridden — use the `!` modifier (`md:!hidden`, `!text-sm`, `dark:!text-white`) or the `hide-below-sm` utility. `dark:` follows Quasar's `body--dark` class.
+- No backend locally? Seats still render with defaults. Stairs only appear when `GET /api/v1/library/floors` answers, so mock that on :8080 to see them.
 
-Quasar (Vue 3 + TypeScript, Composition API/`<script setup>`) SPA, deployed to Vercel. Pinia for state, Tailwind (via `@tailwindcss/postcss`) alongside Quasar's own component styling.
+## How it fits together
 
-**Routes** (`src/router/routes.ts`, history mode): `/` (seat selection + focus timer, `IndexPage.vue`), `/progress` (`ProgressPage.vue`). `router/index.ts` also injects per-route SEO `<meta>`/canonical tags on every navigation from each route's `meta.seo`.
+- **`pages/IndexPage.vue`**: seat selection, timer panel and the connection flow. Room = `{floor}-{zone}` (`2-A`), seat = `{room}-{NN}`. On mount and on floor/zone change: seat snapshot (REST) → WS token (REST) → WebSocket; `connectionVersion` drops callbacks from superseded attempts. Networking lives in `pages/index/composables/useLibrarySocket.ts` + `pages/index/actions/`.
+- **Identity**: `userId` is per browser (`localStorage['lib_uid']`); the per-tab id (`sessionStorage`) is sent as `sessionId` and is what owns a seat server-side. Two tabs of one user may hold different seats on purpose — don't add a single-tab lock.
+- **Seats are only released by moving or disconnecting** (no "leave" message). Standing up keeps `selectedSeatId`; the seat just glows as reserved.
+- **Remembered across visits** (`localStorage`): last seat, last floor/zone (`focus_island_last_location_v1`), and the avatar's standing position (`focus_island_player_position_v1`, written by the scene). On load: seated → sit back; standing → stand at the same spot while the seat is still auto-reserved.
+- **Seat scene (`pages/index/components/SeatScenePixel.vue`)**: Gather-style top-down pixel library on a 2D canvas. Emits `select`, `change-floor`, and `webgl-failed` (→ `IndexPage` falls back to `SeatGrid`).
+  - `pixel/pixelMap.ts` (pure): tile coords, 1 tile = 16px; seat slots with a `facing`, props, rugs. First 15 slots are a standard zone; extra seats add 2×2 tables and grow the map.
+  - `pixel/pixelArt.ts`: Kenney Roguelike Indoors (CC0, `public/pixel/`) for chairs/tables/plants; floor, walls, shelves, stairs, TV, rugs, beanbags, armchairs and avatars are painted in code. Avatars use a swappable palette (`AvatarColors`).
+  - Collision + A* in `composables/seatNavigation.ts` (pure, tile units; its `z` is the map's `y`).
+  - Static layer painted once per map build; props/seats/player Y-sorted each frame; integer scale (3× ≥900px wide, else 2×) with a follow camera; name pills drawn in screen space.
+  - Walking is local only — the backend has no position message. Only the final seat is sent.
+- **Audio** (`composables/useAmbientAudio.ts`, `synthAmbience.ts`): tracks with a `synth` field are generated with Web Audio; the rest are mp3s in `public/music/`.
+- **Timer** (`stores/pomodoro.ts` + `workers/timer.worker.ts`): countdown runs in a Web Worker so background tabs aren't throttled; today's stats reset by local date.
+- `MainLayout.vue` learns the current room via the `focus-room-updated` event + `localStorage`, not a shared store.
 
-**`IndexPage.vue`** is the core of the app and is a single large (~2300 line) file combining: seat-map UI, floor/zone navigation, the Pomodoro timer UI, a background ambient-audio player (`<audio>` element managed manually with fade in/out), and all realtime networking. Key pieces inside it:
-- Room = `{floor}-{zoneId}` (e.g. `2-A`), seat = `{floor}-{zoneId}-{NN}`; `normalizeSeatId`/`buildSeatId` reconcile the several seat-id shapes the backend/WS can emit.
-- Connection flow on mount / whenever `currentFloor`/`activeZoneId` change (`reconnectRoomSession`): reset local seat state → `fetchFloorTraffic()` (fire-and-forget) → `fetchSeatSnapshot()` (REST, awaited) → `requestWebSocketToken()` (REST, awaited) → `connectWebSocket()`. A monotonically increasing `connectionVersion` guards against stale callbacks from a superseded connection attempt racing the current one.
-- WS message types handled: `SYNC_ALL`, `JOIN`, `MOVE`, `LEAVE`, `ERROR` (`SEAT_TAKEN`) — mirrors the backend hub in `COMEANC13-backend`. A client-side heartbeat (`HEARTBEAT`) is sent every `WS_HEARTBEAT_INTERVAL_MS`; reconnect on unexpected close is delayed `WS_RECONNECT_DELAY_MS`.
-- `userId` is a per-browser value persisted in `localStorage['lib_uid']` (generated via `createRandomId`, so it's high-entropy — shared across tabs in the same browser). `currentTabId` (`sessionStorage`, via `getOrCreateTabId`) is per-tab and is sent to the backend as `sessionId` on every WS connect/JOIN/MOVE/HEARTBEAT — it's the actual seat-ownership identity server-side (see backend `CLAUDE.md`), which is why `Reader` entries and the WS message handlers match on `sessionId` (falling back to `userId`) rather than `userId` alone: two tabs sharing the same `userId` need to be tracked as distinct occupants.
-- Design intent (see comments around `toggleFocus`/the `storage` event listener): multiple browser tabs sharing the same `userId` are allowed to run independent focus sessions concurrently — there is deliberately no single-tab lock. Known residual limitation: the seat-availability/"mate" heuristics (`getMateAtSeat`, `isMe`) still treat "same `userId`" as "this is me", so a seat held by your *other* tab currently renders as available rather than as an occupied-by-you seat in this tab's view.
-- The "seated" state, audio prefs, focus-duration prefs, and a short-lived (`RESUME_CANDIDATE_TTL_MS`) "resume previous focus session" payload are all separately persisted to `localStorage`/`sessionStorage` under their own keys near the top of the script block. The `focus-room-updated` `CustomEvent` + `localStorage['focus_island_current_room_info_v1']` is how `MainLayout.vue`'s drawer displays the currently selected room without a shared store.
-- Networking helpers live in `src/pages/index/actions/*Actions.ts` (`floorTrafficActions`, `seatSnapshotActions`, `webSocketTokenActions`) and pure formatting/color helpers in `src/pages/index/functions/uiHelpers.ts`.
+## Direction
 
-**Seat scene (`pages/index/components/SeatScenePixel.vue`)**: a Gather-style top-down pixel-art library drawn on a 2D canvas (it replaced the old Three.js scene). It takes the same props as `SeatGrid` plus `floors`, and emits `select` and `change-floor` (`webgl-failed` now means "no 2D canvas / sprite sheet failed", and `IndexPage` falls back to `SeatGrid`).
-- Map (`pages/index/pixel/pixelMap.ts`, pure logic): tile coordinates, 1 tile = 16 world px. The back wall (top 3 rows) holds the bookshelves, both stairs and the AV-corner TV; the left wall has windows. `createPixelMap(seatCount)` returns the seat slots (`chair`/`stool`/`pouf`/`armchair`, each with a tile and a `facing`), the props and rugs. The first 15 slots are a standard zone (study tables, beanbag lounge, window counter, AV armchairs); more seats add 2×2 tables at the bottom right and make the map taller. Collision/pathfinding reuse `composables/seatNavigation.ts` with tile units (its `z` is the map's `y`).
-- Art (`pages/index/pixel/pixelArt.ts`): chairs, tables, round table and plants come from Kenney's Roguelike Indoors sheet (CC0, `public/pixel/kenney-roguelike-indoor.png` + license next to it; tile ids in `KENNEY`). Everything the pack lacks — floor, walls, windows, bookshelves, stairs, TV, rugs, beanbags, stools, armchairs and the 16×20 avatars — is painted in code. Avatars are char-map sprites with a swappable palette (`AvatarColors`); other readers' colours are derived from their display name, so later outfit customisation only needs a different palette.
-- Rendering: the static layer (floor, rugs, walls, shelves) is painted once per map build; every frame the props, seats/people and the player are Y-sorted and drawn on top, then a night tint + lamp glows (dark mode) or window sunlight (light mode). The world is scaled by an integer (3× when the canvas is ≥900px wide, otherwise 2×); if the map doesn't fit, the camera follows the player, clamped to the map. Name pills and stair signs are drawn afterwards in screen space so the text stays crisp.
-- The player avatar is local-only: walking positions are **not** synced over the WS (the backend has no such message), so other users never see you walk. Only the seat you finally sit in is sent (`select` → `selectSeat` → `sendMove`).
-- There is no "leave seat" message on the backend; a seat is released only by moving to another seat or by disconnecting. So standing up keeps `selectedSeatId` (the seat glows amber as "reserved"), and walking into a stair opening triggers `change-floor` → the normal `currentFloor` watcher → `reconnectRoomSession`, which clears it. `pendingSpawn` makes the player appear at the matching stair of the new floor, and survives multiple map rebuilds until `isLoading` goes false.
-- Movement: WASD/arrows (container must have focus), Space/E/Enter to sit, click/tap the floor or a seat to walk there.
-
-**Ambient audio (`composables/useAmbientAudio.ts` + `synthAmbience.ts`)**: tracks with a `synth` field (rain, ocean, library, blues, classical) are generated live with Web Audio instead of loading an mp3 (avoids loop seams on natural sounds). `createSynthPlayer()` owns one `AudioContext`; each track is a factory that builds a noise/instrument bed plus events scheduled ahead on the audio clock (`scheduleEvents`). The other tracks (forest, lofi, warm, glow) are still mp3s in `public/music/`; `rmultimediaeu-ocean-waves` and `liecio-light-rain` are now unused. Synth tracks go through `ctx.destination`, not the `<audio>` element, so they may be suspended by the OS on a locked phone.
-
-**`stores/pomodoro.ts`**: Pinia store owning timer state (`baseDuration`, `timeLeft`, `isRunning`) and today's cumulative focus stats (persisted to `localStorage['focus_island_today_progress_v1']`, keyed by local date so it resets daily). Delegates actual countdown ticking to `src/workers/timer.worker.ts` (a dedicated Web Worker so the interval isn't throttled by background-tab timer clamping) and accumulates focused seconds from the `TICK` messages it receives back.
+Visual reference is Gather (2D pixel art, not 3D). Prefer CC0 art; otherwise paint it in code in the Kenney palette. A beach-area WIP is parked in `git stash` — map expansion is on hold in favour of features.
