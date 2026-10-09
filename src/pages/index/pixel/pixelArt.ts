@@ -2,7 +2,7 @@
 // 素材包沒有的（地板、牆、書櫃、樓梯、電視、地毯、懶骨頭、人物）在這裡用程式一格一格畫。
 // 所有座標都是「世界像素」（1 格 = 16px），呼叫端負責整數倍放大。
 
-import { TILE, WALL_ROWS, type Facing, type MapRug, type PixelMap } from './pixelMap';
+import { TILE, WALL_ROWS, type Facing, type MapRug, type Outfit, type PixelMap } from './pixelMap';
 
 export const KENNEY_SHEET_URL = '/pixel/kenney-roguelike-indoor.png';
 const KENNEY_STRIDE = 17;
@@ -62,7 +62,7 @@ function paintFloor(ctx: CanvasRenderingContext2D, map: PixelMap): void {
   const rand = seeded(17);
   const top = WALL_ROWS * TILE;
   const width = map.width * TILE;
-  const height = map.height * TILE;
+  const height = map.libraryHeight * TILE;
   px(ctx, WOOD.base, 0, top, width, height - top);
   // 橫向木地板：每條 4px 高，接縫錯開
   for (let y = top; y < height; y += 4) {
@@ -80,7 +80,7 @@ function paintFloor(ctx: CanvasRenderingContext2D, map: PixelMap): void {
 
 function paintWalls(ctx: CanvasRenderingContext2D, map: PixelMap): void {
   const width = map.width * TILE;
-  const height = map.height * TILE;
+  const height = map.libraryHeight * TILE;
   // 後牆：上緣是牆頂，下面兩格是牆面（清水模感：淡灰 + 模板分割線）
   px(ctx, WALL.cap, 0, 0, width, TILE);
   px(ctx, WALL.capLight, 0, TILE - 2, width, 1);
@@ -98,8 +98,28 @@ function paintWalls(ctx: CanvasRenderingContext2D, map: PixelMap): void {
   px(ctx, WALL.capLight, TILE - 2, TILE, 1, height - TILE * 2);
   px(ctx, WALL.cap, width - TILE, 0, TILE, height);
   px(ctx, WALL.capLight, width - TILE + 1, TILE, 1, height - TILE * 2);
-  px(ctx, WALL.cap, 0, height - TILE, width, TILE);
-  px(ctx, WALL.capLight, TILE, height - TILE + 1, width - TILE * 2, 1);
+  // 前牆：中間開一道雙開玻璃門通往海灘
+  const doorLeft = map.beach.door[0] * TILE;
+  const doorRight = map.beach.door[1] * TILE;
+  px(ctx, WALL.cap, 0, height - TILE, doorLeft, TILE);
+  px(ctx, WALL.cap, doorRight, height - TILE, width - doorRight, TILE);
+  px(ctx, WALL.capLight, TILE, height - TILE + 1, doorLeft - TILE, 1);
+  px(ctx, WALL.capLight, doorRight, height - TILE + 1, width - doorRight - TILE, 1);
+  px(ctx, '#2a2f3a', doorLeft - 2, height - TILE, 2, TILE);
+  px(ctx, '#2a2f3a', doorRight, height - TILE, 2, TILE);
+  if (map.beach.escalator) {
+    paintEscalatorFrame(ctx, map);
+  } else {
+    // 門檻 + 打開的兩扇玻璃門（貼在門框邊）
+    px(ctx, '#a9a49a', doorLeft, height - 3, doorRight - doorLeft, 3);
+    px(ctx, '#2a2f3a', doorLeft, height - TILE, 3, 12);
+    px(ctx, '#bfe3f2', doorLeft + 1, height - TILE + 1, 1, 10);
+    px(ctx, '#2a2f3a', doorRight - 3, height - TILE, 3, 12);
+    px(ctx, '#bfe3f2', doorRight - 2, height - TILE + 1, 1, 10);
+  }
+  // 門口地墊
+  px(ctx, '#6b4428', doorLeft + 6, height - TILE - 9, doorRight - doorLeft - 12, 7);
+  px(ctx, '#9a6a43', doorLeft + 7, height - TILE - 8, doorRight - doorLeft - 14, 5);
 
   // 左牆的落地窗
   for (const [y0, y1] of map.windows) {
@@ -168,6 +188,40 @@ function paintStairs(ctx: CanvasRenderingContext2D, map: PixelMap): void {
   }
 }
 
+// 電梯：不鏽鋼門框 + 上方的樓層顯示；兩扇門每格重畫（有人靠近會打開）
+function paintElevatorFrame(ctx: CanvasRenderingContext2D, map: PixelMap): void {
+  const left = map.elevator.tx * TILE;
+  const width = TILE * 2;
+  px(ctx, '#5d6676', left, TILE, width, TILE * 2);
+  px(ctx, '#8a94a5', left + 1, TILE + 1, width - 2, TILE * 2 - 1);
+  // 樓層顯示
+  px(ctx, '#15171f', left + 10, TILE + 2, 12, 5);
+  px(ctx, '#fbbf24', left + 14, TILE + 3, 1, 3);
+  px(ctx, '#fbbf24', left + 13, TILE + 4, 3, 1);
+  px(ctx, '#fbbf24', left + 17, TILE + 3, 2, 3);
+  // 車廂內部（門打開才看得到）
+  px(ctx, '#3a3d45', left + 3, TILE + 9, width - 6, TILE * 2 - 9);
+  px(ctx, '#f6e2b8', left + 5, TILE + 10, width - 10, 2);
+  px(ctx, '#55596a', left + 3, TILE * 3 - 4, width - 6, 4);
+  // 門邊的按鈕
+  px(ctx, '#2a2f3a', left + width - 3, TILE + 16, 2, 6);
+  px(ctx, '#fbbf24', left + width - 3, TILE + 17, 2, 1);
+}
+
+// open：0 關著、1 全開
+export function paintElevatorDoors(ctx: CanvasRenderingContext2D, map: PixelMap, open: number): void {
+  const left = map.elevator.tx * TILE + 3;
+  const top = TILE + 9;
+  const height = TILE * 2 - 9;
+  const half = 13;
+  const leaf = Math.max(2, Math.round(half * (1 - open)));
+  for (const x of [left, left + half * 2 - leaf]) {
+    px(ctx, '#c3cad6', x, top, leaf, height);
+    px(ctx, '#e3e8f0', x + (x === left ? 1 : leaf - 2), top, 1, height);
+  }
+  if (open < 0.05) px(ctx, '#5d6676', left + half - 1, top, 2, height);
+}
+
 function paintTv(ctx: CanvasRenderingContext2D, map: PixelMap): void {
   const left = map.tv.tx * TILE;
   const width = map.tv.w * TILE;
@@ -218,12 +272,133 @@ function paintRug(ctx: CanvasRenderingContext2D, rug: MapRug): void {
   }
 }
 
+// ── 手扶梯（樓上通往海灘的出口）：外框畫在底圖，會動的梯級每格重畫 ──
+
+const ESCALATOR = { frame: '#2a2f3a', rail: '#15171f', railLight: '#4c5262', step: '#6f7787', stepDark: '#4a5160', comb: '#fbbf24' };
+const ESCALATOR_RAIL = 3;
+
+function escalatorRect(map: PixelMap): { left: number; top: number; width: number; height: number } {
+  const left = map.beach.door[0] * TILE;
+  const top = map.beach.wallRow * TILE;
+  return { left, top, width: map.beach.door[1] * TILE - left, height: map.beach.sandTop * TILE - top };
+}
+
+function paintEscalatorFrame(ctx: CanvasRenderingContext2D, map: PixelMap): void {
+  const { left, top, width, height } = escalatorRect(map);
+  px(ctx, 'rgba(0,0,0,0.16)', left + 2, top + height, width, 2);
+  px(ctx, ESCALATOR.frame, left - 1, top, width + 2, height);
+  px(ctx, ESCALATOR.stepDark, left + ESCALATOR_RAIL, top, width - ESCALATOR_RAIL * 2, height);
+  // 兩側的橡膠扶手
+  for (const x of [left, left + width - ESCALATOR_RAIL]) {
+    px(ctx, ESCALATOR.rail, x, top, ESCALATOR_RAIL, height);
+    px(ctx, ESCALATOR.railLight, x + 1, top + 2, 1, height - 4);
+  }
+}
+
+// 梯級往海灘的方向（畫面下方）一直流動，頭尾是黃色的梳齒板
+export function paintEscalatorSteps(ctx: CanvasRenderingContext2D, map: PixelMap, seconds: number): void {
+  if (!map.beach.escalator) return;
+  const { left, top, width, height } = escalatorRect(map);
+  const x = left + ESCALATOR_RAIL;
+  const w = width - ESCALATOR_RAIL * 2;
+  const pitch = 6;
+  const shift = Math.floor(seconds * 14) % pitch;
+  for (let y = top + 3 + shift - pitch; y < top + height - 3; y += pitch) {
+    const y0 = Math.max(top + 3, y);
+    const y1 = Math.min(top + height - 3, y + pitch - 1);
+    if (y1 > y0) px(ctx, ESCALATOR.step, x, y0, w, y1 - y0);
+  }
+  for (let gx = x + 2; gx < x + w; gx += 4) px(ctx, 'rgba(0,0,0,0.12)', gx, top + 3, 1, height - 6);
+  px(ctx, ESCALATOR.comb, x, top, w, 3);
+  px(ctx, ESCALATOR.comb, x, top + height - 3, w, 3);
+}
+
+// ── 海灘：木棧道、沙灘、海（浪花另外每格畫，才會動） ──
+
+export const SEA = { deep: '#1f7fa6', mid: '#2b9cc4', shallow: '#4fc3d9', foam: '#e9fbff', wet: '#d9b97f' };
+const SAND = { base: '#efd6a1', light: '#f7e4b8', dark: '#dcbf86', shell: '#f4c6b6' };
+
+function paintBeach(ctx: CanvasRenderingContext2D, map: PixelMap): void {
+  const rand = seeded(311);
+  const width = map.width * TILE;
+  const { deckTop, sandTop, seaTop } = map.beach;
+  const doorLeft = map.beach.door[0] * TILE;
+  const doorRight = map.beach.door[1] * TILE;
+
+  // 沙灘鋪滿整片，再在上面疊木棧道與海
+  px(ctx, SAND.base, 0, deckTop * TILE, width, (seaTop - deckTop) * TILE);
+  for (let i = 0; i < 900; i += 1) {
+    const x = Math.floor(rand() * width);
+    const y = deckTop * TILE + Math.floor(rand() * (seaTop - deckTop) * TILE);
+    px(ctx, rand() < 0.5 ? SAND.light : SAND.dark, x, y, 1, 1);
+  }
+  for (let i = 0; i < 14; i += 1) {
+    px(ctx, SAND.shell, Math.floor(rand() * width), sandTop * TILE + Math.floor(rand() * (seaTop - sandTop) * TILE), 2, 1);
+  }
+
+  // 木棧道：門口往外一整排，再從門口往海邊延伸一條步道
+  const deckY = deckTop * TILE;
+  const deckH = (sandTop - deckTop) * TILE;
+  const plank = (x: number, y: number, w: number, h: number, vertical: boolean) => {
+    px(ctx, '#b48a5c', x, y, w, h);
+    if (vertical) {
+      for (let dx = 0; dx < w; dx += 4) px(ctx, '#8f6a43', x + dx, y, 1, h);
+      for (let dy = 6; dy < h; dy += 16) px(ctx, '#8f6a43', x, y + dy, w, 1);
+    } else {
+      for (let dy = 0; dy < h; dy += 4) px(ctx, '#8f6a43', x, y + dy + 3, w, 1);
+      for (let dx = 10; dx < w; dx += 24) px(ctx, '#8f6a43', x + dx, y, 1, h);
+    }
+  };
+  plank(TILE * 3, deckY, width - TILE * 6, deckH - 4, false);
+  px(ctx, '#7a5a38', TILE * 3, deckY + deckH - 4, width - TILE * 6, 2);
+  plank(doorLeft, deckY + deckH - 4, doorRight - doorLeft, (seaTop - sandTop) * TILE - 18, true);
+
+  // 海：越遠越深，邊緣是濕沙
+  const seaY = seaTop * TILE;
+  const seaH = map.height * TILE - seaY;
+  px(ctx, SEA.wet, 0, seaY - 5, width, 5);
+  px(ctx, SEA.shallow, 0, seaY, width, 10);
+  px(ctx, SEA.mid, 0, seaY + 10, width, 18);
+  px(ctx, SEA.deep, 0, seaY + 28, width, seaH - 28);
+  for (let i = 0; i < 70; i += 1) {
+    const y = seaY + 12 + Math.floor(rand() * (seaH - 14));
+    px(ctx, 'rgba(255,255,255,0.18)', Math.floor(rand() * width), y, 3 + Math.floor(rand() * 4), 1);
+  }
+}
+
+// 每一格都重畫的浪：沿著岸邊一條會前後推的白浪，海面上幾點閃光
+export function paintWaves(ctx: CanvasRenderingContext2D, map: PixelMap, seconds: number): void {
+  const width = map.width * TILE;
+  const seaY = map.beach.seaTop * TILE;
+  const reach = Math.round(Math.sin(seconds * 0.9) * 3);
+  for (let x = 0; x < width; x += 2) {
+    const wobble = Math.round(Math.sin(x * 0.09 + seconds * 1.6) * 1.5);
+    const y = seaY - 2 - reach + wobble;
+    px(ctx, SEA.foam, x, y, 2, 2);
+    if ((x / 2) % 3 !== 0) px(ctx, 'rgba(233,251,255,0.55)', x, y + 3, 2, 1);
+  }
+  // 第二道浪，往外一點、慢一點
+  for (let x = 0; x < width; x += 3) {
+    const y = seaY + 14 + Math.round(Math.sin(x * 0.05 - seconds * 1.1) * 2);
+    px(ctx, 'rgba(233,251,255,0.5)', x, y, 2, 1);
+  }
+  for (let i = 0; i < 9; i += 1) {
+    const phase = (seconds * 0.7 + i * 0.37) % 1;
+    if (phase > 0.4) continue;
+    const x = ((i * 157 + Math.floor(seconds / 2.7) * 61) % (width - 8)) + 4;
+    const y = seaY + 24 + ((i * 29) % Math.max(8, map.height * TILE - seaY - 30));
+    px(ctx, '#ffffff', x, y, 2, 1);
+  }
+}
+
 export function paintStaticLayer(ctx: CanvasRenderingContext2D, map: PixelMap): void {
+  paintBeach(ctx, map);
   paintFloor(ctx, map);
   for (const rug of map.rugs) paintRug(ctx, rug);
   paintWalls(ctx, map);
   paintShelves(ctx, map);
   paintStairs(ctx, map);
+  paintElevatorFrame(ctx, map);
   paintTv(ctx, map);
 }
 
@@ -318,6 +493,156 @@ export function paintFloorLamp(ctx: CanvasRenderingContext2D, x: number, y: numb
   px(ctx, '#fff4d6', x + 5, y - 10, 3, 2);
 }
 
+// ── 海灘道具 ──
+
+// 椰子樹：樹幹在自己那格，樹冠往上長兩格多
+export function paintPalm(ctx: CanvasRenderingContext2D, x: number, y: number, variant: number): void {
+  const lean = variant === 1 ? -1 : 1;
+  px(ctx, 'rgba(0,0,0,0.16)', x + 1, y + 12, 14, 3);
+  for (let i = 0; i < 9; i += 1) {
+    const tx = x + 6 + Math.round((i * lean) / 3);
+    const ty = y + 13 - i * 4;
+    px(ctx, '#5c3d22', tx, ty, 5, 4);
+    px(ctx, '#8a5e36', tx + 1, ty, 3, 3);
+    px(ctx, '#6e4a2a', tx, ty + 3, 5, 1);
+  }
+  const cx = x + 8 + lean * 3;
+  const cy = y - 22;
+  const leaf = (dx: number, dy: number, len: number, droop: number) => {
+    for (let i = 0; i < len; i += 1) {
+      const lx = cx + Math.round(dx * i);
+      const ly = cy + Math.round(dy * i + (droop * i * i) / (len * len));
+      px(ctx, '#2f6b3a', lx, ly, 3, 3);
+      px(ctx, '#4fa35a', lx, ly, 2, 2);
+    }
+  };
+  leaf(-1.2, -0.3, 10, 6);
+  leaf(1.2, -0.3, 10, 6);
+  leaf(-0.9, 0.4, 9, 5);
+  leaf(0.9, 0.4, 9, 5);
+  leaf(0.1, -0.9, 7, 2);
+  px(ctx, '#6b4a2a', cx - 2, cy + 1, 3, 3);
+  px(ctx, '#6b4a2a', cx + 1, cy + 2, 3, 3);
+}
+
+const UMBRELLA_STRIPES: [string, string][] = [
+  ['#f25f5c', '#fff4e6'],
+  ['#2fb3a6', '#fff4e6'],
+];
+
+export function paintUmbrella(ctx: CanvasRenderingContext2D, x: number, y: number, variant: number): void {
+  const [a, b] = UMBRELLA_STRIPES[variant % UMBRELLA_STRIPES.length] ?? ['#f25f5c', '#fff4e6'];
+  // 影子落在地上
+  px(ctx, 'rgba(0,0,0,0.14)', x - 10, y + 6, 36, 8);
+  px(ctx, '#e8e2d6', x + 7, y - 14, 2, 28);
+  // 圓頂：一列列畫，色帶放射狀交替
+  const cx = x + 8;
+  const top = y - 26;
+  const widths = [6, 14, 22, 28, 32, 34, 36];
+  widths.forEach((w, row) => {
+    const left = cx - w / 2;
+    for (let i = 0; i < w; i += 1) {
+      const slice = Math.floor(((left + i - cx) / (w / 2) + 1) * 3);
+      px(ctx, slice % 2 === 0 ? a : b, left + i, top + row * 2, 1, 2);
+    }
+  });
+  for (let i = 0; i < 36; i += 2) px(ctx, i % 4 === 0 ? a : b, cx - 18 + i, top + 14, 2, 2);
+  px(ctx, 'rgba(255,255,255,0.35)', cx - 6, top + 3, 6, 1);
+}
+
+const LOUNGER_COLORS = ['#3e8fd9', '#f2a541', '#e86a8a'];
+
+// 躺椅：一格寬兩格長，頭朝牆、腳朝海
+export function paintLounger(ctx: CanvasRenderingContext2D, x: number, y: number, variant: number): void {
+  const color = LOUNGER_COLORS[variant % LOUNGER_COLORS.length] ?? '#3e8fd9';
+  px(ctx, 'rgba(0,0,0,0.14)', x + 2, y + 3, 13, 28);
+  px(ctx, '#e9e4da', x + 2, y + 1, 12, 28);
+  px(ctx, color, x + 3, y + 2, 10, 26);
+  for (let dy = 4; dy < 26; dy += 4) px(ctx, 'rgba(255,255,255,0.45)', x + 3, y + 2 + dy, 10, 1);
+  // 椅背比較高一點
+  px(ctx, 'rgba(0,0,0,0.12)', x + 3, y + 9, 10, 1);
+  px(ctx, '#f7f2e8', x + 5, y + 3, 6, 4);
+}
+
+// 營火：石頭圍一圈，火焰每格跳動
+export function paintCampfire(ctx: CanvasRenderingContext2D, x: number, y: number, seconds: number): void {
+  const stones: [number, number][] = [
+    [2, 9],
+    [5, 12],
+    [9, 13],
+    [12, 10],
+    [11, 6],
+    [3, 5],
+    [7, 4],
+  ];
+  for (const [sx, sy] of stones) {
+    px(ctx, '#7c7a75', x + sx, y + sy, 3, 2);
+    px(ctx, '#a19e97', x + sx, y + sy, 2, 1);
+  }
+  px(ctx, '#5a3a22', x + 4, y + 9, 8, 2);
+  px(ctx, '#6e4a2a', x + 5, y + 7, 6, 2);
+  const flicker = Math.sin(seconds * 13) > 0 ? 1 : 0;
+  const tall = Math.round(Math.sin(seconds * 7) * 1.5);
+  px(ctx, '#e8572a', x + 5, y + 2 - tall, 6, 8 + tall);
+  px(ctx, '#f6a531', x + 6, y + 4 - tall + flicker, 4, 5 + tall);
+  px(ctx, '#ffe08a', x + 7, y + 6 - flicker, 2, 3);
+  if (Math.sin(seconds * 3.1) > 0.6) px(ctx, '#f6a531', x + 9, y - 3 - tall, 1, 1);
+}
+
+export function paintLog(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  px(ctx, 'rgba(0,0,0,0.15)', x + 1, y + 11, 14, 2);
+  px(ctx, '#5c3d22', x + 1, y + 5, 14, 7);
+  px(ctx, '#8a5e36', x + 2, y + 6, 12, 4);
+  px(ctx, '#a97b4c', x + 2, y + 6, 12, 1);
+  px(ctx, '#d9b07a', x + 13, y + 6, 2, 5);
+  px(ctx, '#b48a5c', x + 13, y + 8, 1, 1);
+}
+
+const SURF_COLORS: [string, string][] = [
+  ['#2fb3a6', '#fff4e6'],
+  ['#f25f5c', '#ffd166'],
+];
+
+// 插在沙裡的衝浪板
+export function paintSurfboard(ctx: CanvasRenderingContext2D, x: number, y: number, variant: number): void {
+  const [body, stripe] = SURF_COLORS[variant % SURF_COLORS.length] ?? ['#2fb3a6', '#fff4e6'];
+  px(ctx, 'rgba(0,0,0,0.14)', x + 4, y + 12, 9, 3);
+  const rows = [2, 4, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 4];
+  rows.forEach((w, i) => {
+    const left = x + 8 - w / 2;
+    px(ctx, '#2b2135', left - 1, y - 12 + i * 2, w + 2, 2);
+    px(ctx, body, left, y - 12 + i * 2, w, 2);
+  });
+  px(ctx, stripe, x + 7, y - 9, 2, 20);
+  px(ctx, SAND.dark, x + 4, y + 13, 8, 2);
+}
+
+export function paintSandcastle(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  px(ctx, 'rgba(0,0,0,0.12)', x + 1, y + 12, 14, 2);
+  px(ctx, '#d7b36f', x + 2, y + 6, 12, 7);
+  px(ctx, '#e6c587', x + 3, y + 7, 10, 2);
+  px(ctx, '#d7b36f', x + 2, y + 2, 4, 5);
+  px(ctx, '#d7b36f', x + 10, y + 2, 4, 5);
+  px(ctx, '#e6c587', x + 2, y + 2, 1, 1);
+  px(ctx, '#e6c587', x + 4, y + 2, 1, 1);
+  px(ctx, '#e6c587', x + 10, y + 2, 1, 1);
+  px(ctx, '#e6c587', x + 12, y + 2, 1, 1);
+  px(ctx, '#8a5e36', x + 7, y + 9, 2, 4);
+  px(ctx, '#7c5a32', x + 12, y - 4, 1, 6);
+  px(ctx, '#f25f5c', x + 13, y - 4, 3, 2);
+}
+
+const TOWEL_COLORS: [string, string][] = [
+  ['#f2a541', '#fff4e6'],
+  ['#5b6ee1', '#9fd3ff'],
+];
+
+export function paintTowel(ctx: CanvasRenderingContext2D, x: number, y: number, variant: number): void {
+  const [a, b] = TOWEL_COLORS[variant % TOWEL_COLORS.length] ?? ['#f2a541', '#fff4e6'];
+  for (let i = 0; i < 4; i += 1) px(ctx, i % 2 === 0 ? a : b, x + i * 4 - 4, y + 2, 4, 24);
+  px(ctx, 'rgba(0,0,0,0.12)', x - 4, y + 26, 16, 1);
+}
+
 // ── 人物：16×20 的 Q 版像素小人，四個方向 × 走路兩格，髮色與衣服可換 ──
 
 export interface AvatarColors {
@@ -325,6 +650,8 @@ export interface AvatarColors {
   hairLight: string;
   shirt: string;
   shirtShade: string;
+  // 海灘上換泳裝：顏色沿用 shirt
+  outfit?: Outfit;
 }
 
 const AVATAR_W = 16;
@@ -392,16 +719,29 @@ const LEGS_SIDE = {
 
 type Frame = 'idle' | 'walkA' | 'walkB';
 
-function avatarRows(facing: Facing, frame: Frame): string[] {
-  if (facing === 'down') return [...HEAD_DOWN, ...BODY_FRONT, ...LEGS_FRONT[frame]];
-  if (facing === 'up') return [...HEAD_UP, ...BODY_FRONT, ...LEGS_FRONT[frame]];
-  return [...HEAD_RIGHT, ...BODY_SIDE, ...LEGS_SIDE[frame]];
+// 泳裝直接從原本的身體與腿改色：比基尼留胸前一條 + 泳褲，海灘褲只留褲子；一律打赤腳
+function swimwear(body: string[], legs: string[], outfit: Outfit): string[] {
+  if (outfit === 'bikini') {
+    return [
+      ...body.map((row, i) => (i === 1 ? row : row.replace(/[Tt]/g, 'S'))),
+      ...legs.map((row, i) => row.replace(/P/g, i === 0 ? 'T' : 'S').replace(/F/g, 'S')),
+    ];
+  }
+  return [...body.map((row) => row.replace(/[Tt]/g, 'S')), ...legs.map((row) => row.replace(/P/g, 'T').replace(/F/g, 'S'))];
+}
+
+function avatarRows(facing: Facing, frame: Frame, outfit?: Outfit): string[] {
+  const head = facing === 'down' ? HEAD_DOWN : facing === 'up' ? HEAD_UP : HEAD_RIGHT;
+  const front = facing === 'down' || facing === 'up';
+  const body = front ? BODY_FRONT : BODY_SIDE;
+  const legs = front ? LEGS_FRONT[frame] : LEGS_SIDE[frame];
+  return [...head, ...(outfit ? swimwear(body, legs, outfit) : [...body, ...legs])];
 }
 
 const avatarCache = new Map<string, HTMLCanvasElement>();
 
 export function getAvatarFrame(colors: AvatarColors, facing: Facing, frame: Frame): HTMLCanvasElement {
-  const key = `${colors.hair}|${colors.shirt}|${facing}|${frame}`;
+  const key = `${colors.hair}|${colors.shirt}|${colors.outfit ?? ''}|${facing}|${frame}`;
   const cached = avatarCache.get(key);
   if (cached) return cached;
   const palette: Record<string, string> = {
@@ -422,7 +762,7 @@ export function getAvatarFrame(colors: AvatarColors, facing: Facing, frame: Fram
   canvas.height = AVATAR_H;
   const ctx = canvas.getContext('2d');
   if (ctx) {
-    const rows = avatarRows(facing, frame);
+    const rows = avatarRows(facing, frame, colors.outfit);
     rows.forEach((row, y) => {
       for (let x = 0; x < row.length; x += 1) {
         const ch = row[x] ?? '.';
@@ -463,6 +803,27 @@ export function avatarColorsFor(seed: string): AvatarColors {
   const [hair, hairLight] = HAIR_PALETTE[hash % HAIR_PALETTE.length] ?? HAIR_PALETTE[0] ?? ['#4a2f23', '#6b4636'];
   const [shirt, shirtShade] = SHIRT_PALETTE[(hash >>> 4) % SHIRT_PALETTE.length] ?? SHIRT_PALETTE[0] ?? ['#2dd4bf', '#14a594'];
   return { hair, hairLight, shirt, shirtShade };
+}
+
+const SWIM_PALETTE: [string, string][] = [
+  ['#f25f5c', '#c9413f'],
+  ['#2fb3a6', '#1f8a80'],
+  ['#ffd166', '#d9a93a'],
+  ['#e86a8a', '#c04a6b'],
+  ['#5b6ee1', '#4152b8'],
+];
+
+export function beachAvatar(look: number, outfit: Outfit): AvatarColors {
+  const [hair, hairLight] = HAIR_PALETTE[look % HAIR_PALETTE.length] ?? ['#4a2f23', '#6b4636'];
+  const [shirt, shirtShade] = SWIM_PALETTE[look % SWIM_PALETTE.length] ?? ['#f25f5c', '#c9413f'];
+  return { hair, hairLight, shirt, shirtShade, outfit };
+}
+
+// 躺著曬太陽的人戴的墨鏡，畫在正面頭像的眼睛上（sx/sy 是人物圖的左上角）
+export function paintSunglasses(ctx: CanvasRenderingContext2D, sx: number, sy: number): void {
+  px(ctx, '#1b1d26', sx + 4, sy + 8, 8, 1);
+  px(ctx, '#1b1d26', sx + 4, sy + 8, 3, 2);
+  px(ctx, '#1b1d26', sx + 9, sy + 8, 3, 2);
 }
 
 export const MY_AVATAR: AvatarColors = { hair: '#4a2f23', hairLight: '#6b4636', shirt: '#fbbf24', shirtShade: '#d99a0b' };

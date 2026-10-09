@@ -11,6 +11,47 @@
       @blur="keys.clear()"
     >
       <canvas ref="canvasRef" class="block h-full w-full" />
+
+      <button
+        type="button"
+        class="absolute right-2 top-2 !flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900/80 text-white shadow-lg ring-1 ring-white/15 transition hover:bg-slate-800"
+        :class="{ 'ring-amber-400/70': minimapOpen }"
+        :aria-label="t.seatScene.minimap"
+        :aria-expanded="minimapOpen"
+        :title="t.seatScene.minimap"
+        @click="toggleMinimap"
+      >
+        <q-icon :name="minimapOpen ? 'close' : 'map'" size="18px" />
+      </button>
+      <div
+        v-if="elevatorOpen"
+        class="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-2xl bg-slate-900/90 px-4 py-3 text-center shadow-lg ring-1 ring-amber-400/40"
+      >
+        <p class="!mb-2 !text-[11px] font-black tracking-wide text-amber-300">{{ t.seatScene.elevatorPrompt }}</p>
+        <div class="!flex justify-center gap-2">
+          <button
+            v-for="floor in elevatorFloors"
+            :key="floor"
+            type="button"
+            class="h-9 min-w-9 rounded-xl px-2 text-xs font-black ring-1 transition"
+            :class="
+              floor === currentFloor
+                ? 'cursor-default bg-amber-400 text-slate-900 ring-amber-300'
+                : 'bg-slate-800 text-white ring-white/15 hover:bg-slate-700'
+            "
+            :disabled="floor === currentFloor"
+            @click="rideElevator(floor)"
+          >
+            {{ floor }}F
+          </button>
+        </div>
+      </div>
+      <div v-show="minimapOpen" class="absolute right-2 top-12 rounded-xl bg-slate-900/85 p-2 shadow-lg ring-1 ring-white/15">
+        <p class="!mb-1.5 text-center !text-[10px] font-black tracking-wide text-amber-300">
+          {{ area === 'beach' ? t.seatScene.areaBeach : t.seatScene.areaLibrary(currentFloor) }}
+        </p>
+        <canvas ref="minimapRef" class="block cursor-pointer rounded-md" @click="handleMinimapClick" />
+      </div>
     </div>
 
     <p class="mt-2 px-2 text-center text-[10px] font-bold tracking-wide text-slate-500 dark:!text-white/55">
@@ -29,21 +70,26 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
 import type { Reader } from 'src/pages/index/composables/useLibrarySocket';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
 import { createNavigation, type Navigation, type Point } from 'src/pages/index/composables/seatNavigation';
 import {
   TILE,
+  areaAt,
   createPixelMap,
+  elevatorTrigger,
   mapObstacles,
   seatApproach,
   seatCenter,
   stairTrigger,
   walkBounds,
+  type Area,
+  type Beachgoer,
   type Facing,
   type PixelMap,
+  type PropKind,
   type SeatSlot,
   type StairSpot,
 } from 'src/pages/index/pixel/pixelMap';
@@ -55,15 +101,28 @@ import {
   POUF_COLORS,
   SEATED_ROWS,
   avatarColorsFor,
+  beachAvatar,
   drawKenney,
   getAvatarFrame,
   loadImage,
+  paintCampfire,
   paintCounter,
+  paintElevatorDoors,
+  paintEscalatorSteps,
   paintFloorLamp,
   paintArmchairBack,
+  paintLog,
+  paintLounger,
+  paintPalm,
   paintPouf,
+  paintSandcastle,
   paintStool,
   paintStaticLayer,
+  paintSunglasses,
+  paintSurfboard,
+  paintTowel,
+  paintUmbrella,
+  paintWaves,
   type AvatarColors,
 } from 'src/pages/index/pixel/pixelArt';
 
@@ -91,7 +150,14 @@ const { t } = useLocale();
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const canvasRef = ref<HTMLCanvasElement | null>(null);
+const minimapRef = ref<HTMLCanvasElement | null>(null);
 const isTouch = ref(false);
+const minimapOpen = ref(false);
+// 走到電梯口會跳出樓層按鈕；走開就收起來
+const elevatorOpen = ref(false);
+const elevatorFloors = computed(() => [...props.floors].sort((a, b) => a - b));
+// 人現在在圖書館還是海灘（小地圖的標題、要不要換泳裝）
+const area = ref<Area>('library');
 
 const WALK_SPEED = 4.2;
 const PLAYER_RADIUS = 0.28;
@@ -103,6 +169,26 @@ const MIN_SCALE = 2;
 const LABEL_FONT_PX = 12;
 const COLOR_ME = '#fbbf24';
 const COLOR_MATE = '#2dd4bf';
+const MINIMAP_WIDTH = 148;
+const BEACH_STROLL_SPEED = 1.1;
+// 走到海灘就換上海灘褲
+const MY_BEACH_AVATAR: AvatarColors = { ...MY_AVATAR, outfit: 'trunks' };
+const MINIMAP_PROP_COLORS: Partial<Record<PropKind, string>> = {
+  table: '#8a5e36',
+  roundTable: '#8a5e36',
+  counter: '#c99a63',
+  plant: '#4fa35a',
+  tallPlant: '#4fa35a',
+  palm: '#2f6b3a',
+  umbrella: '#f25f5c',
+  lounger: '#3e8fd9',
+  campfire: '#f6a531',
+  log: '#5c3d22',
+  surfboard: '#2fb3a6',
+  sandcastle: '#d7b36f',
+  towel: '#f2a541',
+};
+const MINIMAP_SEAT_COLORS: Record<SeatState, string> = { empty: '#f8fafc', me: COLOR_ME, mate: COLOR_MATE, taken: '#6b7280' };
 const TAKEN_AVATAR: AvatarColors = { hair: '#6b7280', hairLight: '#8b93a1', shirt: '#94a3b8', shirtShade: '#6f7d91' };
 
 type SeatState = 'empty' | 'me' | 'mate' | 'taken';
@@ -178,6 +264,9 @@ let seatNodes: SeatNode[] = [];
 let stairs: StairInfo[] = [];
 let nav: Navigation | null = null;
 let stairLock = false;
+// 剛搭電梯抵達時人就站在電梯口：要先走開再走回來才會再跳出按鈕
+let elevatorLock = false;
+let elevatorDoor = 0;
 let pendingSpawn: { point: { x: number; y: number }; floor: number } | null = null;
 // 上次關掉頁面時站在哪：只在這次載入的第一個房間用一次
 let savedPosition: SavedPosition | null = loadSavedPosition();
@@ -200,8 +289,14 @@ const view = { scale: MIN_SCALE, ox: 0, oy: 0, cssW: 0, cssH: 0, dpr: 1 };
 
 // ── 地圖與座位 ──
 
-function rebuildMap(): void {
-  map = createPixelMap(props.seats.length);
+// 最低的樓層直接開門就是海灘；樓上的出口換成往下的手扶梯
+function hasEscalator(): boolean {
+  const lowest = props.floors.length > 0 ? Math.min(...props.floors) : 1;
+  return props.currentFloor > lowest;
+}
+
+function buildMap(): void {
+  map = createPixelMap(props.seats.length, hasEscalator());
   seatNodes = props.seats.flatMap((seat, index) => {
     const slot = map.seats[index];
     return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR }] : [];
@@ -209,6 +304,10 @@ function rebuildMap(): void {
   rebuildStairs();
   buildNavigation();
   paintStatic();
+}
+
+function rebuildMap(): void {
+  buildMap();
   spawnPlayer();
   syncSeatStates();
 }
@@ -263,6 +362,23 @@ function insideStairZone(x: number, y: number): StairInfo | undefined {
     const trigger = stairTrigger(stair.spot);
     return Math.hypot(x - trigger.x, y - trigger.y) < STAIR_RADIUS;
   });
+}
+
+function insideElevatorZone(x: number, y: number): boolean {
+  if (props.floors.length < 2) return false;
+  const trigger = elevatorTrigger(map);
+  return Math.hypot(x - trigger.x, y - trigger.y) < STAIR_RADIUS;
+}
+
+function rideElevator(floor: number): void {
+  elevatorOpen.value = false;
+  containerRef.value?.focus({ preventScroll: true });
+  if (floor === props.currentFloor || !canInteract()) return;
+  const trigger = elevatorTrigger(map);
+  pendingSpawn = { point: { x: trigger.x, y: trigger.y + 0.2 }, floor };
+  savedPosition = null;
+  restoredStanding = false;
+  emit('change-floor', floor);
 }
 
 function placePlayer(x: number, y: number): void {
@@ -345,6 +461,8 @@ function spawnPlayer(): void {
     player.seatId = null;
   }
   stairLock = insideStairZone(player.x, player.y) !== undefined;
+  elevatorLock = insideElevatorZone(player.x, player.y);
+  elevatorOpen.value = false;
 }
 
 // 站起來：座位在伺服器端仍保留，所以只是人離開椅子，站到椅子後方
@@ -393,7 +511,12 @@ function walkToSeat(node: SeatNode): void {
 function walkToPoint(target: { x: number; y: number }): void {
   if (!nav || player.state === 'sitting') return;
   if (player.state === 'seated') standUp();
-  const path = findPath(target);
+  // 點到海裡或牆外：走到最靠近的邊緣
+  const bounds = walkBounds(map);
+  const path = findPath({
+    x: Math.min(bounds.xMax, Math.max(bounds.xMin, target.x)),
+    y: Math.min(bounds.zMax, Math.max(bounds.zMin, target.y)),
+  });
   if (!path) return;
   player.path = path.slice(1);
   player.goalSeatId = null;
@@ -511,6 +634,18 @@ function updatePlayer(dt: number): void {
     }
   }
   if (player.moving) player.walkClock += dt;
+
+  // 載入中（剛搭到新樓層）不算離開電梯口，鎖要留著
+  const inElevatorZone = player.state !== 'seated' && player.state !== 'sitting' && insideElevatorZone(player.x, player.y);
+  if (!inElevatorZone) elevatorLock = false;
+  const atElevator = active && inElevatorZone;
+  const showElevator = atElevator && !elevatorLock;
+  if (showElevator !== elevatorOpen.value) elevatorOpen.value = showElevator;
+  // 門：有人站在門口就滑開
+  const doorTarget = atElevator ? 1 : 0;
+  elevatorDoor += Math.sign(doorTarget - elevatorDoor) * Math.min(Math.abs(doorTarget - elevatorDoor), dt * 3);
+  const nowArea = areaAt(map, player.y);
+  if (nowArea !== area.value) area.value = nowArea;
 
   nearSeatId = active && (player.state === 'idle' || player.state === 'walking') ? (nearestSittableSeat()?.seatId ?? null) : null;
 
@@ -632,7 +767,7 @@ function seatDrawables(node: SeatNode, seconds: number): Drawable[] {
   ];
 }
 
-function propDrawables(): Drawable[] {
+function propDrawables(seconds: number): Drawable[] {
   const list: Drawable[] = [];
   for (const prop of map.props) {
     const x = prop.tx * TILE;
@@ -681,9 +816,57 @@ function propDrawables(): Drawable[] {
       });
     } else if (prop.kind === 'floorLamp') {
       list.push({ sortY, draw: (c) => paintFloorLamp(c, x, y) });
+    } else if (prop.kind === 'palm') {
+      list.push({ sortY, draw: (c) => paintPalm(c, x, y, prop.variant ?? 0) });
+    } else if (prop.kind === 'umbrella') {
+      list.push({ sortY, draw: (c) => paintUmbrella(c, x, y, prop.tx) });
+    } else if (prop.kind === 'lounger') {
+      list.push({ sortY, draw: (c) => paintLounger(c, x, y, prop.variant ?? 0) });
+    } else if (prop.kind === 'campfire') {
+      list.push({ sortY, draw: (c) => paintCampfire(c, x, y, seconds) });
+    } else if (prop.kind === 'log') {
+      list.push({ sortY, draw: (c) => paintLog(c, x, y) });
+    } else if (prop.kind === 'surfboard') {
+      list.push({ sortY, draw: (c) => paintSurfboard(c, x, y, prop.variant ?? 0) });
+    } else if (prop.kind === 'sandcastle') {
+      list.push({ sortY, draw: (c) => paintSandcastle(c, x, y) });
+    } else if (prop.kind === 'towel') {
+      // 鋪在地上的東西永遠在人腳下
+      list.push({ sortY: 0, draw: (c) => paintTowel(c, x, y, prop.variant ?? 0) });
     }
   }
   return list;
+}
+
+// 海灘上的路人：躺著曬太陽、坐在營火邊、站在水邊、沿著岸邊散步
+function beachgoerDrawable(goer: Beachgoer, seconds: number): Drawable {
+  const colors = beachAvatar(goer.look, goer.outfit);
+  let { x, facing } = goer;
+  let frame: 'idle' | 'walkA' | 'walkB' = 'idle';
+  if (goer.pose === 'stroll' && goer.strollTo !== undefined) {
+    const span = goer.strollTo - goer.x;
+    const lap = (Math.abs(span) / BEACH_STROLL_SPEED) * 2;
+    const phase = (seconds % lap) / lap;
+    const forward = phase < 0.5;
+    x = goer.x + span * (forward ? phase * 2 : 2 - phase * 2);
+    facing = forward === span > 0 ? 'right' : 'left';
+    frame = Math.floor(seconds / 0.18) % 2 === 0 ? 'walkA' : 'walkB';
+  }
+  const footX = x * TILE;
+  const footY = goer.y * TILE;
+  const lying = goer.pose === 'lie';
+  return {
+    // 躺著的人要蓋在躺椅上面
+    sortY: goer.y + (lying ? 0.6 : 0.35),
+    draw: (c) => {
+      if (goer.pose === 'stand' || goer.pose === 'stroll') {
+        c.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        c.fillRect(Math.round(footX - 5), Math.round(footY - 2), 10, 2);
+      }
+      drawAvatar(c, colors, facing, frame, footX, footY, goer.pose === 'sit');
+      if (lying) paintSunglasses(c, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - AVATAR_SIZE.h));
+    },
+  };
 }
 
 function playerDrawable(): Drawable | null {
@@ -695,7 +878,8 @@ function playerDrawable(): Drawable | null {
       // 影子
       c.fillStyle = 'rgba(0, 0, 0, 0.18)';
       c.fillRect(Math.round(player.x * TILE - 5), Math.round(player.y * TILE + 3), 10, 2);
-      drawAvatar(c, MY_AVATAR, player.facing, frame, player.x * TILE, player.y * TILE + 5, false);
+      const colors = area.value === 'beach' ? MY_BEACH_AVATAR : MY_AVATAR;
+      drawAvatar(c, colors, player.facing, frame, player.x * TILE, player.y * TILE + 5, false);
     },
   };
 }
@@ -718,6 +902,9 @@ function drawNightLighting(c: CanvasRenderingContext2D, seconds: number): void {
   for (const prop of map.props) {
     if (prop.kind === 'floorLamp') glow(prop.tx * TILE + 8, prop.ty * TILE - 6, 52, 'rgba(255, 196, 110, 0.38)');
     if (prop.kind === 'table') glow(prop.tx * TILE + 25, prop.ty * TILE + 8, 30, 'rgba(255, 210, 140, 0.3)');
+    if (prop.kind === 'campfire') {
+      glow(prop.tx * TILE + 8, prop.ty * TILE + 6, 64 + Math.sin(seconds * 9) * 3, `rgba(255, 150, 60, ${0.5 + Math.sin(seconds * 13) * 0.05})`);
+    }
   }
   const tvX = (map.tv.tx + map.tv.w / 2) * TILE;
   glow(tvX, TILE * 3, 60, `rgba(90, 150, 230, ${0.2 + Math.sin(seconds * 0.8) * 0.03})`);
@@ -739,7 +926,70 @@ function drawSunlight(c: CanvasRenderingContext2D): void {
     c.closePath();
     c.fill();
   }
+  // 海灘：整片曬得暖暖的
+  c.fillStyle = 'rgba(255, 232, 150, 0.4)';
+  c.fillRect(0, map.libraryHeight * TILE, map.width * TILE, (map.height - map.libraryHeight) * TILE);
   c.restore();
+}
+
+// 小地圖：整張地圖縮小，標出座位、目前畫面看到的範圍、自己的位置
+function renderMinimap(seconds: number): void {
+  const canvas = minimapRef.value;
+  if (!minimapOpen.value || !canvas || !staticLayer) return;
+  const worldW = map.width * TILE;
+  const worldH = map.height * TILE;
+  const k = MINIMAP_WIDTH / worldW;
+  const cssH = Math.round(worldH * k);
+  const { dpr } = view;
+  if (canvas.width !== Math.round(MINIMAP_WIDTH * dpr) || canvas.height !== Math.round(cssH * dpr)) {
+    canvas.width = Math.round(MINIMAP_WIDTH * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    canvas.style.width = `${MINIMAP_WIDTH}px`;
+    canvas.style.height = `${cssH}px`;
+  }
+  const c = canvas.getContext('2d');
+  if (!c) return;
+  c.setTransform(dpr * k, 0, 0, dpr * k, 0, 0);
+  c.imageSmoothingEnabled = true;
+  c.drawImage(staticLayer, 0, 0);
+  for (const prop of map.props) {
+    const color = MINIMAP_PROP_COLORS[prop.kind];
+    if (!color) continue;
+    c.fillStyle = color;
+    c.fillRect(prop.tx * TILE + 1, prop.ty * TILE + 1, prop.w * TILE - 2, prop.h * TILE - 2);
+  }
+  if (dark) {
+    c.fillStyle = 'rgba(24, 20, 52, 0.35)';
+    c.fillRect(0, 0, worldW, worldH);
+  }
+  for (const node of seatNodes) {
+    c.fillStyle = MINIMAP_SEAT_COLORS[node.state];
+    c.fillRect(node.slot.tx * TILE + 2, node.slot.ty * TILE + 2, TILE - 4, TILE - 4);
+  }
+  // 目前主畫面看到的範圍
+  const x0 = Math.max(0, -view.ox / view.scale);
+  const y0 = Math.max(0, -view.oy / view.scale);
+  const x1 = Math.min(worldW, (view.cssW - view.ox) / view.scale);
+  const y1 = Math.min(worldH, (view.cssH - view.oy) / view.scale);
+  c.lineWidth = 1.5 / k;
+  c.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  c.strokeRect(x0 + c.lineWidth / 2, y0 + c.lineWidth / 2, x1 - x0 - c.lineWidth, y1 - y0 - c.lineWidth);
+  // 自己：會跳動的點
+  const px = player.x * TILE;
+  const py = player.y * TILE;
+  const pulse = (Math.sin(seconds * 4) + 1) / 2;
+  c.fillStyle = `rgba(251, 191, 36, ${0.35 - pulse * 0.2})`;
+  c.beginPath();
+  c.arc(px, py, (5 + pulse * 4) / k, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = '#ffffff';
+  c.beginPath();
+  c.arc(px, py, 4.5 / k, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = COLOR_ME;
+  c.beginPath();
+  c.arc(px, py, 3 / k, 0, Math.PI * 2);
+  c.fill();
 }
 
 function drawPill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, color: string): void {
@@ -773,7 +1023,14 @@ function render(seconds: number): void {
   ctx.setTransform(scale * dpr, 0, 0, scale * dpr, ox * dpr, oy * dpr);
 
   if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
-  const drawables: Drawable[] = [...propDrawables(), ...seatNodes.flatMap((node) => seatDrawables(node, seconds))];
+  paintWaves(ctx, map, seconds);
+  paintElevatorDoors(ctx, map, elevatorDoor);
+  paintEscalatorSteps(ctx, map, seconds);
+  const drawables: Drawable[] = [
+    ...propDrawables(seconds),
+    ...seatNodes.flatMap((node) => seatDrawables(node, seconds)),
+    ...map.beachgoers.map((goer) => beachgoerDrawable(goer, seconds)),
+  ];
   const me = playerDrawable();
   if (me) drawables.push(me);
   drawables.sort((a, b) => a.sortY - b.sortY);
@@ -789,6 +1046,14 @@ function render(seconds: number): void {
     const up = stair.spot.direction === 1;
     drawPill(ctx, up ? t.value.seatScene.stairUp(stair.target) : t.value.seatScene.stairDown(stair.target), p.x, p.y, up ? COLOR_ME : COLOR_MATE);
   }
+  if (props.floors.length > 1) {
+    const p = toScreen((map.elevator.tx + 1) * TILE, TILE + 2);
+    drawPill(ctx, t.value.seatScene.elevator, p.x, p.y, '#cbd5e1');
+  }
+  if (map.beach.escalator) {
+    const p = toScreen(((map.beach.door[0] + map.beach.door[1]) / 2) * TILE, map.beach.wallRow * TILE - 4);
+    drawPill(ctx, t.value.seatScene.escalatorBeach, p.x, p.y, COLOR_MATE);
+  }
   for (const node of seatNodes) {
     if (!node.label) continue;
     const meSeated = node.state === 'me' && player.state === 'seated' && player.seatId === node.seatId;
@@ -800,6 +1065,7 @@ function render(seconds: number): void {
     const p = toScreen(player.x * TILE, player.y * TILE - 16);
     drawPill(ctx, t.value.common.meLabel, p.x, p.y, COLOR_ME);
   }
+  renderMinimap(seconds);
 }
 
 function animate(time: number): void {
@@ -861,6 +1127,24 @@ function handleClick(event: MouseEvent): void {
   walkToPoint(point);
 }
 
+function toggleMinimap(): void {
+  minimapOpen.value = !minimapOpen.value;
+  // 焦點還給場景，方向鍵才能繼續用
+  containerRef.value?.focus({ preventScroll: true });
+}
+
+// 點小地圖上的位置就走過去
+function handleMinimapClick(event: MouseEvent): void {
+  containerRef.value?.focus({ preventScroll: true });
+  const canvas = minimapRef.value;
+  if (!canvas || !canInteract()) return;
+  const rect = canvas.getBoundingClientRect();
+  walkToPoint({
+    x: ((event.clientX - rect.left) / rect.width) * map.width,
+    y: ((event.clientY - rect.top) / rect.height) * map.height,
+  });
+}
+
 const KEY_MAP: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   KeyW: 'up',
   ArrowUp: 'up',
@@ -878,6 +1162,11 @@ function handleKeyDown(event: KeyboardEvent): void {
   if (direction) {
     event.preventDefault();
     keys.add(direction);
+    return;
+  }
+  if (event.code === 'KeyM') {
+    event.preventDefault();
+    toggleMinimap();
     return;
   }
   if ((event.code === 'Space' || event.code === 'KeyE' || event.code === 'Enter') && canInteract()) {
@@ -940,7 +1229,14 @@ watch(
 // 樓層清單到了才知道有沒有上下樓梯
 watch(
   () => [props.floors.join(','), props.currentFloor],
-  () => rebuildStairs(),
+  () => {
+    rebuildStairs();
+    // 樓層清單晚到才知道這層是不是樓上：出口換了就重畫，但人留在原地
+    if (map.beach.escalator !== hasEscalator()) {
+      buildMap();
+      syncSeatStates();
+    }
+  },
 );
 
 watch(

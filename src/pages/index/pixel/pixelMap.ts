@@ -21,7 +21,16 @@ export type PropKind =
   | 'plant'
   | 'tallPlant'
   | 'floorLamp'
-  | 'painting';
+  | 'painting'
+  // 海灘
+  | 'palm'
+  | 'umbrella'
+  | 'lounger'
+  | 'campfire'
+  | 'log'
+  | 'surfboard'
+  | 'sandcastle'
+  | 'towel';
 
 export interface MapProp {
   kind: PropKind;
@@ -48,9 +57,39 @@ export interface StairSpot {
   tx: number;
 }
 
+// 圖書館南邊的海灘：前牆開一道門出去，先是木棧道、再來是沙灘，最下面是海
+export interface Beach {
+  // 圖書館前牆所在的那一列；海灘從下一列開始
+  wallRow: number;
+  door: [number, number];
+  // 樓上的出口不是門，而是一座往下到海灘的手扶梯（從前牆一路到木棧道尾端）
+  escalator: boolean;
+  deckTop: number;
+  sandTop: number;
+  seaTop: number;
+}
+
+export type Outfit = 'bikini' | 'trunks';
+
+export interface Beachgoer {
+  // lie：躺在躺椅或海灘巾上；sit：坐在木頭上；stroll：沿著岸邊來回走
+  pose: 'lie' | 'sit' | 'stand' | 'stroll';
+  x: number;
+  y: number;
+  facing: Facing;
+  outfit: Outfit;
+  // 髮色與泳裝顏色的編號
+  look: number;
+  strollTo?: number;
+}
+
 export interface PixelMap {
   width: number;
   height: number;
+  // 圖書館（含前牆）的高度，以下是海灘
+  libraryHeight: number;
+  beach: Beach;
+  beachgoers: Beachgoer[];
   seats: SeatSlot[];
   props: MapProp[];
   rugs: MapRug[];
@@ -61,13 +100,20 @@ export interface PixelMap {
   // 左牆的窗戶（y 範圍）
   windows: [number, number][];
   stairs: { down: StairSpot; up: StairSpot };
+  // 後牆上的電梯（兩格寬，tx 是左邊那格）：可以直接到任何一層
+  elevator: { tx: number };
 }
 
 export const TILE = 16;
 export const WALL_ROWS = 3;
 const BASE_HEIGHT = 18;
+const DECK_ROWS = 2;
+const SAND_ROWS = 8;
+const SEA_ROWS = 4;
+export const DOOR_X = 15;
 export const MAP_WIDTH = 32;
 
+const ELEVATOR_X = 7;
 const DOWN_STAIR_X = 12;
 const UP_STAIR_X = 18;
 const TV = { tx: 24, w: 5 };
@@ -86,7 +132,7 @@ function table(tx: number, ty: number): MapProp {
   return { kind: 'table', tx, ty, w: 2, h: 2, blocks: true };
 }
 
-export function createPixelMap(seatCount: number): PixelMap {
+export function createPixelMap(seatCount: number, escalator = false): PixelMap {
   const lounge = { tx: 16, ty: 10 };
   const base: SeatSlot[] = [
     ...tableSeats(5, 6),
@@ -128,7 +174,7 @@ export function createPixelMap(seatCount: number): PixelMap {
 
   const seats = base.slice(0, seatCount);
 
-  // 超過預設座位數：在右下角往下加一張張 2×2 方桌，地圖跟著變高
+  // 超過預設座位數：在右下角往下加一張張 2×2 方桌，圖書館跟著變高
   let height = BASE_HEIGHT;
   const extraTables = Math.ceil(Math.max(0, seatCount - base.length) / 4);
   const columns = [22, 26];
@@ -142,15 +188,30 @@ export function createPixelMap(seatCount: number): PixelMap {
     height = Math.max(height, ty + 6);
   }
 
+  const libraryHeight = height;
+  const beach: Beach = {
+    wallRow: libraryHeight - 1,
+    door: [DOOR_X, DOOR_X + 2],
+    escalator,
+    deckTop: libraryHeight,
+    sandTop: libraryHeight + DECK_ROWS,
+    seaTop: libraryHeight + DECK_ROWS + SAND_ROWS,
+  };
+  props.push(...beachProps(beach));
+
   return {
     width: MAP_WIDTH,
-    height,
+    height: beach.seaTop + SEA_ROWS,
+    libraryHeight,
+    beach,
+    beachgoers: beachgoers(beach),
     seats,
     props,
     rugs,
     tv: TV,
     shelves: [
-      [1, DOWN_STAIR_X],
+      [1, ELEVATOR_X],
+      [ELEVATOR_X + 2, DOWN_STAIR_X],
       [DOWN_STAIR_X + 2, UP_STAIR_X],
       [UP_STAIR_X + 2, TV.tx],
       [TV.tx + TV.w, MAP_WIDTH - 1],
@@ -161,7 +222,68 @@ export function createPixelMap(seatCount: number): PixelMap {
       [12, 14],
     ],
     stairs: { down: { direction: -1, tx: DOWN_STAIR_X }, up: { direction: 1, tx: UP_STAIR_X } },
+    elevator: { tx: ELEVATOR_X },
   };
+}
+
+function beachProps(beach: Beach): MapProp[] {
+  const s = beach.sandTop;
+  const prop = (kind: PropKind, tx: number, ty: number, blocks = true, variant?: number, h = 1): MapProp => ({
+    kind,
+    tx,
+    ty,
+    w: 1,
+    h,
+    blocks,
+    ...(variant === undefined ? {} : { variant }),
+  });
+  return [
+    // 木棧道兩側的盆栽
+    prop('plant', DOOR_X - 2, beach.deckTop, true, 0),
+    prop('plant', DOOR_X + 3, beach.deckTop, true, 1),
+    // 椰子樹（只擋樹幹那一格）
+    prop('palm', 3, s + 1, true, 0),
+    prop('palm', 12, s, true, 1),
+    prop('palm', 25, s, true, 0),
+    prop('palm', 29, s + 2, true, 1),
+    // 兩組海灘傘 + 躺椅（躺椅一格寬兩格長）
+    prop('umbrella', 6, s + 3),
+    prop('lounger', 5, s + 3, true, 0, 2),
+    prop('lounger', 7, s + 3, true, 1, 2),
+    prop('umbrella', 21, s + 2),
+    prop('lounger', 20, s + 2, true, 2, 2),
+    prop('lounger', 22, s + 2, true, 0, 2),
+    // 營火 + 三根木頭長凳（避開中間通往海邊的步道）
+    prop('campfire', 11, s + 4),
+    prop('log', 9, s + 4),
+    prop('log', 13, s + 4),
+    prop('log', 11, s + 6),
+    prop('surfboard', 27, s + 4, true, 0),
+    prop('surfboard', 28, s + 4, true, 1),
+    prop('sandcastle', 19, s + 6),
+    prop('towel', 24, s + 5, false, 0),
+    prop('towel', 2, s + 5, false, 1),
+  ];
+}
+
+// 海灘上的路人（純裝飾，不是真的使用者）：x/y 是腳的位置
+function beachgoers(beach: Beach): Beachgoer[] {
+  const s = beach.sandTop;
+  return [
+    { pose: 'lie', x: 5.5, y: s + 4.5, facing: 'down', outfit: 'bikini', look: 0 },
+    { pose: 'lie', x: 22.5, y: s + 3.5, facing: 'down', outfit: 'trunks', look: 1 },
+    { pose: 'lie', x: 24.25, y: s + 6.4, facing: 'down', outfit: 'bikini', look: 2 },
+    { pose: 'sit', x: 13.5, y: s + 4.7, facing: 'left', outfit: 'bikini', look: 3 },
+    { pose: 'sit', x: 9.5, y: s + 4.7, facing: 'right', outfit: 'trunks', look: 7 },
+    { pose: 'stand', x: 19.5, y: beach.seaTop + 0.2, facing: 'down', outfit: 'trunks', look: 5 },
+    { pose: 'stroll', x: 3, y: beach.seaTop - 0.6, facing: 'right', outfit: 'bikini', look: 6, strollTo: 9 },
+  ];
+}
+
+export type Area = 'library' | 'beach';
+
+export function areaAt(map: PixelMap, y: number): Area {
+  return y >= map.libraryHeight - 0.5 ? 'beach' : 'library';
 }
 
 // 坐下後人在畫面上的位置：格子中心（以格為單位的連續座標）
@@ -191,12 +313,27 @@ export function stairTrigger(stair: StairSpot): { x: number; y: number } {
   return { x: stair.tx + 1, y: WALL_ROWS + 0.45 };
 }
 
+export function elevatorTrigger(map: PixelMap): { x: number; y: number } {
+  return { x: map.elevator.tx + 1, y: WALL_ROWS + 0.45 };
+}
+
 // 尋路用的障礙物（seatNavigation 的 Rect 是 x/z，這裡的 y 填進 z）
 export function mapObstacles(map: PixelMap): Rect[] {
   const rects: Rect[] = [];
+  // 圖書館的左右牆，以及前牆門口以外的部分（海灘那段走得到地圖最左右兩邊）
+  const wallBottom = map.libraryHeight;
+  rects.push({ x0: 0, x1: 1, z0: 0, z1: wallBottom });
+  rects.push({ x0: map.width - 1, x1: map.width, z0: 0, z1: wallBottom });
+  rects.push({ x0: 0, x1: map.beach.door[0], z0: map.beach.wallRow, z1: wallBottom });
+  rects.push({ x0: map.beach.door[1], x1: map.width, z0: map.beach.wallRow, z1: wallBottom });
+  if (map.beach.escalator) {
+    // 手扶梯兩側的扶手：只能從頭尾上下
+    for (const x of map.beach.door) rects.push({ x0: x - 0.1, x1: x + 0.1, z0: wallBottom, z1: map.beach.sandTop });
+  }
   for (const prop of map.props) {
     if (!prop.blocks) continue;
-    const inset = prop.kind === 'plant' || prop.kind === 'tallPlant' || prop.kind === 'floorLamp' ? 0.2 : 0.04;
+    const thin: PropKind[] = ['plant', 'tallPlant', 'floorLamp', 'palm', 'umbrella', 'surfboard'];
+    const inset = thin.includes(prop.kind) ? 0.25 : 0.04;
     rects.push({ x0: prop.tx + inset, x1: prop.tx + prop.w - inset, z0: prop.ty + inset, z1: prop.ty + prop.h - inset });
   }
   for (const seat of map.seats) {
@@ -207,5 +344,6 @@ export function mapObstacles(map: PixelMap): Rect[] {
 }
 
 export function walkBounds(map: PixelMap): { xMin: number; xMax: number; zMin: number; zMax: number } {
-  return { xMin: 1.3, xMax: map.width - 1.3, zMin: WALL_ROWS + 0.25, zMax: map.height - 1.3 };
+  // 可以走到海邊踩水，但不會走進海裡
+  return { xMin: 0.35, xMax: map.width - 0.35, zMin: WALL_ROWS + 0.25, zMax: map.beach.seaTop + 0.55 };
 }

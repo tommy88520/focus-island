@@ -29,6 +29,8 @@ Env (in `.env.local` / Vercel): `VITE_BACKEND_API_URL`, `VITE_BACKEND_WS_URL` (f
   - `pixel/pixelArt.ts`: Kenney Roguelike Indoors (CC0, `public/pixel/`) for chairs/tables/plants; floor, walls, shelves, stairs, TV, rugs, beanbags, armchairs and avatars are painted in code. Avatars use a swappable palette (`AvatarColors`).
   - Collision + A* in `composables/seatNavigation.ts` (pure, tile units; its `z` is the map's `y`).
   - Static layer painted once per map build; props/seats/player Y-sorted each frame; integer scale (3× ≥900px wide, else 2×) with a follow camera; name pills drawn in screen space.
+  - Every room has the same beach below the library's front wall — through a glass door on the lowest floor, down an escalator on the floors above (`map.beach.escalator`) (`map.libraryHeight` is where it starts; `map.height` includes it). The minimap (button / `M`) redraws the static layer scaled down each frame while open; clicking it walks there.
+  - Floor changes: stairs (adjacent floor) or the elevator on the back wall (any floor, picked from a panel). Both set `pendingSpawn` and emit `change-floor`.
   - Walking is local only — the backend has no position message. Only the final seat is sent.
 - **Audio** (`composables/useAmbientAudio.ts`, `synthAmbience.ts`): tracks with a `synth` field are generated with Web Audio; the rest are mp3s in `public/music/`.
 - **Timer** (`stores/pomodoro.ts` + `workers/timer.worker.ts`): countdown runs in a Web Worker so background tabs aren't throttled; today's stats reset by local date.
@@ -36,4 +38,4 @@ Env (in `.env.local` / Vercel): `VITE_BACKEND_API_URL`, `VITE_BACKEND_WS_URL` (f
 
 ## Direction
 
-Visual reference is Gather (2D pixel art, not 3D). Prefer CC0 art; otherwise paint it in code in the Kenney palette. A beach-area WIP is parked in `git stash` — map expansion is on hold in favour of features.
+Visual reference is Gather (2D pixel art, not 3D). Prefer CC0 art; otherwise paint it in code in the Kenney palette. The beach south of the library is purely local decoration: no seats, nothing sent to the backend, and its sunbathers (`map.beachgoers`) are not real users.
