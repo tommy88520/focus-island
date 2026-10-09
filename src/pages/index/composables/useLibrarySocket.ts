@@ -84,6 +84,14 @@ export interface SeatEmote {
   at: number;
 }
 
+// 後端傳的是 FOCUS／READY／BREAK，這裡換成 Reader 用的中文狀態
+export function toReaderState(raw: unknown, fallback: Reader['state']): Reader['state'] {
+  if (raw === 'FOCUS' || raw === '專注') return '專注';
+  if (raw === 'BREAK' || raw === '休息') return '休息';
+  if (raw === 'READY' || raw === '待命') return '待命';
+  return fallback;
+}
+
 export function normalizeSeatId(seatId?: string | null) {
   if (!seatId) return '';
   const value = seatId.trim();
@@ -494,7 +502,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 sessionId: sid,
                 displayName: payload.username || payload.name || readerUserId,
                 ...(normalizedSeatId ? { seatId: normalizedSeatId } : {}),
-                state: payload.state || '專注',
+                state: toReaderState(payload.state, '專注'),
               });
             });
             readers.value = synchronizedReaders;
@@ -528,7 +536,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
               sessionId: msg.sessionId,
               displayName: msg.payload?.username || msg.userId,
               ...(normalizedJoinSeatId ? { seatId: normalizedJoinSeatId } : {}),
-              state: msg.payload?.state || '待命',
+              state: toReaderState(msg.payload?.state, '待命'),
             };
 
             if (joinIdx !== -1) readers.value[joinIdx] = joinReader;
@@ -589,7 +597,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
               sessionId: msg.sessionId,
               displayName: msg.payload?.username || msg.userId,
               ...(normalizedIncomingSeatId ? { seatId: normalizedIncomingSeatId } : {}),
-              state: msg.payload.state || '專注',
+              state: toReaderState(msg.payload?.state, '專注'),
             };
 
             const previousSeatId = moveIdx !== -1 ? readers.value[moveIdx]?.seatId : undefined;

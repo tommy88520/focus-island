@@ -21,7 +21,7 @@
         <q-icon :name="minimapOpen ? 'close' : 'map'" size="18px" />
       </button>
       <!-- 打招呼：按鈕或數字鍵 1–4（H 也是揮手）；附近的人會回話 -->
-      <div v-if="!isLoading" class="absolute bottom-2 left-2 !flex !flex-nowrap gap-1.5">
+      <div v-if="!isLoading && !isQuietZone && !disabled" class="absolute bottom-2 left-2 !flex !flex-nowrap gap-1.5">
         <button
           v-for="(emote, i) in EMOTE_IDS"
           :key="emote"
@@ -182,6 +182,8 @@ const canvasRef = ref<HTMLCanvasElement | null>(null);
 const minimapRef = ref<HTMLCanvasElement | null>(null);
 const isTouch = ref(false);
 const minimapOpen = ref(false);
+// 靜謐森林是完全靜音區：不能打招呼，也不顯示別人的表情
+const isQuietZone = ref(false);
 // 走到電梯口會跳出樓層按鈕；走開就收起來
 const elevatorOpen = ref(false);
 const elevatorFloors = computed(() => [...props.floors].sort((a, b) => a - b));
@@ -234,6 +236,8 @@ interface SeatNode {
   state: SeatState;
   label: string;
   colors: AvatarColors;
+  // 坐在這裡的人正在專注（自己的話就是番茄鐘在跑）
+  focusing: boolean;
 }
 
 interface StairInfo {
@@ -335,9 +339,10 @@ function hasEscalator(): boolean {
 function buildMap(): void {
   // 分區決定主題：A 森林、B 咖啡店、C 深海艙、D 圖書館
   map = createPixelMap(props.seats.length, hasEscalator(), themeForZone(currentRoom().split('-')[1] ?? ''));
+  isQuietZone.value = map.theme === 'forest';
   seatNodes = props.seats.flatMap((seat, index) => {
     const slot = map.seats[index];
-    return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR }] : [];
+    return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR, focusing: false }] : [];
   });
   rebuildStairs();
   buildNavigation();
@@ -380,6 +385,7 @@ function syncSeatStates(): void {
     else if (mate) state = 'mate';
     else if (!seat.available) state = 'taken';
     node.state = state;
+    node.focusing = state === 'me' ? props.disabled : state === 'mate' && mate?.state === '專注';
     if (state === 'me') {
       node.label = t.value.common.meLabel;
       node.colors = MY_AVATAR;
@@ -784,6 +790,13 @@ function seatDrawables(node: SeatNode, seconds: number): Drawable[] {
     drawAvatar(c, node.colors, slot.facing, 'idle', x + 8, y + TILE - lift + breathe, true);
   };
   const drawGlow = (c: CanvasRenderingContext2D) => {
+    if (node.focusing && occupied) {
+      // 專注中：座位底下一圈慢慢呼吸的暖光
+      const breath = 0.18 + (Math.sin(seconds * 1.4 + node.index) + 1) * 0.08;
+      c.fillStyle = `rgba(251, 191, 36, ${breath})`;
+      c.fillRect(x - 2, y + TILE - 4, TILE + 4, 4);
+      c.fillRect(x - 1, y + TILE - 6, TILE + 2, 2);
+    }
     if (!highlighted && !reservedAway) return;
     const pulse = reservedAway ? 0.35 + Math.sin(seconds * 3) * 0.15 : 0.55;
     c.fillStyle = `rgba(251, 191, 36, ${pulse})`;
@@ -1091,7 +1104,7 @@ function myPosition(): { x: number; y: number } {
 function sendEmote(emote: EmoteId): void {
   containerRef.value?.focus({ preventScroll: true });
   const now = performance.now() / 1000;
-  if (props.isLoading || now - lastEmoteAt < EMOTE_COOLDOWN_S) return;
+  if (props.isLoading || isQuietZone.value || props.disabled || now - lastEmoteAt < EMOTE_COOLDOWN_S) return;
   lastEmoteAt = now;
   say('me', `${EMOTE_ICONS[emote]} ${t.value.seatScene.emotes[emote]}`);
   emit('emote', emote);
@@ -1213,7 +1226,7 @@ function render(seconds: number): void {
     const meSeated = node.state === 'me' && player.state === 'seated' && player.seatId === node.seatId;
     if (node.state === 'me' && !meSeated) continue;
     const p = toScreen(node.slot.tx * TILE + 8, node.slot.ty * TILE - 6);
-    drawPill(ctx, node.label, p.x, p.y, node.state === 'me' ? COLOR_ME : COLOR_MATE);
+    drawPill(ctx, node.focusing ? `⏳ ${node.label}` : node.label, p.x, p.y, node.state === 'me' ? COLOR_ME : COLOR_MATE);
   }
   if (player.state !== 'seated') {
     const p = toScreen(player.x * TILE, player.y * TILE - 16);
@@ -1455,13 +1468,15 @@ watch(
 watch(
   () => props.remoteEmote,
   (emote) => {
-    if (emote) say(`seat:${emote.seatId}`, `${EMOTE_ICONS[emote.emote]} ${t.value.seatScene.emotes[emote.emote]}`);
+    // 專注中或在靜音區就不打擾
+    if (emote && !isQuietZone.value && !props.disabled) say(`seat:${emote.seatId}`, `${EMOTE_ICONS[emote.emote]} ${t.value.seatScene.emotes[emote.emote]}`);
   },
 );
 
 watchEffect(() => {
   // 讀取 props 與 getMateAtSeat 內的響應式資料，任何入座／離座都會觸發
-  void props.seats.map((seat) => [seat.id, seat.available, props.getMateAtSeat(seat.id)?.displayName]);
+  void props.seats.map((seat) => [seat.id, seat.available, props.getMateAtSeat(seat.id)?.displayName, props.getMateAtSeat(seat.id)?.state]);
+  void props.disabled;
   void props.selectedSeatId;
   void t.value;
   syncSeatStates();

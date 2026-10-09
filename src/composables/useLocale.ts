@@ -94,7 +94,7 @@ const translations = {
       syncingFloor: (floor: number) => `同步樓層 ${floor}...`,
     },
     seatScene: {
-      hintDesktop: 'WASD／方向鍵移動 · 空白鍵入座 · 點地板或座位走過去 · H／1–4 打招呼 · M 開小地圖',
+      hintDesktop: 'WASD／方向鍵移動 · 空白鍵入座 · 點地板或座位走過去 · H／1–4 打招呼（森林區靜音） · M 開小地圖',
       hintTouch: '點地板走過去 · 點座位入座 · 左下角打招呼 · 走樓梯或搭電梯換樓層 · 南邊的出口通往海灘',
       stairUp: (floor: number) => `↑ ${floor}F`,
       stairDown: (floor: number) => `↓ ${floor}F`,
@@ -220,7 +220,7 @@ const translations = {
       syncingFloor: (floor: number) => `Syncing floor ${floor}...`,
     },
     seatScene: {
-      hintDesktop: 'WASD / arrows to move · Space to sit · click the floor or a seat to walk there · H / 1–4 to say hi · M for the minimap',
+      hintDesktop: 'WASD / arrows to move · Space to sit · click the floor or a seat to walk there · H / 1–4 to say hi (not in the forest) · M for the minimap',
       hintTouch: 'Tap the floor to walk · tap a seat to sit · say hi from the bottom-left · take the stairs or the elevator to change floor · the south exit leads to the beach',
       stairUp: (floor: number) => `↑ ${floor}F`,
       stairDown: (floor: number) => `↓ ${floor}F`,
