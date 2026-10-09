@@ -13,7 +13,7 @@ import {
 import { fetchSeatSnapshotAction, type SeatSnapshotItem } from 'src/pages/index/actions/seatSnapshotActions';
 import { fetchWebSocketTokenAction } from 'src/pages/index/actions/webSocketTokenActions';
 
-const DEFAULT_FLOOR_CAPACITY = 45;
+const DEFAULT_FLOOR_CAPACITY = 60;
 const DEFAULT_ZONE_CAPACITY = 15;
 const FLOOR_POLL_INTERVAL_ACTIVE_MS = 8000;
 const FLOOR_POLL_INTERVAL_BACKGROUND_MS = 30000;
@@ -47,7 +47,7 @@ export type SeatSnapshotMap = Record<
   }
 >;
 
-// Zone IDs (A/B/C) and their Chinese names are hardcoded on the backend
+// Zone IDs (A/B/C/D) and their Chinese names are hardcoded on the backend
 // (COMEANC13-backend library_handler.go zoneDefs) and stable across floors,
 // so we key the display translation off the zone ID rather than matching on
 // the backend-supplied name text.
@@ -63,6 +63,10 @@ const zoneLocaleMap: Record<string, { name: Record<LocaleKey, string>; descripti
   C: {
     name: { 'zh-TW': '深海艙', 'en-US': 'Deep Sea Cabin' },
     description: { 'zh-TW': '封閉式專注座艙', 'en-US': 'Enclosed, cabin-style focus pod' },
+  },
+  D: {
+    name: { 'zh-TW': '圖書館', 'en-US': 'Library' },
+    description: { 'zh-TW': '書牆環繞的經典自習室', 'en-US': 'Classic study hall lined with bookshelves' },
   },
 };
 

@@ -48,7 +48,7 @@
       </div>
       <div v-show="minimapOpen" class="absolute right-2 top-12 rounded-xl bg-slate-900/85 p-2 shadow-lg ring-1 ring-white/15">
         <p class="!mb-1.5 text-center !text-[10px] font-black tracking-wide text-amber-300">
-          {{ area === 'beach' ? t.seatScene.areaBeach : t.seatScene.areaLibrary(currentFloor) }}
+          {{ area === 'beach' ? t.seatScene.areaBeach : zoneName ? `${zoneName} ${currentFloor}F` : t.seatScene.areaLibrary(currentFloor) }}
         </p>
         <canvas ref="minimapRef" class="block cursor-pointer rounded-md" @click="handleMinimapClick" />
       </div>
@@ -84,6 +84,7 @@ import {
   seatApproach,
   seatCenter,
   stairTrigger,
+  themeForZone,
   walkBounds,
   type Area,
   type Beachgoer,
@@ -125,6 +126,17 @@ import {
   paintWaves,
   type AvatarColors,
 } from 'src/pages/index/pixel/pixelArt';
+import {
+  MUSHROOM_POUF,
+  NIGHT_TINT,
+  TV_GLOW,
+  paintAmbient,
+  paintCounterTop,
+  paintMushroomDots,
+  paintStump,
+  paintThemedPlant,
+  paintThemedTableTop,
+} from 'src/pages/index/pixel/pixelThemes';
 
 const props = defineProps<{
   seats: Seat[];
@@ -134,6 +146,8 @@ const props = defineProps<{
   currentFloor: number;
   // 有哪些樓層可去，用來決定要不要畫上樓／下樓的樓梯
   floors: number[];
+  // 目前分區的名稱（靜謐森林、城市咖啡…），小地圖的標題用
+  zoneName: string;
   disabled: boolean;
   getMateAtSeat: (seatId: string) => Reader | null | undefined;
 }>();
@@ -296,7 +310,8 @@ function hasEscalator(): boolean {
 }
 
 function buildMap(): void {
-  map = createPixelMap(props.seats.length, hasEscalator());
+  // 分區決定主題：A 森林、B 咖啡店、C 深海艙、D 圖書館
+  map = createPixelMap(props.seats.length, hasEscalator(), themeForZone(currentRoom().split('-')[1] ?? ''));
   seatNodes = props.seats.flatMap((seat, index) => {
     const slot = map.seats[index];
     return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR }] : [];
@@ -726,9 +741,15 @@ function seatDrawables(node: SeatNode, seconds: number): Drawable[] {
       const tile = slot.facing === 'down' ? 'chairDown' : slot.facing === 'up' ? 'chairUp' : slot.facing === 'right' ? 'chairRight' : 'chairLeft';
       drawKenney(c, sheet, tile, x, y);
     } else if (slot.kind === 'stool') {
-      paintStool(c, x, y);
+      if (map.theme === 'forest') paintStump(c, x, y);
+      else paintStool(c, x, y);
     } else if (slot.kind === 'pouf') {
-      paintPouf(c, x, y, POUF_COLORS[node.index % POUF_COLORS.length] ?? '#c9774f');
+      if (map.theme === 'forest') {
+        paintPouf(c, x, y, MUSHROOM_POUF);
+        paintMushroomDots(c, x, y);
+      } else {
+        paintPouf(c, x, y, POUF_COLORS[node.index % POUF_COLORS.length] ?? '#c9774f');
+      }
     } else {
       paintArmchairBack(c, x, y, ARMCHAIR_COLORS[node.index % ARMCHAIR_COLORS.length] ?? '#b0603f');
     }
@@ -782,6 +803,7 @@ function propDrawables(seconds: number): Drawable[] {
           drawKenney(c, sheet, 'tableTopRight', x + TILE, y);
           drawKenney(c, sheet, 'tableBottomLeft', x, y + TILE);
           drawKenney(c, sheet, 'tableBottomRight', x + TILE, y + TILE);
+          if (paintThemedTableTop(c, map.theme, x, y)) return;
           // 桌上：攤開的書 + 一盞小檯燈
           c.fillStyle = '#efe6d2';
           c.fillRect(x + 6, y + 10, 8, 5);
@@ -806,12 +828,21 @@ function propDrawables(seconds: number): Drawable[] {
         },
       });
     } else if (prop.kind === 'counter') {
-      list.push({ sortY: prop.ty + 1, draw: (c) => paintCounter(c, x, y, prop.h * TILE) });
+      list.push({
+        sortY: prop.ty + 1,
+        draw: (c) => {
+          paintCounter(c, x, y, prop.h * TILE);
+          paintCounterTop(c, map.theme, x, y, prop.h * TILE);
+        },
+      });
     } else if (prop.kind === 'plant' || prop.kind === 'tallPlant') {
       list.push({
         sortY,
         draw: (c) => {
-          if (sheet) drawKenney(c, sheet, prop.variant === 1 ? 'plantB' : 'plantA', x, y - (prop.kind === 'tallPlant' ? 4 : 0));
+          const top = y - (prop.kind === 'tallPlant' ? 4 : 0);
+          // 海灘上的盆栽不跟著分區換
+          if (prop.ty < map.libraryHeight && paintThemedPlant(c, map.theme, x, top, prop.variant ?? 0)) return;
+          if (sheet) drawKenney(c, sheet, prop.variant === 1 ? 'plantB' : 'plantA', x, top);
         },
       });
     } else if (prop.kind === 'floorLamp') {
@@ -889,7 +920,7 @@ function drawNightLighting(c: CanvasRenderingContext2D, seconds: number): void {
   const h = map.height * TILE;
   c.save();
   c.globalCompositeOperation = 'multiply';
-  c.fillStyle = '#b4a9cf';
+  c.fillStyle = NIGHT_TINT[map.theme];
   c.fillRect(0, 0, w, h);
   c.globalCompositeOperation = 'lighter';
   const glow = (x: number, y: number, r: number, color: string) => {
@@ -907,17 +938,22 @@ function drawNightLighting(c: CanvasRenderingContext2D, seconds: number): void {
     }
   }
   const tvX = (map.tv.tx + map.tv.w / 2) * TILE;
-  glow(tvX, TILE * 3, 60, `rgba(90, 150, 230, ${0.2 + Math.sin(seconds * 0.8) * 0.03})`);
+  glow(tvX, TILE * 3, 60, `rgba(${TV_GLOW[map.theme]}, ${0.2 + Math.sin(seconds * 0.8) * 0.03})`);
   for (const [y0, y1] of map.windows) glow(TILE, ((y0 + y1) / 2) * TILE, 40, 'rgba(150, 180, 255, 0.14)');
   c.restore();
 }
 
 function drawSunlight(c: CanvasRenderingContext2D): void {
-  // 白天：落地窗斜照進來的光塊
+  // 白天：落地窗斜照進來的光塊（深海艙沒有陽光，整間偏冷藍）
   c.save();
+  if (map.theme === 'deepsea') {
+    c.globalCompositeOperation = 'multiply';
+    c.fillStyle = '#cfe2f5';
+    c.fillRect(0, 0, map.width * TILE, map.libraryHeight * TILE);
+  }
   c.globalCompositeOperation = 'soft-light';
   c.fillStyle = 'rgba(255, 244, 214, 0.55)';
-  for (const [y0, y1] of map.windows) {
+  for (const [y0, y1] of map.theme === 'deepsea' ? [] : map.windows) {
     c.beginPath();
     c.moveTo(TILE, y0 * TILE);
     c.lineTo(TILE, y1 * TILE);
@@ -1025,6 +1061,7 @@ function render(seconds: number): void {
   if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
   paintWaves(ctx, map, seconds);
   paintElevatorDoors(ctx, map, elevatorDoor);
+  paintAmbient(ctx, map, seconds, dark, 'under');
   paintEscalatorSteps(ctx, map, seconds);
   const drawables: Drawable[] = [
     ...propDrawables(seconds),
@@ -1037,6 +1074,7 @@ function render(seconds: number): void {
   for (const item of drawables) item.draw(ctx);
   if (dark) drawNightLighting(ctx, seconds);
   else drawSunlight(ctx);
+  paintAmbient(ctx, map, seconds, dark, 'over');
 
   // 名牌與樓梯牌用螢幕座標畫，字才清楚、不會跟著像素一起放大
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

@@ -2,7 +2,9 @@
 // 素材包沒有的（地板、牆、書櫃、樓梯、電視、地毯、懶骨頭、人物）在這裡用程式一格一格畫。
 // 所有座標都是「世界像素」（1 格 = 16px），呼叫端負責整數倍放大。
 
-import { TILE, WALL_ROWS, type Facing, type MapRug, type Outfit, type PixelMap } from './pixelMap';
+import { px, seeded } from './pixelUtil';
+import { RUGS, WALLS, WINDOW_GLASS, paintBackWall, paintThemedFloor, paintThemedTv, paintWallFace } from './pixelThemes';
+import { TILE, WALL_ROWS, type Facing, type MapRug, type Outfit, type PixelMap, type ThemeId } from './pixelMap';
 
 export const KENNEY_SHEET_URL = '/pixel/kenney-roguelike-indoor.png';
 const KENNEY_STRIDE = 17;
@@ -38,27 +40,14 @@ export function drawKenney(ctx: CanvasRenderingContext2D, sheet: HTMLImageElemen
   ctx.drawImage(sheet, col * KENNEY_STRIDE, row * KENNEY_STRIDE, TILE, TILE, dx, dy, TILE, TILE);
 }
 
-function seeded(seed: number): () => number {
-  let state = seed;
-  return () => {
-    state = (state * 16807) % 2147483647;
-    return state / 2147483647;
-  };
-}
-
-function px(ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w = 1, h = 1): void {
-  ctx.fillStyle = color;
-  ctx.fillRect(x, y, w, h);
-}
-
 // ── 靜態底圖：地板、牆、窗、書櫃、樓梯口、電視、地毯 ──
 
 const WOOD = { base: '#dcbf93', light: '#e6cda6', seam: '#c3a172', knot: '#b8925f' };
-const WALL = { cap: '#3b3f4c', capLight: '#4c5262', face: '#d6d0c4', faceShade: '#c7c0b2', base: '#8a6a4a' };
 const SHELF = { frame: '#9a6a43', frameDark: '#6b4428', back: '#4a3326', board: '#b98652' };
 const BOOK_COLORS = ['#7d2e2e', '#2f4a6b', '#35604f', '#c79a45', '#4b3a63', '#e3dccb', '#a35a3b', '#3b6f86', '#c46a55', '#5d7a3a'];
 
 function paintFloor(ctx: CanvasRenderingContext2D, map: PixelMap): void {
+  if (paintThemedFloor(ctx, map)) return;
   const rand = seeded(17);
   const top = WALL_ROWS * TILE;
   const width = map.width * TILE;
@@ -81,30 +70,36 @@ function paintFloor(ctx: CanvasRenderingContext2D, map: PixelMap): void {
 function paintWalls(ctx: CanvasRenderingContext2D, map: PixelMap): void {
   const width = map.width * TILE;
   const height = map.libraryHeight * TILE;
+  const wall = WALLS[map.theme];
+  const glass = WINDOW_GLASS[map.theme];
   // 後牆：上緣是牆頂，下面兩格是牆面（清水模感：淡灰 + 模板分割線）
-  px(ctx, WALL.cap, 0, 0, width, TILE);
-  px(ctx, WALL.capLight, 0, TILE - 2, width, 1);
-  px(ctx, WALL.face, 0, TILE, width, TILE * 2);
-  for (let x = 0; x < width; x += 48) px(ctx, WALL.faceShade, x, TILE, 1, TILE * 2);
-  px(ctx, WALL.faceShade, 0, TILE * 2, width, 1);
-  for (let x = 12; x < width; x += 24) {
-    px(ctx, WALL.faceShade, x, TILE + 8, 1, 1);
-    px(ctx, WALL.faceShade, x, TILE * 2 + 8, 1, 1);
+  px(ctx, wall.cap, 0, 0, width, TILE);
+  px(ctx, wall.capLight, 0, TILE - 2, width, 1);
+  px(ctx, wall.face, 0, TILE, width, TILE * 2);
+  if (map.theme === 'library') {
+    for (let x = 0; x < width; x += 48) px(ctx, wall.faceShade, x, TILE, 1, TILE * 2);
+    px(ctx, wall.faceShade, 0, TILE * 2, width, 1);
+    for (let x = 12; x < width; x += 24) {
+      px(ctx, wall.faceShade, x, TILE + 8, 1, 1);
+      px(ctx, wall.faceShade, x, TILE * 2 + 8, 1, 1);
+    }
+  } else {
+    paintWallFace(ctx, map);
   }
-  px(ctx, WALL.base, 0, TILE * 3 - 2, width, 2);
+  px(ctx, wall.base, 0, TILE * 3 - 2, width, 2);
 
   // 左右牆與前緣：俯視只看得到牆頂
-  px(ctx, WALL.cap, 0, 0, TILE, height);
-  px(ctx, WALL.capLight, TILE - 2, TILE, 1, height - TILE * 2);
-  px(ctx, WALL.cap, width - TILE, 0, TILE, height);
-  px(ctx, WALL.capLight, width - TILE + 1, TILE, 1, height - TILE * 2);
+  px(ctx, wall.cap, 0, 0, TILE, height);
+  px(ctx, wall.capLight, TILE - 2, TILE, 1, height - TILE * 2);
+  px(ctx, wall.cap, width - TILE, 0, TILE, height);
+  px(ctx, wall.capLight, width - TILE + 1, TILE, 1, height - TILE * 2);
   // 前牆：中間開一道雙開玻璃門通往海灘
   const doorLeft = map.beach.door[0] * TILE;
   const doorRight = map.beach.door[1] * TILE;
-  px(ctx, WALL.cap, 0, height - TILE, doorLeft, TILE);
-  px(ctx, WALL.cap, doorRight, height - TILE, width - doorRight, TILE);
-  px(ctx, WALL.capLight, TILE, height - TILE + 1, doorLeft - TILE, 1);
-  px(ctx, WALL.capLight, doorRight, height - TILE + 1, width - doorRight - TILE, 1);
+  px(ctx, wall.cap, 0, height - TILE, doorLeft, TILE);
+  px(ctx, wall.cap, doorRight, height - TILE, width - doorRight, TILE);
+  px(ctx, wall.capLight, TILE, height - TILE + 1, doorLeft - TILE, 1);
+  px(ctx, wall.capLight, doorRight, height - TILE + 1, width - doorRight - TILE, 1);
   px(ctx, '#2a2f3a', doorLeft - 2, height - TILE, 2, TILE);
   px(ctx, '#2a2f3a', doorRight, height - TILE, 2, TILE);
   if (map.beach.escalator) {
@@ -126,13 +121,14 @@ function paintWalls(ctx: CanvasRenderingContext2D, map: PixelMap): void {
     const top = y0 * TILE;
     const h = (y1 - y0) * TILE;
     px(ctx, '#2a2f3a', 2, top - 1, 12, h + 2);
-    px(ctx, '#bfe3f2', 4, top + 1, 8, h - 2);
-    px(ctx, '#e6f5fb', 5, top + 2, 2, h - 4);
-    px(ctx, '#9cc9dc', 4, top + Math.floor(h / 2), 8, 1);
+    px(ctx, glass.glass, 4, top + 1, 8, h - 2);
+    px(ctx, glass.shine, 5, top + 2, 2, h - 4);
+    px(ctx, glass.bar, 4, top + Math.floor(h / 2), 8, 1);
   }
 }
 
 function paintShelves(ctx: CanvasRenderingContext2D, map: PixelMap): void {
+  if (paintBackWall(ctx, map)) return;
   const rand = seeded(101);
   const top = TILE + 1;
   const bottom = TILE * 3 - 2;
@@ -223,6 +219,7 @@ export function paintElevatorDoors(ctx: CanvasRenderingContext2D, map: PixelMap,
 }
 
 function paintTv(ctx: CanvasRenderingContext2D, map: PixelMap): void {
+  if (paintThemedTv(ctx, map)) return;
   const left = map.tv.tx * TILE;
   const width = map.tv.w * TILE;
   // 牆面木格柵 + 大螢幕
@@ -234,14 +231,8 @@ function paintTv(ctx: CanvasRenderingContext2D, map: PixelMap): void {
   px(ctx, '#15171f', left + width / 2 - 6, TILE + 27, 12, 2);
 }
 
-const RUG_COLORS: Record<MapRug['color'], { fill: string; border: string; dot: string }> = {
-  oat: { fill: '#ece2cf', border: '#cdb994', dot: '#ddcfb4' },
-  terracotta: { fill: '#c97b57', border: '#9f5a3d', dot: '#d89270' },
-  slate: { fill: '#7b8596', border: '#5d6676', dot: '#8a94a5' },
-};
-
-function paintRug(ctx: CanvasRenderingContext2D, rug: MapRug): void {
-  const colors = RUG_COLORS[rug.color];
+function paintRug(ctx: CanvasRenderingContext2D, rug: MapRug, theme: ThemeId): void {
+  const colors = RUGS[theme][rug.color];
   const x = rug.tx * TILE;
   const y = rug.ty * TILE;
   const w = rug.w * TILE;
@@ -394,7 +385,7 @@ export function paintWaves(ctx: CanvasRenderingContext2D, map: PixelMap, seconds
 export function paintStaticLayer(ctx: CanvasRenderingContext2D, map: PixelMap): void {
   paintBeach(ctx, map);
   paintFloor(ctx, map);
-  for (const rug of map.rugs) paintRug(ctx, rug);
+  for (const rug of map.rugs) paintRug(ctx, rug, map.theme);
   paintWalls(ctx, map);
   paintShelves(ctx, map);
   paintStairs(ctx, map);

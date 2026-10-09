@@ -40,6 +40,7 @@
               :is-loading="isLoading"
               :current-floor="currentFloor"
               :floors="floorTabItems.map((f) => f.floor)"
+              :zone-name="librarySocket.currentZone.value?.name ?? ''"
               :disabled="store.isRunning"
               :get-mate-at-seat="librarySocket.getMateAtSeat"
               @select="selectSeat"

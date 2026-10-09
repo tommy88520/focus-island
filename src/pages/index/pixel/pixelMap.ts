@@ -83,7 +83,17 @@ export interface Beachgoer {
   strollTo?: number;
 }
 
+// 分區主題：只換美術，座位與碰撞共用同一張地圖
+export type ThemeId = 'library' | 'forest' | 'cafe' | 'deepsea';
+
+const ZONE_THEMES: Record<string, ThemeId> = { A: 'forest', B: 'cafe', C: 'deepsea', D: 'library' };
+
+export function themeForZone(zoneId: string): ThemeId {
+  return ZONE_THEMES[zoneId.toUpperCase()] ?? 'library';
+}
+
 export interface PixelMap {
+  theme: ThemeId;
   width: number;
   height: number;
   // 圖書館（含前牆）的高度，以下是海灘
@@ -132,7 +142,7 @@ function table(tx: number, ty: number): MapProp {
   return { kind: 'table', tx, ty, w: 2, h: 2, blocks: true };
 }
 
-export function createPixelMap(seatCount: number, escalator = false): PixelMap {
+export function createPixelMap(seatCount: number, escalator = false, theme: ThemeId = 'library'): PixelMap {
   const lounge = { tx: 16, ty: 10 };
   const base: SeatSlot[] = [
     ...tableSeats(5, 6),
@@ -200,6 +210,7 @@ export function createPixelMap(seatCount: number, escalator = false): PixelMap {
   props.push(...beachProps(beach));
 
   return {
+    theme,
     width: MAP_WIDTH,
     height: beach.seaTop + SEA_ROWS,
     libraryHeight,
