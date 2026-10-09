@@ -85,6 +85,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect
 import { EMOTE_IDS, type EmoteId, type Reader, type SeatEmote } from 'src/pages/index/composables/useLibrarySocket';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
+import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { createNavigation, type Navigation, type Point } from 'src/pages/index/composables/seatNavigation';
 import {
   TILE,
@@ -108,11 +109,11 @@ import {
 import {
   AVATAR_SIZE,
   KENNEY_SHEET_URL,
-  MY_AVATAR,
   ARMCHAIR_COLORS,
   POUF_COLORS,
   SEATED_ROWS,
   avatarColorsFor,
+  lookColors,
   beachAvatar,
   drawKenney,
   getAvatarFrame,
@@ -203,7 +204,12 @@ const COLOR_MATE = '#2dd4bf';
 const MINIMAP_WIDTH = 148;
 const BEACH_STROLL_SPEED = 1.1;
 // 走到海灘就換上海灘褲
-const MY_BEACH_AVATAR: AvatarColors = { ...MY_AVATAR, outfit: 'trunks' };
+const playerPrefs = usePlayerPrefs();
+// 自己的外觀跟著設定頁走；到海灘換上海灘褲
+const myAvatar = (beach = false): AvatarColors => ({
+  ...lookColors(playerPrefs.value.hair, playerPrefs.value.shirt),
+  ...(beach ? { outfit: 'trunks' as const } : {}),
+});
 const MINIMAP_PROP_COLORS: Partial<Record<PropKind, string>> = {
   table: '#8a5e36',
   roundTable: '#8a5e36',
@@ -238,6 +244,8 @@ interface SeatNode {
   colors: AvatarColors;
   // 坐在這裡的人正在專注（自己的話就是番茄鐘在跑）
   focusing: boolean;
+  // 開了勿擾
+  dnd: boolean;
 }
 
 interface StairInfo {
@@ -342,7 +350,7 @@ function buildMap(): void {
   isQuietZone.value = map.theme === 'forest';
   seatNodes = props.seats.flatMap((seat, index) => {
     const slot = map.seats[index];
-    return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR, focusing: false }] : [];
+    return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR, focusing: false, dnd: false }] : [];
   });
   rebuildStairs();
   buildNavigation();
@@ -386,12 +394,13 @@ function syncSeatStates(): void {
     else if (!seat.available) state = 'taken';
     node.state = state;
     node.focusing = state === 'me' ? props.disabled : state === 'mate' && mate?.state === '專注';
+    node.dnd = state === 'me' ? playerPrefs.value.doNotDisturb : state === 'mate' && mate?.dnd === true;
     if (state === 'me') {
       node.label = t.value.common.meLabel;
-      node.colors = MY_AVATAR;
+      node.colors = myAvatar();
     } else if (state === 'mate' && mate) {
       node.label = mate.displayName;
-      node.colors = avatarColorsFor(mate.displayName);
+      node.colors = mate.hair !== undefined && mate.shirt !== undefined ? lookColors(mate.hair, mate.shirt) : avatarColorsFor(mate.displayName);
     } else {
       node.label = '';
       node.colors = TAKEN_AVATAR;
@@ -949,7 +958,7 @@ function playerDrawable(): Drawable | null {
       // 影子
       c.fillStyle = 'rgba(0, 0, 0, 0.18)';
       c.fillRect(Math.round(player.x * TILE - 5), Math.round(player.y * TILE + 3), 10, 2);
-      const colors = area.value === 'beach' ? MY_BEACH_AVATAR : MY_AVATAR;
+      const colors = myAvatar(area.value === 'beach');
       drawAvatar(c, colors, player.facing, frame, player.x * TILE, player.y * TILE + 5, false);
     },
   };
@@ -1069,7 +1078,8 @@ function renderMinimap(seconds: number): void {
 }
 
 function drawPill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, color: string): void {
-  const label = text.length > 10 ? `${text.slice(0, 10)}…` : text;
+  // 🔕／⏳ 不算在名字長度裡
+  const label = text.length > 14 ? `${text.slice(0, 14)}…` : text;
   c.font = `700 ${LABEL_FONT_PX}px system-ui, -apple-system, "PingFang TC", sans-serif`;
   const width = Math.ceil(c.measureText(label).width) + 14;
   const height = LABEL_FONT_PX + 8;
@@ -1226,11 +1236,12 @@ function render(seconds: number): void {
     const meSeated = node.state === 'me' && player.state === 'seated' && player.seatId === node.seatId;
     if (node.state === 'me' && !meSeated) continue;
     const p = toScreen(node.slot.tx * TILE + 8, node.slot.ty * TILE - 6);
-    drawPill(ctx, node.focusing ? `⏳ ${node.label}` : node.label, p.x, p.y, node.state === 'me' ? COLOR_ME : COLOR_MATE);
+    const marks = `${node.dnd ? '🔕 ' : ''}${node.focusing ? '⏳ ' : ''}`;
+    drawPill(ctx, `${marks}${node.label}`, p.x, p.y, node.state === 'me' ? COLOR_ME : COLOR_MATE);
   }
   if (player.state !== 'seated') {
     const p = toScreen(player.x * TILE, player.y * TILE - 16);
-    drawPill(ctx, t.value.common.meLabel, p.x, p.y, COLOR_ME);
+    drawPill(ctx, `${playerPrefs.value.doNotDisturb ? '🔕 ' : ''}${t.value.common.meLabel}`, p.x, p.y, COLOR_ME);
   }
   drawBubbles(ctx, seconds, toScreen);
   renderMinimap(seconds);
@@ -1469,14 +1480,17 @@ watch(
   () => props.remoteEmote,
   (emote) => {
     // 專注中或在靜音區就不打擾
-    if (emote && !isQuietZone.value && !props.disabled) say(`seat:${emote.seatId}`, `${EMOTE_ICONS[emote.emote]} ${t.value.seatScene.emotes[emote.emote]}`);
+    if (emote && !isQuietZone.value && !props.disabled && !playerPrefs.value.doNotDisturb) say(`seat:${emote.seatId}`, `${EMOTE_ICONS[emote.emote]} ${t.value.seatScene.emotes[emote.emote]}`);
   },
 );
 
 watchEffect(() => {
   // 讀取 props 與 getMateAtSeat 內的響應式資料，任何入座／離座都會觸發
-  void props.seats.map((seat) => [seat.id, seat.available, props.getMateAtSeat(seat.id)?.displayName, props.getMateAtSeat(seat.id)?.state]);
+  void props.seats.map((seat) => [seat.id, seat.available, props.getMateAtSeat(seat.id)?.displayName, props.getMateAtSeat(seat.id)?.state, props.getMateAtSeat(seat.id)?.dnd]);
   void props.disabled;
+  void playerPrefs.value.doNotDisturb;
+  void playerPrefs.value.hair;
+  void playerPrefs.value.shirt;
   void props.selectedSeatId;
   void t.value;
   syncSeatStates();

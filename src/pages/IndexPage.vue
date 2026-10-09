@@ -118,6 +118,7 @@ import {
   formatTime as formatTimeHelper,
 } from 'src/pages/index/functions/uiHelpers';
 import { useLocale } from 'src/composables/useLocale';
+import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 const $q = useQuasar();
 const { t } = useLocale();
 
@@ -653,6 +654,15 @@ function loadFocusPreferences() {
     // ignore invalid stored payload
   }
 }
+
+// 外觀或勿擾改了：坐著的話重送一次座位訊息，同房間的人才看得到
+const playerPrefs = usePlayerPrefs();
+watch(
+  () => [playerPrefs.value.hair, playerPrefs.value.shirt, playerPrefs.value.doNotDisturb],
+  () => {
+    if (selectedSeatId.value) librarySocket.sendMove(selectedSeatId.value, store.isRunning ? 'FOCUS' : 'READY');
+  },
+);
 
 function applyDisplayName(name: string) {
   displayName.value = name;

@@ -35,6 +35,20 @@ const routes: RouteRecordRaw[] = [
           },
         },
       },
+      {
+        path: 'settings',
+        component: () => import('pages/SettingsPage.vue'),
+        meta: {
+          seo: {
+            title: { 'en-US': 'Settings', 'zh-TW': '設定' },
+            description: {
+              'en-US': 'Set your daily focus goal, avatar colours and do-not-disturb.',
+              'zh-TW': '設定每日專注目標、角色外觀與勿擾。',
+            },
+            robots: 'noindex,follow',
+          },
+        },
+      },
     ],
   },
 

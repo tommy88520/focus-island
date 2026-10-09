@@ -1,6 +1,7 @@
 import { ref, computed, type ComputedRef, type Ref } from 'vue';
 import type { QVueGlobals } from 'quasar';
 import { useLocale, type LocaleKey } from 'src/composables/useLocale';
+import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import {
   clampOccupancy,
   getFloorLoadPercent as getFloorLoadPercentHelper,
@@ -36,6 +37,23 @@ export interface Reader {
   displayName: string;
   seatId?: string;
   state: '專注' | '休息' | '待命';
+  // 自己挑的角色顏色（調色盤編號）；沒挑過就依名字決定
+  hair?: number;
+  shirt?: number;
+  // 開了勿擾：不想被打招呼
+  dnd?: boolean;
+}
+
+// 從 JOIN／MOVE／SYNC_ALL 的 payload 讀出外觀與勿擾
+function readerExtras(payload: Record<string, unknown> | undefined): Pick<Reader, 'hair' | 'shirt' | 'dnd'> {
+  const look = (v: unknown) => (Number.isInteger(v) && (v as number) >= 0 ? (v as number) : undefined);
+  const hair = look(payload?.hair);
+  const shirt = look(payload?.shirt);
+  return {
+    ...(hair === undefined ? {} : { hair }),
+    ...(shirt === undefined ? {} : { shirt }),
+    ...(payload?.dnd === true ? { dnd: true } : {}),
+  };
 }
 
 export type SeatSnapshotMap = Record<
@@ -422,6 +440,9 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     }
   }
 
+  const playerPrefs = usePlayerPrefs();
+  const myLook = () => ({ hair: playerPrefs.value.hair, shirt: playerPrefs.value.shirt, dnd: playerPrefs.value.doNotDisturb });
+
   // 別人在房間裡打的招呼（自己送的不會收到這裡）；場景用座位位置畫泡泡
   const lastEmote = ref<SeatEmote | null>(null);
 
@@ -437,7 +458,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
         type: 'MOVE',
         userId: userId.value,
         sessionId,
-        payload: { seatId, state, username },
+        payload: { seatId, state, username, ...myLook() },
       }),
     );
   }
@@ -470,6 +491,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
             state: 'READY',
             username: displayName.value,
             seatId: selectedSeatId.value,
+            ...myLook(),
           },
         }),
       );
@@ -503,6 +525,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 displayName: payload.username || payload.name || readerUserId,
                 ...(normalizedSeatId ? { seatId: normalizedSeatId } : {}),
                 state: toReaderState(payload.state, '專注'),
+                ...readerExtras(payload),
               });
             });
             readers.value = synchronizedReaders;
@@ -537,6 +560,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
               displayName: msg.payload?.username || msg.userId,
               ...(normalizedJoinSeatId ? { seatId: normalizedJoinSeatId } : {}),
               state: toReaderState(msg.payload?.state, '待命'),
+              ...readerExtras(msg.payload),
             };
 
             if (joinIdx !== -1) readers.value[joinIdx] = joinReader;
@@ -598,6 +622,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
               displayName: msg.payload?.username || msg.userId,
               ...(normalizedIncomingSeatId ? { seatId: normalizedIncomingSeatId } : {}),
               state: toReaderState(msg.payload?.state, '專注'),
+              ...readerExtras(msg.payload),
             };
 
             const previousSeatId = moveIdx !== -1 ? readers.value[moveIdx]?.seatId : undefined;

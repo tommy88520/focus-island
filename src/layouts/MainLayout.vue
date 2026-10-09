@@ -69,7 +69,8 @@
             <span class="text-[10px] font-bold uppercase tracking-widest text-[color:var(--px-muted)]">
               {{ t.layout.headerGoalLabel }}
             </span>
-            <span class="text-xs font-black">6h Focused</span>
+            <span class="font-pixel text-xs font-bold">{{ store.todayFocusedHoursText }} / {{ playerPrefs.dailyGoalHours }}h</span>
+            <div class="pixel-track mt-1 w-24 !h-2 !p-0"><div :style="{ width: `${goalPercent}%` }"></div></div>
           </div>
           <div class="mx-1 h-8 w-[2px] bg-[color:var(--px-ink)] opacity-20 max-xl:!hidden"></div>
           <button
@@ -180,8 +181,15 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Dark, useQuasar } from 'quasar';
 import { useLocale } from 'src/composables/useLocale';
+import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
+import { usePomodoroStore } from 'src/stores/pomodoro';
 
 const leftDrawerOpen = ref(false);
+const store = usePomodoroStore();
+const playerPrefs = usePlayerPrefs();
+const goalPercent = computed(() =>
+  Math.min(100, Math.round((store.todayFocusedSeconds / 3600 / Math.max(1, playerPrefs.value.dailyGoalHours)) * 100)),
+);
 const router = useRouter();
 const route = useRoute();
 const $q = useQuasar();
@@ -217,9 +225,8 @@ const linksList = [
   {
     key: 'settings',
     icon: '⚙️',
-    badge: 'SOON',
     to: '/settings',
-    enabled: false,
+    enabled: true,
   },
 ];
 
@@ -346,6 +353,7 @@ function refreshCurrentRoomInfo() {
 }
 
 onMounted(() => {
+  store.loadProgress();
   Dark.set(isDarkMode.value);
   persistLayoutPreferences();
   refreshCurrentRoomInfo();

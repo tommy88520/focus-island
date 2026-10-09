@@ -39,6 +39,8 @@ Env (in `.env.local` / Vercel): `VITE_BACKEND_API_URL`, `VITE_BACKEND_WS_URL` (f
   - Walking is local only — the backend has no position message. Only the final seat is sent.
 - **Audio** (`composables/useAmbientAudio.ts`, `synthAmbience.ts`): tracks with a `synth` field are generated with Web Audio; the rest are mp3s in `public/music/`.
 - **Timer** (`stores/pomodoro.ts` + `workers/timer.worker.ts`): countdown runs in a Web Worker so background tabs aren't throttled; today's stats reset by local date.
+- **Player prefs** (`composables/usePlayerPrefs.ts`, one shared ref in `localStorage`): daily goal (header progress), avatar palette indices (`LOOK_HAIRS`/`LOOK_SHIRTS` in `pixelArt.ts`) and do-not-disturb. Look + DND ride along in every `MOVE`/`JOIN` payload (`readerExtras` parses them); changing them while seated re-sends `MOVE`. DND hides others' emote bubbles locally and shows 🔕 on the name pill.
+- Reader `state` is normalised from the backend's `FOCUS`/`READY`/`BREAK` by `toReaderState`.
 - `MainLayout.vue` learns the current room via the `focus-room-updated` event + `localStorage`, not a shared store.
 
 ## Direction

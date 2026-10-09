@@ -787,7 +787,17 @@ const SHIRT_PALETTE: [string, string][] = [
   ['#fb923c', '#d9701d'],
 ];
 
-// 別人的外觀依名字決定，同一個人每次看到都一樣
+// 設定頁可以挑的顏色：髮色沿用 HAIR_PALETTE，衣服多一個預設的琥珀色放在最前面
+export const LOOK_HAIRS = HAIR_PALETTE;
+export const LOOK_SHIRTS: [string, string][] = [['#fbbf24', '#d99a0b'], ...SHIRT_PALETTE];
+
+export function lookColors(hair: number, shirt: number): AvatarColors {
+  const [h, hl] = LOOK_HAIRS[hair] ?? LOOK_HAIRS[0] ?? ['#4a2f23', '#6b4636'];
+  const [s, ss] = LOOK_SHIRTS[shirt] ?? LOOK_SHIRTS[0] ?? ['#fbbf24', '#d99a0b'];
+  return { hair: h, hairLight: hl, shirt: s, shirtShade: ss };
+}
+
+// 沒自己挑過顏色的人，外觀依名字決定，同一個人每次看到都一樣
 export function avatarColorsFor(seed: string): AvatarColors {
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
@@ -817,4 +827,3 @@ export function paintSunglasses(ctx: CanvasRenderingContext2D, sx: number, sy: n
   px(ctx, '#1b1d26', sx + 9, sy + 8, 3, 2);
 }
 
-export const MY_AVATAR: AvatarColors = { hair: '#4a2f23', hairLight: '#6b4636', shirt: '#fbbf24', shirtShade: '#d99a0b' };
