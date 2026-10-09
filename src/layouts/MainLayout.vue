@@ -2,32 +2,30 @@
     <q-layout view="lHh Lpr lFf" :class="['font-sans antialiased', layoutThemeClass]">
     
     <div class="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
-      <div class="absolute -left-24 -top-20 h-96 w-96 rounded-full bg-rose-500/10 blur-[120px]"></div>
-      <div class="absolute -right-24 bottom-0 h-96 w-96 rounded-full bg-amber-500/10 blur-[120px]"></div>
-      <div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(251,191,36,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(251,191,36,0.02)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
+      <!-- 淡淡的 16px 格線，跟地圖的格子對齊感一致 -->
+      <div class="absolute inset-0 pixel-grid"></div>
       <div class="hidden dark:!block absolute inset-0 starfield-far"></div>
       <div class="hidden dark:!block absolute inset-0 starfield-near"></div>
     </div>
 
     <q-header class="bg-transparent px-2 pt-2 sm:px-4 sm:pt-4" flat>
       <div
-        class="mx-auto flex max-w-[1500px] items-center gap-2 rounded-[20px] border px-3 py-2 shadow-2xl backdrop-blur-md sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-2"
-        :class="headerSurfaceClass"
+        class="pixel-panel mx-auto flex max-w-[1500px] !flex-nowrap items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4"
       >
         <button
           type="button"
           aria-label="menu"
-          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-amber-600 dark:!text-amber-200 md:!hidden"
+          class="pixel-btn h-8 w-8 shrink-0 md:!hidden"
           @click="toggleLeftDrawer"
         >
           <q-icon name="menu" size="20px" />
         </button>
 
         <div class="flex items-center gap-2 sm:gap-3">
-          <img src="/icons/logo.svg" alt="Focus Island" width="36" height="36" class="h-8 w-8 shrink-0 rounded-[9px] shadow-lg shadow-indigo-950/30 [image-rendering:pixelated] sm:h-9 sm:w-9" />
+          <img src="/icons/logo.svg" alt="Focus Island" width="36" height="36" class="h-8 w-8 shrink-0 rounded-[4px] [image-rendering:pixelated] sm:h-9 sm:w-9" />
           <div class="hide-below-sm sm:block">
-            <div class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700 dark:!text-amber-200/80 leading-none mb-1">Cute Library</div>
-            <div class="text-base font-black leading-none text-slate-900 dark:!text-white">Focus Island</div>
+            <div class="font-pixel mb-1 text-[10px] uppercase leading-none text-[color:var(--px-accent-dark)] dark:!text-amber-300">Cute Library</div>
+            <div class="font-pixel text-base font-bold leading-none">Focus Island</div>
           </div>
         </div>
 
@@ -38,13 +36,12 @@
             type="button"
             :disabled="!link.enabled"
             :title="link.caption"
-            class="flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold transition-all"
+            class="flex items-center gap-1.5 rounded-[4px] border-2 px-2.5 py-1 text-xs font-bold transition-all"
             :class="[
               link.enabled
-                ? 'border-transparent hover:border-slate-200 hover:bg-slate-100 dark:hover:!border-white/10 dark:hover:!bg-white/5'
+                ? 'border-transparent hover:bg-[color:var(--px-panel-2)]'
                 : 'cursor-not-allowed border-transparent opacity-45',
-              link.enabled && isRouteActive(link.to) ? '!border-amber-300/35 bg-amber-400/10' : '',
-              mainTextClass,
+              link.enabled && isRouteActive(link.to) ? '!border-[color:var(--px-ink)] !bg-[color:var(--px-accent)] !text-[#3b2a20]' : '',
             ]"
             @click="handleMenuClick(link)"
           >
@@ -62,24 +59,22 @@
         <div class="ml-auto flex items-center gap-1.5 sm:gap-3">
           <div
             v-if="currentRoomInfo.roomID"
-            class="flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-black tracking-[0.12em] max-lg:!hidden"
-            :class="chipClass"
+            class="pixel-field flex !flex-nowrap items-center gap-1.5 px-2 py-1 text-[10px] font-black tracking-[0.12em] max-lg:!hidden"
             :title="displayedRoomInfo.zoneDescription"
           >
             <span>{{ displayedRoomInfo.roomID }}</span>
             <span class="font-bold opacity-70">{{ displayedRoomInfo.roomName }}</span>
           </div>
           <div class="flex flex-col items-end max-xl:!hidden">
-            <span class="text-[10px] font-bold uppercase tracking-widest" :class="subtleTextClass">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-[color:var(--px-muted)]">
               {{ t.layout.headerGoalLabel }}
             </span>
-            <span class="text-xs font-black" :class="accentTextClass">6h Focused</span>
+            <span class="text-xs font-black">6h Focused</span>
           </div>
-          <div class="mx-1 h-8 w-[1px] bg-white/10 max-xl:!hidden"></div>
+          <div class="mx-1 h-8 w-[2px] bg-[color:var(--px-ink)] opacity-20 max-xl:!hidden"></div>
           <button
             type="button"
-            class="rounded-lg border px-2 py-1 text-[10px] font-black tracking-[0.18em] transition-all sm:px-2.5"
-            :class="chipClass"
+            class="pixel-btn h-8 min-w-8 px-2 text-[10px] tracking-[0.18em] sm:px-2.5"
             @click="toggleLanguage"
           >
             <span class="inline-flex items-center gap-1">
@@ -89,8 +84,7 @@
           </button>
           <button
             type="button"
-            class="rounded-lg border px-2 py-1 text-[10px] font-black tracking-[0.18em] transition-all sm:px-2.5"
-            :class="chipClass"
+            class="pixel-btn h-8 min-w-8 px-2 text-[10px] tracking-[0.18em] sm:px-2.5"
             @click="toggleTheme"
           >
             <span class="inline-flex items-center gap-1">
@@ -100,8 +94,8 @@
           </button>
           <button
             type="button"
-            class="rounded-lg border px-2 py-1 text-[10px] font-black tracking-[0.18em] transition-all sm:px-2.5"
-            :class="favoriteButtonClass"
+            class="pixel-btn h-8 min-w-8 px-2 text-[10px] tracking-[0.18em] sm:px-2.5"
+            :class="{ 'pixel-btn--active': favoriteRoute }"
             @click="handleFavoriteShortcut"
           >
             <span class="inline-flex items-center gap-1">
@@ -109,7 +103,7 @@
               <span class="hide-below-sm sm:inline">{{ t.layout.favoriteButton }}</span>
             </span>
           </button>
-          <span class="hide-below-sm rounded-lg border px-2 py-1 text-[10px] font-mono sm:inline-flex" :class="chipClass">v{{ $q.version }}</span>
+          <span class="font-pixel hide-below-sm text-[10px] text-[color:var(--px-muted)] sm:inline-flex">v{{ $q.version }}</span>
         </div>
       </div>
     </q-header>
@@ -121,19 +115,19 @@
       class="bg-transparent"
     >
       <div class="flex h-full flex-col p-3 sm:p-4 lg:pl-4 lg:pr-0 lg:py-8">
-        <aside class="flex h-full flex-col rounded-[28px] border p-4 shadow-2xl backdrop-blur-xl sm:rounded-[32px] sm:p-6" :class="drawerSurfaceClass">
-          <div class="mb-6 rounded-2xl border p-3 sm:mb-8 sm:p-4" :class="drawerCardClass">
-            <div class="mb-2 text-[10px] font-black uppercase tracking-[0.2em]" :class="subtleTextClass">
+        <aside class="pixel-panel flex h-full flex-col p-4 sm:p-6">
+          <div class="pixel-field mb-6 p-3 sm:mb-8 sm:p-4">
+            <div class="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-[color:var(--px-muted)]">
               {{ t.layout.currentStatusLabel }}
             </div>
-            <div class="text-lg font-black text-slate-900 dark:!text-white sm:text-xl">{{ focusDateLabel }}</div>
-            <p class="mt-2 text-[10px] leading-relaxed italic" :class="mutedTextClass">
+            <div class="text-lg font-black sm:text-xl">{{ focusDateLabel }}</div>
+            <p class="mt-2 text-[10px] leading-relaxed italic text-[color:var(--px-muted)]">
               "{{ t.layout.currentStatusQuote }}"
             </p>
           </div>
 
           <nav class="space-y-2 flex-1">
-            <div class="px-2 pb-2 text-[10px] font-black uppercase tracking-[0.3em]" :class="subtleTextClass">
+            <div class="px-2 pb-2 text-[10px] font-black uppercase tracking-[0.3em] text-[color:var(--px-muted)]">
               {{ t.layout.menuLabel }}
             </div>
             <button
@@ -141,21 +135,17 @@
               :key="link.key"
               type="button"
               :disabled="!link.enabled"
-              class="group flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-300 sm:gap-4 sm:px-4"
+              class="group flex w-full !flex-nowrap items-center gap-3 rounded-[4px] border-2 px-3 py-3 text-left transition-all sm:gap-4 sm:px-4"
               :class="[
-                link.enabled
-                  ? 'border-transparent hover:bg-white/5 hover:border-white/10'
-                  : 'cursor-not-allowed border-white/5 bg-white/[0.02] opacity-55',
-                link.enabled && isRouteActive(link.to)
-                  ? 'border-amber-300/35 bg-amber-400/10'
-                  : '',
+                link.enabled ? 'border-transparent hover:bg-[color:var(--px-panel-2)]' : 'cursor-not-allowed border-transparent opacity-55',
+                link.enabled && isRouteActive(link.to) ? '!border-[color:var(--px-ink)] !bg-[color:var(--px-accent)] !text-[#3b2a20]' : '',
               ]"
               @click="handleMenuClick(link)"
             >
               <span class="text-lg transition-transform group-hover:scale-125 sm:text-xl">{{ link.icon }}</span>
               <div class="flex-1">
-                <span class="block text-sm font-bold group-hover:text-slate-900 dark:group-hover:!text-white sm:text-sm" :class="mainTextClass">{{ link.title }}</span>
-                <span class="block text-[10px] leading-tight" :class="mutedTextClass">{{ link.caption }}</span>
+                <span class="block text-sm font-bold">{{ link.title }}</span>
+                <span class="block text-[10px] leading-tight opacity-70">{{ link.caption }}</span>
               </div>
               <span
                 v-if="link.badge"
@@ -166,12 +156,12 @@
             </button>
           </nav>
 
-          <div class="mt-auto pt-5 border-t border-white/5 sm:pt-6">
-            <div class="rounded-2xl border p-3" :class="drawerCardClass">
-              <p class="text-[10px] font-black uppercase tracking-[0.2em]" :class="subtleTextClass">{{ t.layout.currentRoomLabel }}</p>
-              <p class="mt-1 text-sm font-black" :class="mainTextClass">{{ displayedRoomInfo.roomID }}</p>
-              <p class="mt-1 text-[11px]" :class="accentTextClass">{{ displayedRoomInfo.roomName }}</p>
-              <p class="mt-1 text-[10px]" :class="mutedTextClass">{{ displayedRoomInfo.zoneDescription }}</p>
+          <div class="mt-auto pt-5 sm:pt-6">
+            <div class="pixel-field p-3">
+              <p class="text-[10px] font-black uppercase tracking-[0.2em] text-[color:var(--px-muted)]">{{ t.layout.currentRoomLabel }}</p>
+              <p class="font-pixel mt-1 text-sm font-bold">{{ displayedRoomInfo.roomID }}</p>
+              <p class="mt-1 text-[11px]">{{ displayedRoomInfo.roomName }}</p>
+              <p class="mt-1 text-[10px] text-[color:var(--px-muted)]">{{ displayedRoomInfo.zoneDescription }}</p>
             </div>
           </div>
         </aside>
@@ -240,36 +230,7 @@ const localizedLinksList = computed(() =>
     caption: t.value.layout.menuItems[link.key as keyof typeof t.value.layout.menuItems].caption,
   })),
 );
-const layoutThemeClass = computed(() =>
-  isDarkMode.value ? 'bg-slate-950 text-amber-50' : 'bg-zinc-50 text-slate-900',
-);
-const headerSurfaceClass = computed(() =>
-  isDarkMode.value
-    ? 'border-white/10 bg-white/5 text-amber-50'
-    : 'border-slate-200 bg-white text-slate-900',
-);
-const drawerSurfaceClass = computed(() =>
-  isDarkMode.value
-    ? 'border-white/10 bg-slate-900/50 text-amber-50'
-    : 'border-slate-200 bg-white text-slate-900',
-);
-const drawerCardClass = computed(() =>
-  isDarkMode.value ? 'border-white/5 bg-white/5' : 'border-slate-200 bg-slate-50',
-);
-const chipClass = computed(() =>
-  isDarkMode.value ? 'border-white/10 bg-white/5 text-amber-100/85' : 'border-slate-200 bg-slate-50 text-slate-700',
-);
-const favoriteButtonClass = computed(() =>
-  favoriteRoute.value
-    ? isDarkMode.value
-      ? 'border-amber-300/40 bg-amber-400/10 text-amber-200 hover:bg-amber-400/20'
-      : 'border-amber-300/60 bg-amber-100 text-amber-900 hover:bg-amber-200'
-    : chipClass.value,
-);
-const mainTextClass = computed(() => (isDarkMode.value ? 'text-slate-300' : 'text-slate-800'));
-const mutedTextClass = computed(() => (isDarkMode.value ? 'text-amber-100/55' : 'text-slate-500'));
-const subtleTextClass = computed(() => (isDarkMode.value ? 'text-amber-200/60' : 'text-slate-500'));
-const accentTextClass = computed(() => (isDarkMode.value ? 'text-amber-100/80' : 'text-slate-700'));
+const layoutThemeClass = computed(() => (isDarkMode.value ? 'bg-[#14111f] text-[#f4eee2]' : 'bg-[#efe3c8] text-[#3b2a20]'));
 
 const focusDateLabel = computed(() => {
   return new Intl.DateTimeFormat(locale.value, {
@@ -406,6 +367,18 @@ onUnmounted(() => {
 }
 
 /* 星空背景（僅深色模式）：兩層不同大小/密度的星點，加上緩慢閃爍 */
+.pixel-grid {
+  background-image:
+    linear-gradient(to right, rgba(59, 42, 32, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(59, 42, 32, 0.05) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.body--dark .pixel-grid {
+  background-image:
+    linear-gradient(to right, rgba(169, 159, 201, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(169, 159, 201, 0.05) 1px, transparent 1px);
+}
+
 .starfield-far,
 .starfield-near {
   background-repeat: repeat;

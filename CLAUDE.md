@@ -15,12 +15,15 @@ Env (in `.env.local` / Vercel): `VITE_BACKEND_API_URL`, `VITE_BACKEND_WS_URL` (f
 
 ## Gotchas
 
+- Quasar's `.flex` also sets `flex-wrap: wrap` — add `!flex-nowrap` on rows that must stay on one line.
 - **Quasar's global CSS beats Tailwind utilities** (Tailwind v4 is layered, Quasar isn't). `hidden`, `flex`, and heading sizes on `h1`–`h6`/`p` get overridden — use the `!` modifier (`md:!hidden`, `!text-sm`, `dark:!text-white`) or the `hide-below-sm` utility. `dark:` follows Quasar's `body--dark` class.
 - No backend locally? Seats still render with defaults. Stairs only appear when `GET /api/v1/library/floors` answers, so mock that on :8080 to see them.
 
+- **Pixel UI**: `src/css/app.scss` has `pixel-panel` / `pixel-btn` / `pixel-field` / `pixel-track` and the `--px-*` colour tokens (redefined under `body.body--dark`); `font-pixel` is Silkscreen (Latin + digits only) from Google Fonts. These are unlayered, so don't stack Tailwind `bg-`/`border-`/`shadow-` utilities on the same element.
+
 ## How it fits together
 
-- **`pages/IndexPage.vue`**: seat selection, timer panel and the connection flow. Room = `{floor}-{zone}` (`2-A`), seat = `{room}-{NN}`. On mount and on floor/zone change: seat snapshot (REST) → WS token (REST) → WebSocket; `connectionVersion` drops callbacks from superseded attempts. Networking lives in `pages/index/composables/useLibrarySocket.ts` + `pages/index/actions/`.
+- **`pages/IndexPage.vue`**: seat selection, the connection flow, and a fixed bottom dock holding the timer (`FocusClockPanel`, settings in a dialog) and `AmbientAudioPlayer`, so the map gets the full width. Room = `{floor}-{zone}` (`2-A`), seat = `{room}-{NN}`. On mount and on floor/zone change: seat snapshot (REST) → WS token (REST) → WebSocket; `connectionVersion` drops callbacks from superseded attempts. Networking lives in `pages/index/composables/useLibrarySocket.ts` + `pages/index/actions/`.
 - **Identity**: `userId` is per browser (`localStorage['lib_uid']`); the per-tab id (`sessionStorage`) is sent as `sessionId` and is what owns a seat server-side. Two tabs of one user may hold different seats on purpose — don't add a single-tab lock.
 - **Seats are only released by moving or disconnecting** (no "leave" message). Standing up keeps `selectedSeatId`; the seat just glows as reserved.
 - **Remembered across visits** (`localStorage`): last seat, last floor/zone (`focus_island_last_location_v1`), and the avatar's standing position (`focus_island_player_position_v1`, written by the scene). On load: seated → sit back; standing → stand at the same spot while the seat is still auto-reserved.

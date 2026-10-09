@@ -2,7 +2,7 @@
   <div class="relative" :class="{ 'shake-error': isShake }">
     <div
       ref="containerRef"
-      class="relative h-[52vh] min-h-[340px] w-full overflow-hidden rounded-2xl bg-[#1b1d26] outline-none transition-opacity duration-500 focus-visible:ring-2 focus-visible:ring-amber-400/40 lg:h-[calc(100vh-330px)] lg:min-h-[460px]"
+      class="relative h-[calc(100dvh-350px)] min-h-[320px] w-full overflow-hidden rounded-[3px] bg-[#1b1d26] outline-none transition-opacity duration-500 focus-visible:ring-2 focus-visible:ring-amber-400/40 lg:h-[calc(100vh-300px)] lg:min-h-[460px]"
       :class="isLoading ? 'opacity-0' : 'opacity-100'"
       style="touch-action: pan-y"
       tabindex="0"
@@ -54,7 +54,7 @@
       </div>
     </div>
 
-    <p class="mt-2 px-2 text-center text-[10px] font-bold tracking-wide text-slate-500 dark:!text-white/55">
+    <p class="mt-1.5 px-2 text-center text-[10px] font-bold leading-snug tracking-wide text-slate-500 dark:!text-white/55">
       {{ isTouch ? t.seatScene.hintTouch : t.seatScene.hintDesktop }}
     </p>
 

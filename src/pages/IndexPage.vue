@@ -1,94 +1,98 @@
 <template>
-  <div class="relative min-h-[calc(100vh-80px)] px-3 py-3 pb-24 sm:px-4 sm:py-3 sm:pb-24">
+  <div class="relative min-h-[calc(100vh-80px)] px-3 py-3 pb-36 sm:px-4 sm:py-3 sm:pb-28">
     <div class="relative z-10 mx-auto max-w-[1500px]">
-      <div class="grid grid-cols-1 gap-3 lg:grid-cols-12 sm:gap-4">
-        <main class="order-2 space-y-3 lg:order-none lg:col-span-9">
-          <header class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex min-w-0 items-center gap-2">
-              <div
-                class="shrink-0 rounded-md bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-950 shadow-lg shadow-amber-400/20"
-              >
-                {{ t.indexPage.floorBadgePrefix }}{{ currentFloor }}
-              </div>
-              <h3 class="truncate !text-sm !leading-tight font-black !tracking-tight text-slate-900 dark:!text-white sm:!text-base">
-                {{ store.isRunning ? t.indexPage.headerTitleRunning : t.indexPage.headerTitleIdle }}
-              </h3>
-              <p class="hide-below-sm truncate text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:!text-white/55">
-                {{ librarySocket.currentZone.value?.name }} · {{ librarySocket.currentZone.value?.description }}
-              </p>
+      <!-- 地圖佔滿整個寬度；番茄鐘和音樂收進底部的工具列 -->
+      <main class="space-y-3">
+        <header class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex min-w-0 items-center gap-2">
+            <div
+              class="font-pixel shrink-0 rounded-[3px] border-2 border-[color:var(--px-ink)] bg-[color:var(--px-accent)] px-2 py-0.5 text-[11px] font-bold uppercase text-[#3b2a20]"
+            >
+              {{ t.indexPage.floorBadgePrefix }}{{ currentFloor }}
             </div>
+            <h3 class="truncate !text-sm !leading-tight font-black !tracking-tight text-slate-900 dark:!text-white sm:!text-base">
+              {{ store.isRunning ? t.indexPage.headerTitleRunning : t.indexPage.headerTitleIdle }}
+            </h3>
+            <p class="hide-below-sm truncate text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:!text-white/55">
+              {{ librarySocket.currentZone.value?.name }} · {{ librarySocket.currentZone.value?.description }}
+            </p>
+          </div>
 
-            <FloorTabs
-              :floors="floorTabItems"
-              :current-floor="currentFloor"
-              @update:current-floor="currentFloor = $event"
-            />
-          </header>
-
-          <section class="relative rounded-[24px] border border-slate-200 dark:!border-white/10 bg-white dark:!bg-slate-900/40 p-3 shadow-2xl backdrop-blur-md sm:rounded-[28px] sm:p-4">
-            <ZoneTabs
-              :zones="zoneTabItems"
-              :active-zone-id="activeZoneId"
-              @update:active-zone-id="activeZoneId = $event"
-            />
-
-            <SeatScenePixel
-              v-if="useCanvasScene"
-              :seats="currentSeats"
-              :selected-seat-id="selectedSeatId"
-              :is-shake="isShake"
-              :is-loading="isLoading"
-              :current-floor="currentFloor"
-              :floors="floorTabItems.map((f) => f.floor)"
-              :zone-name="librarySocket.currentZone.value?.name ?? ''"
-              :disabled="store.isRunning"
-              :get-mate-at-seat="librarySocket.getMateAtSeat"
-              @select="selectSeat"
-              @change-floor="currentFloor = $event"
-              @webgl-failed="useCanvasScene = false"
-            />
-            <SeatGrid
-              v-else
-              :seats="currentSeats"
-              :selected-seat-id="selectedSeatId"
-              :is-shake="isShake"
-              :is-loading="isLoading"
-              :current-floor="currentFloor"
-              :disabled="store.isRunning"
-              :seat-button-class="seatButtonClass"
-              :get-mate-at-seat="librarySocket.getMateAtSeat"
-              @select="selectSeat"
-            />
-          </section>
-        </main>
-
-        <aside class="order-1 lg:order-none lg:col-span-3">
-          <FocusClockPanel
-            :is-running="store.isRunning"
-            :base-duration="store.baseDuration"
-            :time-left="store.timeLeft"
-            :formatted-time="formattedTime"
-            :has-resume-candidate="!!resumeCandidate"
-            :resume-candidate-label="resumeCandidateLabel"
-            :selected-seat-label="selectedSeatLabel"
-            :focus-duration-options="focusDurationOptions"
-            :selected-focus-duration-minutes="selectedFocusDurationMinutes"
-            :auto-restart-on-finish="autoRestartOnFinish"
-            :display-name="displayName"
-            @toggle-focus="toggleFocus"
-            @restart-focus-timer="restartFocusTimer"
-            @resume-previous-focus="resumePreviousFocus"
-            @reset-focus-timer="resetFocusTimer"
-            @select-focus-duration="handleFocusDurationSelect"
-            @update:auto-restart-on-finish="autoRestartOnFinish = $event"
-            @apply-display-name="applyDisplayName"
+          <FloorTabs
+            :floors="floorTabItems"
+            :current-floor="currentFloor"
+            @update:current-floor="currentFloor = $event"
           />
-        </aside>
-      </div>
+        </header>
+
+        <section class="pixel-panel relative p-2 sm:p-3">
+          <ZoneTabs
+            :zones="zoneTabItems"
+            :active-zone-id="activeZoneId"
+            @update:active-zone-id="activeZoneId = $event"
+          />
+
+          <SeatScenePixel
+            v-if="useCanvasScene"
+            :seats="currentSeats"
+            :selected-seat-id="selectedSeatId"
+            :is-shake="isShake"
+            :is-loading="isLoading"
+            :current-floor="currentFloor"
+            :floors="floorTabItems.map((f) => f.floor)"
+            :zone-name="librarySocket.currentZone.value?.name ?? ''"
+            :disabled="store.isRunning"
+            :get-mate-at-seat="librarySocket.getMateAtSeat"
+            @select="selectSeat"
+            @change-floor="currentFloor = $event"
+            @webgl-failed="useCanvasScene = false"
+          />
+          <SeatGrid
+            v-else
+            :seats="currentSeats"
+            :selected-seat-id="selectedSeatId"
+            :is-shake="isShake"
+            :is-loading="isLoading"
+            :current-floor="currentFloor"
+            :disabled="store.isRunning"
+            :seat-button-class="seatButtonClass"
+            :get-mate-at-seat="librarySocket.getMateAtSeat"
+            @select="selectSeat"
+          />
+        </section>
+      </main>
     </div>
   </div>
 
-  <AmbientAudioPlayer :audio="audio" />
+  <div
+    class="fixed inset-x-1 bottom-1 z-50 sm:inset-x-auto sm:bottom-3 sm:left-1/2 sm:w-max sm:max-w-[calc(100vw-1.5rem)] sm:-translate-x-1/2"
+    :style="{ paddingBottom: 'env(safe-area-inset-bottom)' }"
+  >
+    <div class="pixel-panel flex flex-col !flex-nowrap gap-2 p-2 sm:flex-row sm:items-center sm:gap-3 sm:px-3">
+      <FocusClockPanel
+        :is-running="store.isRunning"
+        :base-duration="store.baseDuration"
+        :time-left="store.timeLeft"
+        :formatted-time="formattedTime"
+        :has-resume-candidate="!!resumeCandidate"
+        :resume-candidate-label="resumeCandidateLabel"
+        :selected-seat-label="selectedSeatLabel"
+        :focus-duration-options="focusDurationOptions"
+        :selected-focus-duration-minutes="selectedFocusDurationMinutes"
+        :auto-restart-on-finish="autoRestartOnFinish"
+        :display-name="displayName"
+        @toggle-focus="toggleFocus"
+        @restart-focus-timer="restartFocusTimer"
+        @resume-previous-focus="resumePreviousFocus"
+        @reset-focus-timer="resetFocusTimer"
+        @select-focus-duration="handleFocusDurationSelect"
+        @update:auto-restart-on-finish="autoRestartOnFinish = $event"
+        @apply-display-name="applyDisplayName"
+      />
+      <div class="hide-below-sm h-10 w-[2px] bg-[color:var(--px-ink)] opacity-30"></div>
+      <AmbientAudioPlayer :audio="audio" />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
