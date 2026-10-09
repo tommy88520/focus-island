@@ -91,7 +91,14 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
-import { EMOTE_IDS, type EmoteId, type Reader, type SeatEmote } from 'src/pages/index/composables/useLibrarySocket';
+import {
+  EMOTE_IDS,
+  type EmoteId,
+  type MyPosition,
+  type Reader,
+  type RemotePlayer,
+  type SeatEmote,
+} from 'src/pages/index/composables/useLibrarySocket';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
@@ -176,6 +183,10 @@ const props = defineProps<{
   getMateAtSeat: (seatId: string) => Reader | null | undefined;
   // 同房間其他人打的招呼
   remoteEmote: SeatEmote | null;
+  // 同房間其他人站著／騎車時的位置
+  remotePlayers: Record<string, RemotePlayer>;
+  // 有人剛進房：要再送一次自己的位置
+  peerJoinedAt: number;
 }>();
 
 const emit = defineEmits<{
@@ -186,6 +197,8 @@ const emit = defineEmits<{
   'webgl-failed': [];
   // 自己打招呼，父層轉送給同房間的人
   emote: [emote: EmoteId];
+  // 自己站著（或騎車）的位置，父層轉送給同房間的人
+  position: [position: MyPosition];
 }>();
 
 const { t } = useLocale();
@@ -350,6 +363,16 @@ interface VehicleState {
 let vehicles: VehicleState[] = [];
 let riding: VehicleState | null = null;
 let goalVehicle: VehicleState | null = null;
+
+// ── 同房間其他人的位置 ──
+const POS_SEND_INTERVAL_S = 0.15;
+const POS_KEEPALIVE_S = 20;
+// 這麼久沒收到位置就當作人走了
+const REMOTE_STALE_MS = 45_000;
+// 畫面上的位置慢慢追上收到的位置，看起來才不會一格一格跳
+const remoteShown = new Map<string, { x: number; y: number }>();
+let lastPosSentAt = -Infinity;
+let lastPosKey = '';
 
 // 頭上的對話泡泡：key 是 me、seat:<座位 id>、npc:<路人編號>
 const bubbles = new Map<string, { text: string; from: number; until: number }>();
@@ -895,6 +918,85 @@ function updateBoat(dt: number, dx: number, dy: number): void {
   player.moving = v > 0.25;
 }
 
+// 把自己的位置送出去：走動時最多每 0.15 秒一次，停下來或坐下時再送一次，站著不動每 20 秒補一次
+function syncPosition(seconds: number): void {
+  if (props.isLoading || !canInteract()) return;
+  const hidden = player.state === 'seated' || player.state === 'sitting';
+  const pos: MyPosition = {
+    x: Math.round(player.x * 100) / 100,
+    y: Math.round(player.y * 100) / 100,
+    facing: player.facing,
+    moving: player.moving,
+    ...(riding ? { vehicle: riding.kind } : {}),
+    ...(hidden ? { hidden: true } : {}),
+  };
+  const key = hidden ? 'hidden' : JSON.stringify(pos);
+  // 坐著的話 key 固定是 hidden，只會送一次
+  const due = key !== lastPosKey && (!player.moving || seconds - lastPosSentAt >= POS_SEND_INTERVAL_S);
+  const keepalive = !hidden && seconds - lastPosSentAt > POS_KEEPALIVE_S;
+  if (!due && !keepalive) return;
+  lastPosSentAt = seconds;
+  lastPosKey = key;
+  emit('position', pos);
+}
+
+function updateRemotePlayers(dt: number): void {
+  const now = Date.now();
+  for (const key of remoteShown.keys()) {
+    const remote = props.remotePlayers[key];
+    if (!remote || now - remote.at > REMOTE_STALE_MS) remoteShown.delete(key);
+  }
+  for (const remote of Object.values(props.remotePlayers)) {
+    if (now - remote.at > REMOTE_STALE_MS) continue;
+    const shown = remoteShown.get(remote.key);
+    if (!shown || Math.hypot(remote.x - shown.x, remote.y - shown.y) > 4) {
+      remoteShown.set(remote.key, { x: remote.x, y: remote.y });
+      continue;
+    }
+    const ease = Math.min(1, dt * 10);
+    shown.x += (remote.x - shown.x) * ease;
+    shown.y += (remote.y - shown.y) * ease;
+  }
+}
+
+function remoteColors(remote: RemotePlayer, y: number): AvatarColors {
+  const base = remote.hair !== undefined && remote.shirt !== undefined ? lookColors(remote.hair, remote.shirt) : avatarColorsFor(remote.displayName);
+  return areaAt(map, y) === 'beach' ? { ...base, outfit: 'trunks' } : base;
+}
+
+function remoteHeadOffset(remote: RemotePlayer): number {
+  return remote.vehicle ? 5 - RIDE_LIFT[remote.vehicle] - RIDE_ROWS[remote.vehicle] - 1 : -16;
+}
+
+function remoteDrawables(seconds: number): Drawable[] {
+  const list: Drawable[] = [];
+  for (const remote of Object.values(props.remotePlayers)) {
+    const shown = remoteShown.get(remote.key);
+    if (!shown) continue;
+    const footX = shown.x * TILE;
+    const footY = shown.y * TILE + 5;
+    const colors = remoteColors(remote, shown.y);
+    const vehicle = remote.vehicle;
+    list.push({
+      sortY: shown.y + 0.35,
+      draw: (c) => {
+        if (vehicle) {
+          const rows = RIDE_ROWS[vehicle];
+          paintVehicle(c, vehicle, remote.facing, footX, footY, 'back', seconds, remote.moving);
+          c.drawImage(getAvatarFrame(colors, remote.facing, 'idle'), 0, 0, AVATAR_SIZE.w, rows, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - RIDE_LIFT[vehicle] - rows), AVATAR_SIZE.w, rows);
+          paintVehicle(c, vehicle, remote.facing, footX, footY, 'front', seconds, remote.moving);
+          return;
+        }
+        const frame = remote.moving ? (Math.floor(seconds / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
+        c.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        c.fillRect(Math.round(footX - 5), Math.round(footY - 2), 10, 2);
+        drawAvatar(c, colors, remote.facing, frame, footX, footY, false);
+      },
+    });
+  }
+  return list;
+}
+
 // ── 繪製 ──
 
 interface Drawable {
@@ -1260,6 +1362,12 @@ function renderMinimap(seconds: number): void {
     c.fillStyle = MINIMAP_SEAT_COLORS[node.state];
     c.fillRect(node.slot.tx * TILE + 2, node.slot.ty * TILE + 2, TILE - 4, TILE - 4);
   }
+  c.fillStyle = COLOR_MATE;
+  for (const shown of remoteShown.values()) {
+    c.beginPath();
+    c.arc(shown.x * TILE, shown.y * TILE, 3.5 / k, 0, Math.PI * 2);
+    c.fill();
+  }
   c.fillStyle = '#e25a4a';
   for (const v of vehicles) if (v !== riding) c.fillRect(v.x * TILE - 6, v.y * TILE - 6, 12, 12);
   // 目前主畫面看到的範圍
@@ -1390,6 +1498,13 @@ function drawBubbles(c: CanvasRenderingContext2D, seconds: number, toScreen: (wx
         anchor = toScreen(node.slot.tx * TILE + 8, node.slot.ty * TILE - 6);
         if (node.label) anchor.y -= LABEL_FONT_PX + 10;
       }
+    } else if (key.startsWith('remote:')) {
+      const remote = props.remotePlayers[key.slice(7)];
+      const shown = remote ? remoteShown.get(remote.key) : undefined;
+      if (remote && shown) {
+        anchor = toScreen(shown.x * TILE, shown.y * TILE + remoteHeadOffset(remote));
+        anchor.y -= LABEL_FONT_PX + 10;
+      }
     } else if (key.startsWith('npc:')) {
       const goer = map.beachgoers[Number(key.slice(4))];
       if (goer) anchor = toScreen(beachgoerPose(goer, seconds).x * TILE, goer.y * TILE - AVATAR_SIZE.h - 2);
@@ -1418,6 +1533,7 @@ function render(seconds: number): void {
     ...seatNodes.flatMap((node) => seatDrawables(node, seconds)),
     ...vehicles.filter((v) => v !== riding).map((v) => vehicleDrawable(v, seconds)),
     ...map.beachgoers.map((goer) => beachgoerDrawable(goer, seconds)),
+    ...remoteDrawables(seconds),
   ];
   const me = playerDrawable(seconds);
   if (me) drawables.push(me);
@@ -1455,6 +1571,12 @@ function render(seconds: number): void {
     const p = toScreen(player.x * TILE, player.y * TILE + myHeadOffset());
     drawPill(ctx, `${playerPrefs.value.doNotDisturb ? '🔕 ' : ''}${t.value.common.meLabel}`, p.x, p.y, COLOR_ME);
   }
+  for (const remote of Object.values(props.remotePlayers)) {
+    const shown = remoteShown.get(remote.key);
+    if (!shown) continue;
+    const p = toScreen(shown.x * TILE, shown.y * TILE + remoteHeadOffset(remote));
+    drawPill(ctx, `${remote.dnd ? '🔕 ' : ''}${remote.displayName}`, p.x, p.y, COLOR_MATE);
+  }
   drawBubbles(ctx, seconds, toScreen);
   renderMinimap(seconds);
 }
@@ -1466,6 +1588,8 @@ function animate(time: number): void {
   const dt = lastFrameTime ? Math.min(0.05, seconds - lastFrameTime) : 0;
   lastFrameTime = seconds;
   updatePlayer(dt);
+  updateRemotePlayers(dt);
+  syncPosition(seconds);
   savePosition(seconds);
   render(seconds);
 }
@@ -1677,6 +1801,9 @@ watch(
   () => props.isLoading,
   (loading) => {
     if (!loading) {
+      // 連上新房間：重送一次自己的位置
+      lastPosKey = '';
+      lastPosSentAt = -Infinity;
       pendingSpawn = null;
       // 第一個房間載入完成後，存檔就用過了；之後換房間一律照一般規則出生
       savedPosition = null;
@@ -1705,11 +1832,24 @@ watch(
   },
 );
 
+// 有人剛進房：下一格就重送自己的位置
+watch(
+  () => props.peerJoinedAt,
+  () => {
+    lastPosKey = '';
+    lastPosSentAt = -Infinity;
+  },
+);
+
 watch(
   () => props.remoteEmote,
   (emote) => {
     // 專注中或在靜音區就不打擾
-    if (emote && !isQuietZone.value && !props.disabled && !playerPrefs.value.doNotDisturb) say(`seat:${emote.seatId}`, `${EMOTE_ICONS[emote.emote]} ${t.value.seatScene.emotes[emote.emote]}`);
+    if (!emote || isQuietZone.value || props.disabled || playerPrefs.value.doNotDisturb) return;
+    const text = `${EMOTE_ICONS[emote.emote]} ${t.value.seatScene.emotes[emote.emote]}`;
+    // 站著的人泡泡跟著人，坐著的人冒在座位上
+    if (remoteShown.has(emote.senderKey)) say(`remote:${emote.senderKey}`, text);
+    else if (emote.seatId) say(`seat:${emote.seatId}`, text);
   },
 );
 

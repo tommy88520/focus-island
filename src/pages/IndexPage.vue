@@ -44,8 +44,11 @@
             :disabled="store.isRunning"
             :get-mate-at-seat="librarySocket.getMateAtSeat"
             :remote-emote="librarySocket.lastEmote.value"
+            :remote-players="librarySocket.remotePlayers.value"
+            :peer-joined-at="librarySocket.peerJoinedAt.value"
             @select="selectSeat"
             @emote="librarySocket.sendEmote"
+            @position="librarySocket.sendPosition"
             @change-floor="currentFloor = $event"
             @webgl-failed="useCanvasScene = false"
           />

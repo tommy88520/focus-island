@@ -97,9 +97,38 @@ export function isEmoteId(value: unknown): value is EmoteId {
 }
 
 export interface SeatEmote {
-  seatId: string;
+  // 送的人：站著的話用 senderKey 找到他在地圖上的位置，坐著就用座位
+  senderKey: string;
+  seatId?: string;
   emote: EmoteId;
   at: number;
+}
+
+export type RemoteVehicle = 'bike' | 'cart' | 'boat';
+
+// 同房間其他人站著（或騎車）時的位置，以格為單位
+export interface RemotePlayer {
+  key: string;
+  displayName: string;
+  x: number;
+  y: number;
+  facing: 'up' | 'down' | 'left' | 'right';
+  moving: boolean;
+  vehicle?: RemoteVehicle;
+  hair?: number;
+  shirt?: number;
+  dnd?: boolean;
+  // 收到的時間，太久沒更新就當作離開了
+  at: number;
+}
+
+export interface MyPosition {
+  x: number;
+  y: number;
+  facing: RemotePlayer['facing'];
+  moving: boolean;
+  vehicle?: RemoteVehicle;
+  hidden?: boolean;
 }
 
 // 後端傳的是 FOCUS／READY／BREAK，這裡換成 Reader 用的中文狀態
@@ -445,6 +474,16 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
 
   // 別人在房間裡打的招呼（自己送的不會收到這裡）；場景用座位位置畫泡泡
   const lastEmote = ref<SeatEmote | null>(null);
+  const remotePlayers = ref<Record<string, RemotePlayer>>({});
+  // 有新的人進房：場景要再送一次自己的位置，對方才看得到站著的你
+  const peerJoinedAt = ref(0);
+
+  function sendPosition(pos: MyPosition) {
+    if (socket?.readyState !== WebSocket.OPEN) return;
+    socket.send(
+      JSON.stringify({ type: 'POS', userId: userId.value, sessionId, payload: { ...pos, username: displayName.value, ...myLook() } }),
+    );
+  }
 
   function sendEmote(emote: EmoteId) {
     if (socket?.readyState !== WebSocket.OPEN) return;
@@ -529,6 +568,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
               });
             });
             readers.value = synchronizedReaders;
+            // 剛連上（或換房間）：舊房間的人不要留在地圖上
+            remotePlayers.value = {};
             const nextSeatMap: SeatSnapshotMap = {};
             synchronizedReaders.forEach((reader) => {
               if (!reader.seatId) return;
@@ -576,6 +617,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 username: joinReader.displayName,
               };
             }
+
+            if (msg.sessionId !== sessionId) peerJoinedAt.value = Date.now();
 
             if (msg.userId !== userId.value) {
               $q.notify({
@@ -661,6 +704,11 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
               seatSnapshotMap.value[vacatedSeatId] = { status: 'AVAILABLE' };
             }
             readers.value = readers.value.filter((r) => (r.sessionId || r.userId) !== leaveKey);
+            if (remotePlayers.value[leaveKey]) {
+              const rest = { ...remotePlayers.value };
+              delete rest[leaveKey];
+              remotePlayers.value = rest;
+            }
             updateCurrentFloorHeatByReaders();
 
             const isThisTabsSession = msg.sessionId ? msg.sessionId === sessionId : msg.userId === userId.value;
@@ -676,8 +724,43 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
             if (!isEmoteId(emote)) break;
             const senderKey = msg.sessionId || msg.userId;
             const sender = readers.value.find((r) => (r.sessionId || r.userId) === senderKey);
-            if (!sender?.seatId) break;
-            lastEmote.value = { seatId: normalizeSeatId(sender.seatId), emote, at: Date.now() };
+            lastEmote.value = {
+              senderKey,
+              ...(sender?.seatId ? { seatId: normalizeSeatId(sender.seatId) } : {}),
+              emote,
+              at: Date.now(),
+            };
+            break;
+          }
+
+          case 'POS': {
+            if (msg.sessionId === sessionId) break;
+            const key: string = msg.sessionId || msg.userId;
+            const pos = msg.payload ?? {};
+            if (pos.hidden) {
+              const rest = { ...remotePlayers.value };
+              delete rest[key];
+              remotePlayers.value = rest;
+              break;
+            }
+            const facings = ['up', 'down', 'left', 'right'];
+            if (typeof pos.x !== 'number' || typeof pos.y !== 'number' || !facings.includes(pos.facing)) break;
+            const reader = readers.value.find((r) => (r.sessionId || r.userId) === key);
+            remotePlayers.value = {
+              ...remotePlayers.value,
+              [key]: {
+                key,
+                displayName: (typeof pos.username === 'string' && pos.username) || reader?.displayName || msg.userId,
+                x: pos.x,
+                y: pos.y,
+                facing: pos.facing,
+                moving: pos.moving === true,
+                ...(['bike', 'cart', 'boat'].includes(pos.vehicle) ? { vehicle: pos.vehicle as RemoteVehicle } : {}),
+                ...(reader ? readerExtras(reader as unknown as Record<string, unknown>) : {}),
+                ...readerExtras(pos),
+                at: Date.now(),
+              },
+            };
             break;
           }
 
@@ -811,6 +894,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     readers,
     seatSnapshotMap,
     lastEmote,
+    remotePlayers,
+    peerJoinedAt,
     roomID,
     floorZones,
     currentZone,
@@ -821,6 +906,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     // actions
     sendMove,
     sendEmote,
+    sendPosition,
     reconnectRoomSession,
     stopWebSocketConnection,
     startFloorPollingTimer,
