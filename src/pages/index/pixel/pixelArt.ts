@@ -951,8 +951,18 @@ const SHIRT_PALETTE: [string, string][] = [
 ];
 
 // 設定頁可以挑的顏色：髮色沿用 HAIR_PALETTE，衣服多一個預設的琥珀色放在最前面
-export const LOOK_HAIRS = HAIR_PALETTE;
-export const LOOK_SHIRTS: [string, string][] = [['#fbbf24', '#d99a0b'], ...SHIRT_PALETTE];
+// 後面幾個要累計完成幾輪番茄鐘才解鎖（*_UNLOCK 跟顏色一一對應）
+export const LOOK_HAIRS: [string, string][] = [...HAIR_PALETTE, ['#5b8adf', '#86a8ec'], ['#e86a8a', '#f59ab3'], ['#e3e8f0', '#ffffff']];
+export const HAIR_UNLOCK = [0, 0, 0, 0, 0, 8, 16, 30];
+export const LOOK_SHIRTS: [string, string][] = [
+  ['#fbbf24', '#d99a0b'],
+  ...SHIRT_PALETTE,
+  ['#f4eee2', '#d9d4c8'],
+  ['#2b2d33', '#15171f'],
+  ['#e25a4a', '#b8402f'],
+  ['#f6c945', '#c99a1f'],
+];
+export const SHIRT_UNLOCK = [0, 0, 0, 0, 2, 4, 6, 3, 10, 20, 40];
 
 export function lookColors(hair: number, shirt: number): AvatarColors {
   const [h, hl] = LOOK_HAIRS[hair] ?? LOOK_HAIRS[0] ?? ['#4a2f23', '#6b4636'];

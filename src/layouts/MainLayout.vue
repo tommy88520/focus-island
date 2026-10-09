@@ -177,16 +177,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Dark, useQuasar } from 'quasar';
 import { useLocale } from 'src/composables/useLocale';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { usePomodoroStore } from 'src/stores/pomodoro';
+import { HAIR_UNLOCK, SHIRT_UNLOCK } from 'src/pages/index/pixel/pixelArt';
 
 const leftDrawerOpen = ref(false);
 const store = usePomodoroStore();
 const playerPrefs = usePlayerPrefs();
+// 完成一輪剛好跨過解鎖門檻：跳個通知
+const unlockedCount = (sessions: number) => [...HAIR_UNLOCK, ...SHIRT_UNLOCK].filter((n) => n > 0 && n <= sessions).length;
+watch(
+  () => store.lifetimeSessions,
+  (now, before) => {
+    if (!store.progressInitialized || now <= before || unlockedCount(now) <= unlockedCount(before)) return;
+    $q.notify({ message: t.value.settingsPage.unlockedToast, icon: 'lock_open', color: 'amber-9', position: 'top', timeout: 3500 });
+  },
+);
 const goalPercent = computed(() =>
   Math.min(100, Math.round((store.todayFocusedSeconds / 3600 / Math.max(1, playerPrefs.value.dailyGoalHours)) * 100)),
 );

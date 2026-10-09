@@ -29,6 +29,7 @@
       <section class="pixel-panel p-5 sm:p-6">
         <h2 class="!mb-0 !text-lg !font-black">{{ t.settingsPage.avatarTitle }}</h2>
         <p class="!mb-0 mt-1 text-xs text-[color:var(--px-muted)]">{{ t.settingsPage.avatarHint }}</p>
+        <p class="!mb-0 mt-1 text-xs font-bold text-[color:var(--px-accent-dark)] dark:!text-amber-300">{{ t.settingsPage.sessionsSoFar(store.lifetimeSessions) }}</p>
         <div class="mt-4 !flex !flex-nowrap items-center gap-5">
           <div class="pixel-field shrink-0 p-3">
             <canvas ref="previewRef" class="block [image-rendering:pixelated]" :width="AVATAR_SIZE.w" :height="AVATAR_SIZE.h" :style="previewStyle" />
@@ -41,13 +42,17 @@
                   v-for="([color], i) in LOOK_HAIRS"
                   :key="color"
                   type="button"
-                  class="pixel-btn h-8 w-8"
+                  class="pixel-btn h-8 w-8 text-xs"
                   :class="{ 'outline outline-2 outline-offset-2 outline-[color:var(--px-accent)]': prefs.hair === i }"
-                  :style="{ background: color }"
-                  :aria-label="`${t.settingsPage.hairLabel} ${i + 1}`"
+                  :style="{ background: locked(HAIR_UNLOCK, i) ? undefined : color }"
+                  :disabled="locked(HAIR_UNLOCK, i)"
+                  :title="locked(HAIR_UNLOCK, i) ? t.settingsPage.unlockAt(HAIR_UNLOCK[i] ?? 0) : undefined"
+                  :aria-label="locked(HAIR_UNLOCK, i) ? t.settingsPage.unlockAt(HAIR_UNLOCK[i] ?? 0) : `${t.settingsPage.hairLabel} ${i + 1}`"
                   :aria-pressed="prefs.hair === i"
                   @click="prefs.hair = i"
-                />
+                >
+                  <template v-if="locked(HAIR_UNLOCK, i)">🔒</template>
+                </button>
               </div>
             </div>
             <div>
@@ -57,13 +62,17 @@
                   v-for="([color], i) in LOOK_SHIRTS"
                   :key="color"
                   type="button"
-                  class="pixel-btn h-8 w-8"
+                  class="pixel-btn h-8 w-8 text-xs"
                   :class="{ 'outline outline-2 outline-offset-2 outline-[color:var(--px-accent)]': prefs.shirt === i }"
-                  :style="{ background: color }"
-                  :aria-label="`${t.settingsPage.shirtLabel} ${i + 1}`"
+                  :style="{ background: locked(SHIRT_UNLOCK, i) ? undefined : color }"
+                  :disabled="locked(SHIRT_UNLOCK, i)"
+                  :title="locked(SHIRT_UNLOCK, i) ? t.settingsPage.unlockAt(SHIRT_UNLOCK[i] ?? 0) : undefined"
+                  :aria-label="locked(SHIRT_UNLOCK, i) ? t.settingsPage.unlockAt(SHIRT_UNLOCK[i] ?? 0) : `${t.settingsPage.shirtLabel} ${i + 1}`"
                   :aria-pressed="prefs.shirt === i"
                   @click="prefs.shirt = i"
-                />
+                >
+                  <template v-if="locked(SHIRT_UNLOCK, i)">🔒</template>
+                </button>
               </div>
             </div>
           </div>
@@ -88,10 +97,16 @@
 import { onMounted, ref, watch } from 'vue';
 import { useLocale } from 'src/composables/useLocale';
 import { DAILY_GOAL_OPTIONS, usePlayerPrefs } from 'src/composables/usePlayerPrefs';
-import { AVATAR_SIZE, LOOK_HAIRS, LOOK_SHIRTS, getAvatarFrame, lookColors } from 'src/pages/index/pixel/pixelArt';
+import { AVATAR_SIZE, HAIR_UNLOCK, LOOK_HAIRS, LOOK_SHIRTS, SHIRT_UNLOCK, getAvatarFrame, lookColors } from 'src/pages/index/pixel/pixelArt';
+import { usePomodoroStore } from 'src/stores/pomodoro';
 
 const { t } = useLocale();
 const prefs = usePlayerPrefs();
+const store = usePomodoroStore();
+store.loadProgress();
+
+// 累計完成輪數還不夠的顏色先鎖著
+const locked = (thresholds: number[], i: number) => store.lifetimeSessions < (thresholds[i] ?? 0);
 const previewRef = ref<HTMLCanvasElement | null>(null);
 const PREVIEW_SCALE = 4;
 const previewStyle = { width: `${AVATAR_SIZE.w * PREVIEW_SCALE}px`, height: `${AVATAR_SIZE.h * PREVIEW_SCALE}px` };

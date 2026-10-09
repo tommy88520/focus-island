@@ -5,6 +5,8 @@ import TimerWorker from '../workers/timer.worker?worker'; // Vite 特有的引�
 const FOCUS_PROGRESS_STORAGE_KEY = 'focus_island_today_progress_v1';
 const HISTORY_STORAGE_KEY = 'focus_island_history_v1';
 const HISTORY_MAX_DAYS = 30;
+// 累計完成輪數（解鎖角色顏色用）；history 只留 30 天，所以另外存一個不會變少的總數
+const LIFETIME_SESSIONS_KEY = 'focus_island_lifetime_sessions_v1';
 
 type FocusProgressPayload = {
   todayKey: string;
@@ -43,6 +45,7 @@ export const usePomodoroStore = defineStore('pomodoro', {
     todayCompletedSessions: 0,
     progressInitialized: false,
     history: [] as DailyHistoryEntry[],
+    lifetimeSessions: 0,
   }),
 
   getters: {
@@ -166,6 +169,11 @@ export const usePomodoroStore = defineStore('pomodoro', {
         }
       }
 
+      // 第一次有這個計數時，用現有的紀錄（最近 30 天 + 今天）當起點
+      const lifetime = Number(localStorage.getItem(LIFETIME_SESSIONS_KEY));
+      const recorded = this.history.reduce((sum, entry) => sum + (entry.date === this.todayKey ? 0 : entry.completedSessions), 0) + this.todayCompletedSessions;
+      this.lifetimeSessions = Number.isFinite(lifetime) && lifetime > 0 ? Math.max(lifetime, this.todayCompletedSessions) : recorded;
+
       this.progressInitialized = true;
       this.ensureTodayProgress();
     },
@@ -181,6 +189,8 @@ export const usePomodoroStore = defineStore('pomodoro', {
     markSessionCompleted() {
       this.ensureTodayProgress();
       this.todayCompletedSessions += 1;
+      this.lifetimeSessions += 1;
+      localStorage.setItem(LIFETIME_SESSIONS_KEY, String(this.lifetimeSessions));
       this.saveProgress();
     },
 

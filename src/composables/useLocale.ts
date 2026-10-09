@@ -58,6 +58,9 @@ const translations = {
       dndTitle: '勿擾',
       dndHint: '開啟後別人的招呼不會出現在你的畫面上，名牌旁會顯示 🔕，大家就知道先別打擾你。',
       dndLabel: '開啟勿擾',
+      unlockAt: (n: number) => `完成 ${n} 輪番茄鐘解鎖`,
+      sessionsSoFar: (n: number) => `已累計完成 ${n} 輪番茄鐘，完成越多解鎖越多顏色。`,
+      unlockedToast: '解鎖了新的角色顏色！到設定頁換上吧',
     },
     indexPage: {
       floorBadgePrefix: '樓層 ',
@@ -200,6 +203,9 @@ const translations = {
       dndTitle: 'Do not disturb',
       dndHint: "Other people's greetings won't show up for you, and a 🔕 appears next to your name so everyone knows to leave you be.",
       dndLabel: 'Turn on do not disturb',
+      unlockAt: (n: number) => `Unlocks after ${n} completed sessions`,
+      sessionsSoFar: (n: number) => `${n} sessions completed so far. Finish more to unlock more colours.`,
+      unlockedToast: 'New avatar colour unlocked! Try it on in Settings',
     },
     indexPage: {
       floorBadgePrefix: 'Floor ',
