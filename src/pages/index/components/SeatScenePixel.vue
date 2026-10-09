@@ -20,6 +20,15 @@
       >
         <q-icon :name="minimapOpen ? 'close' : 'map'" size="18px" />
       </button>
+      <!-- 騎車時的下車鍵（手機沒有鍵盤） -->
+      <button
+        v-if="isRiding && !isLoading"
+        type="button"
+        class="pixel-btn pixel-btn--primary absolute bottom-2 right-2 h-9 px-3 text-xs"
+        @click="handleDismountClick"
+      >
+        {{ t.seatScene.getOff }}
+      </button>
       <!-- 打招呼：按鈕或數字鍵 1–4（H 也是揮手）；附近的人會回話 -->
       <div v-if="!isLoading && !isQuietZone && !disabled" class="absolute bottom-2 left-2 !flex !flex-nowrap gap-1.5">
         <button
@@ -97,6 +106,8 @@ import {
   seatCenter,
   stairTrigger,
   themeForZone,
+  vehicleArea,
+  type VehicleKind,
   walkBounds,
   type Area,
   type Beachgoer,
@@ -120,6 +131,7 @@ import {
   loadImage,
   paintCampfire,
   paintCounter,
+  paintVehicle,
   paintElevatorDoors,
   paintEscalatorSteps,
   paintFloorLamp,
@@ -185,6 +197,7 @@ const isTouch = ref(false);
 const minimapOpen = ref(false);
 // 靜謐森林是完全靜音區：不能打招呼，也不顯示別人的表情
 const isQuietZone = ref(false);
+const isRiding = ref(false);
 // 走到電梯口會跳出樓層按鈕；走開就收起來
 const elevatorOpen = ref(false);
 const elevatorFloors = computed(() => [...props.floors].sort((a, b) => a - b));
@@ -318,6 +331,26 @@ let pendingSpawn: { point: { x: number; y: number }; floor: number } | null = nu
 let savedPosition: SavedPosition | null = loadSavedPosition();
 // 這次是從存檔站回原地（不是坐在位子上）：父層自動幫忙保留座位時，不要把人拉回椅子
 let restoredStanding = false;
+// ── 載具 ──
+const VEHICLE_SPEED: Record<VehicleKind, number> = { bike: 7.5, cart: 6.5, boat: 3.4 };
+const VEHICLE_REACH = 1.3;
+// 騎上去時人坐多高（世界像素）
+const RIDE_LIFT: Record<VehicleKind, number> = { bike: 7, cart: 6, boat: 4 };
+
+interface VehicleState {
+  kind: VehicleKind;
+  x: number;
+  y: number;
+  facing: Facing;
+  // 小船會滑：速度慢慢跟上方向鍵
+  vx: number;
+  vy: number;
+}
+
+let vehicles: VehicleState[] = [];
+let riding: VehicleState | null = null;
+let goalVehicle: VehicleState | null = null;
+
 // 頭上的對話泡泡：key 是 me、seat:<座位 id>、npc:<路人編號>
 const bubbles = new Map<string, { text: string; from: number; until: number }>();
 let lastEmoteAt = -Infinity;
@@ -348,6 +381,10 @@ function buildMap(): void {
   // 分區決定主題：A 森林、B 咖啡店、C 深海艙、D 圖書館
   map = createPixelMap(props.seats.length, hasEscalator(), themeForZone(currentRoom().split('-')[1] ?? ''));
   isQuietZone.value = map.theme === 'forest';
+  vehicles = map.vehicles.map((spot) => ({ ...spot, vx: 0, vy: 0 }));
+  riding = null;
+  isRiding.value = false;
+  goalVehicle = null;
   seatNodes = props.seats.flatMap((seat, index) => {
     const slot = map.seats[index];
     return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR, focusing: false, dnd: false }] : [];
@@ -548,8 +585,79 @@ function findPath(to: { x: number; y: number }): Point[] | null {
   return nav.findPath({ x: player.x, z: player.y }, { x: to.x, z: to.y });
 }
 
+// 現在這一步能不能站（騎車時要待在那台車能去的範圍裡）
+function canOccupy(x: number, y: number): boolean {
+  if (!riding) return nav ? !nav.isBlocked(x, y) : false;
+  const area = vehicleArea(map, riding.kind);
+  if (x < area.xMin || x > area.xMax || y < area.yMin || y > area.yMax) return false;
+  return riding.kind === 'boat' || (nav ? !nav.isBlocked(x, y) : false);
+}
+
+function nearestVehicle(): VehicleState | undefined {
+  let best: VehicleState | undefined;
+  let bestDist = VEHICLE_REACH;
+  for (const v of vehicles) {
+    const dist = Math.hypot(v.x - player.x, v.y - player.y);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = v;
+    }
+  }
+  return best;
+}
+
+function mount(v: VehicleState): void {
+  if (player.state === 'seated') standUp();
+  riding = v;
+  isRiding.value = true;
+  goalVehicle = null;
+  placePlayer(v.x, v.y);
+  player.facing = v.facing;
+  player.state = 'idle';
+}
+
+// 下車：腳踏車、海灘車就地下來；小船要靠岸才能下
+function dismount(): boolean {
+  const v = riding;
+  if (!v || !nav) return true;
+  const shoreY = map.beach.seaTop + 0.35;
+  if (v.kind === 'boat' && v.y > map.beach.seaTop + 1.6) {
+    say('me', t.value.seatScene.boatTooFar);
+    return false;
+  }
+  const spot = nav.nearestFree(v.kind === 'boat' ? { x: v.x, z: shoreY } : { x: v.x, z: v.y + 0.5 });
+  if (!spot) return false;
+  riding = null;
+  isRiding.value = false;
+  v.vx = 0;
+  v.vy = 0;
+  placePlayer(spot.x, spot.z);
+  player.state = 'idle';
+  return true;
+}
+
+function handleDismountClick(): void {
+  containerRef.value?.focus({ preventScroll: true });
+  dismount();
+}
+
+function pickVehicle(point: { x: number; y: number }): VehicleState | undefined {
+  return vehicles.find((v) => v !== riding && Math.abs(point.x - v.x) < 0.9 && point.y > v.y - 1.4 && point.y < v.y + 0.5);
+}
+
+function walkToVehicle(v: VehicleState): void {
+  if (riding && !dismount()) return;
+  if (Math.hypot(v.x - player.x, v.y - player.y) < VEHICLE_REACH) {
+    mount(v);
+    return;
+  }
+  walkToPoint({ x: v.x, y: v.kind === 'boat' ? map.beach.seaTop + 0.5 : v.y + 0.3 });
+  goalVehicle = v;
+}
+
 function walkToSeat(node: SeatNode): void {
   if (!sitCandidate(node) || player.state === 'sitting') return;
+  if (riding && !dismount()) return;
   if (player.state === 'seated') {
     if (player.seatId === node.seatId) return;
     standUp();
@@ -564,6 +672,18 @@ function walkToSeat(node: SeatNode): void {
 function walkToPoint(target: { x: number; y: number }): void {
   if (!nav || player.state === 'sitting') return;
   if (player.state === 'seated') standUp();
+  goalVehicle = null;
+  if (riding) {
+    // 騎車時點到哪就往哪去，但不會離開那台車能去的範圍
+    const area = vehicleArea(map, riding.kind);
+    const to = { x: Math.min(area.xMax, Math.max(area.xMin, target.x)), y: Math.min(area.yMax, Math.max(area.yMin, target.y)) };
+    const route = riding.kind === 'boat' ? [{ x: to.x, z: to.y }] : (findPath(to)?.slice(1) ?? null);
+    if (!route) return;
+    player.path = route;
+    player.goalSeatId = null;
+    player.state = 'walking';
+    return;
+  }
   // 點到海裡或牆外：走到最靠近的邊緣
   const bounds = walkBounds(map);
   const path = findPath({
@@ -635,15 +755,19 @@ function updatePlayer(dt: number): void {
       player.path = [];
       player.goalSeatId = null;
       player.state = 'idle';
+      goalVehicle = null;
       const length = Math.hypot(dx, dy);
-      const stepX = (dx / length) * WALK_SPEED * dt;
-      const stepY = (dy / length) * WALK_SPEED * dt;
-      // 分軸移動，貼著牆或桌子時可以順著滑過去
-      if (nav && !nav.isBlocked(player.x + stepX, player.y)) player.x += stepX;
-      if (nav && !nav.isBlocked(player.x, player.y + stepY)) player.y += stepY;
-      player.facing = facingFrom(dx, dy);
-      player.moving = true;
-    } else if (player.state === 'walking') {
+      const speed = riding ? VEHICLE_SPEED[riding.kind] : WALK_SPEED;
+      if (riding?.kind !== 'boat') {
+        const stepX = (dx / length) * speed * dt;
+        const stepY = (dy / length) * speed * dt;
+        // 分軸移動，貼著牆或桌子時可以順著滑過去
+        if (canOccupy(player.x + stepX, player.y)) player.x += stepX;
+        if (canOccupy(player.x, player.y + stepY)) player.y += stepY;
+        player.facing = facingFrom(dx, dy);
+        player.moving = true;
+      }
+    } else if (player.state === 'walking' && riding?.kind !== 'boat') {
       const next = player.path[0];
       if (!next) {
         player.moving = false;
@@ -651,25 +775,31 @@ function updatePlayer(dt: number): void {
         player.state = 'idle';
         if (goal && sitCandidate(goal)) startSit(goal);
         player.goalSeatId = null;
+        if (goalVehicle && Math.hypot(goalVehicle.x - player.x, goalVehicle.y - player.y) < VEHICLE_REACH) mount(goalVehicle);
+        goalVehicle = null;
       } else {
         const toX = next.x - player.x;
         const toY = next.z - player.y;
         const dist = Math.hypot(toX, toY);
-        const step = WALK_SPEED * dt;
-        if (dist <= step) {
-          player.x = next.x;
-          player.y = next.z;
-          player.path.shift();
+        const step = (riding ? VEHICLE_SPEED[riding.kind] : WALK_SPEED) * dt;
+        const nx = dist <= step ? next.x : player.x + (toX / dist) * step;
+        const ny = dist <= step ? next.z : player.y + (toY / dist) * step;
+        if (riding && !canOccupy(nx, ny)) {
+          // 前面出了這台車能去的範圍：停下來
+          player.path = [];
+          player.state = 'idle';
         } else {
-          player.x += (toX / dist) * step;
-          player.y += (toY / dist) * step;
-          player.facing = facingFrom(toX, toY);
+          player.x = nx;
+          player.y = ny;
+          if (dist <= step) player.path.shift();
+          else player.facing = facingFrom(toX, toY);
         }
         player.moving = true;
       }
-    } else {
+    } else if (riding?.kind !== 'boat') {
       player.moving = false;
     }
+    if (riding?.kind === 'boat') updateBoat(dt, dx, dy);
   } else if (player.state === 'sitting') {
     player.sitElapsed += dt;
     const t01 = Math.min(1, player.sitElapsed / SIT_TWEEN_SECONDS);
@@ -679,17 +809,24 @@ function updatePlayer(dt: number): void {
     if (t01 >= 1) void finishSit();
   } else {
     player.moving = false;
-    // 開始專注（disabled）時還站著：直接回到自己的座位
+    // 開始專注（disabled）時還站著：直接回到自己的座位（車子留在原地）
     if (props.disabled && player.state !== 'seated') {
+      riding = null;
+      isRiding.value = false;
       const mine = seatNodes.find((n) => n.seatId === props.selectedSeatId);
       if (mine) snapToSeat(mine);
       syncSeatStates();
     }
   }
   if (player.moving) player.walkClock += dt;
+  if (riding) {
+    riding.x = player.x;
+    riding.y = player.y;
+    riding.facing = player.facing;
+  }
 
   // 載入中（剛搭到新樓層）不算離開電梯口，鎖要留著
-  const inElevatorZone = player.state !== 'seated' && player.state !== 'sitting' && insideElevatorZone(player.x, player.y);
+  const inElevatorZone = !riding && player.state !== 'seated' && player.state !== 'sitting' && insideElevatorZone(player.x, player.y);
   if (!inElevatorZone) elevatorLock = false;
   const atElevator = active && inElevatorZone;
   const showElevator = atElevator && !elevatorLock;
@@ -700,10 +837,10 @@ function updatePlayer(dt: number): void {
   const nowArea = areaAt(map, player.y);
   if (nowArea !== area.value) area.value = nowArea;
 
-  nearSeatId = active && (player.state === 'idle' || player.state === 'walking') ? (nearestSittableSeat()?.seatId ?? null) : null;
+  nearSeatId = active && !riding && (player.state === 'idle' || player.state === 'walking') ? (nearestSittableSeat()?.seatId ?? null) : null;
 
   // 走進樓梯口 → 換樓層
-  if (active && (player.state === 'idle' || player.state === 'walking')) {
+  if (active && !riding && (player.state === 'idle' || player.state === 'walking')) {
     const stair = insideStairZone(player.x, player.y);
     if (!stair) {
       stairLock = false;
@@ -720,6 +857,42 @@ function updatePlayer(dt: number): void {
       emit('change-floor', stair.target);
     }
   }
+}
+
+// 小船：速度慢慢跟上方向（放開方向鍵還會滑一段）；點地圖時往目標划
+function updateBoat(dt: number, dx: number, dy: number): void {
+  const boat = riding;
+  if (!boat) return;
+  let dirX = dx;
+  let dirY = dy;
+  const next = player.path[0];
+  if (dirX === 0 && dirY === 0 && next) {
+    dirX = next.x - player.x;
+    dirY = next.z - player.y;
+    if (Math.hypot(dirX, dirY) < 0.3) {
+      player.path = [];
+      player.state = 'idle';
+      dirX = 0;
+      dirY = 0;
+    }
+  }
+  const length = Math.hypot(dirX, dirY) || 1;
+  const speed = VEHICLE_SPEED.boat;
+  const ease = Math.min(1, dt * (dirX || dirY ? 2.2 : 0.8));
+  boat.vx += ((dirX / length) * speed - boat.vx) * ease;
+  boat.vy += ((dirY / length) * speed - boat.vy) * ease;
+  if (dirX === 0 && dirY === 0) {
+    boat.vx -= boat.vx * ease;
+    boat.vy -= boat.vy * ease;
+  }
+  // 撞到岸邊或地圖邊緣就停在那個方向
+  if (canOccupy(player.x + boat.vx * dt, player.y)) player.x += boat.vx * dt;
+  else boat.vx = 0;
+  if (canOccupy(player.x, player.y + boat.vy * dt)) player.y += boat.vy * dt;
+  else boat.vy = 0;
+  const v = Math.hypot(boat.vx, boat.vy);
+  if (v > 0.4) player.facing = facingFrom(boat.vx, boat.vy);
+  player.moving = v > 0.25;
 }
 
 // ── 繪製 ──
@@ -949,9 +1122,45 @@ function beachgoerDrawable(goer: Beachgoer, seconds: number): Drawable {
   };
 }
 
-function playerDrawable(): Drawable | null {
+// 騎車時只畫上半身（腿被車擋住），小船再少一點
+const RIDE_ROWS: Record<VehicleKind, number> = { bike: SEATED_ROWS, cart: SEATED_ROWS, boat: 14 };
+
+// 頭頂離腳下幾個世界像素（名牌和泡泡用）
+function myHeadOffset(): number {
+  return riding ? 5 - RIDE_LIFT[riding.kind] - RIDE_ROWS[riding.kind] - 1 : -16;
+}
+
+function vehicleDrawable(v: VehicleState, seconds: number): Drawable {
+  const footX = v.x * TILE;
+  const footY = v.y * TILE + 5;
+  return {
+    sortY: v.y + 0.35,
+    draw: (c) => {
+      paintVehicle(c, v.kind, v.facing, footX, footY, 'back', seconds, false);
+      paintVehicle(c, v.kind, v.facing, footX, footY, 'front', seconds, false);
+    },
+  };
+}
+
+function playerDrawable(seconds: number): Drawable | null {
   if (player.state === 'seated') return null;
   const frame = player.moving ? (Math.floor(player.walkClock / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
+  const ride = riding;
+  if (ride) {
+    return {
+      sortY: player.y + 0.35,
+      draw: (c) => {
+        const footX = player.x * TILE;
+        const footY = player.y * TILE + 5;
+        const rows = RIDE_ROWS[ride.kind];
+        paintVehicle(c, ride.kind, player.facing, footX, footY, 'back', seconds, player.moving);
+        const sprite = getAvatarFrame(myAvatar(area.value === 'beach'), player.facing, 'idle');
+        const bob = player.moving && Math.floor(seconds * 8) % 2 === 0 ? 1 : 0;
+        c.drawImage(sprite, 0, 0, AVATAR_SIZE.w, rows, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - RIDE_LIFT[ride.kind] - rows + bob), AVATAR_SIZE.w, rows);
+        paintVehicle(c, ride.kind, player.facing, footX, footY, 'front', seconds, player.moving);
+      },
+    };
+  }
   return {
     sortY: player.y + 0.35,
     draw: (c) => {
@@ -1051,6 +1260,8 @@ function renderMinimap(seconds: number): void {
     c.fillStyle = MINIMAP_SEAT_COLORS[node.state];
     c.fillRect(node.slot.tx * TILE + 2, node.slot.ty * TILE + 2, TILE - 4, TILE - 4);
   }
+  c.fillStyle = '#e25a4a';
+  for (const v of vehicles) if (v !== riding) c.fillRect(v.x * TILE - 6, v.y * TILE - 6, 12, 12);
   // 目前主畫面看到的範圍
   const x0 = Math.max(0, -view.ox / view.scale);
   const y0 = Math.max(0, -view.oy / view.scale);
@@ -1171,7 +1382,7 @@ function drawBubbles(c: CanvasRenderingContext2D, seconds: number, toScreen: (wx
     if (key === 'me') {
       const node = player.state === 'seated' ? seatNodes.find((n) => n.seatId === player.seatId) : undefined;
       // 名牌上面再高一點
-      anchor = node ? toScreen(node.slot.tx * TILE + 8, node.slot.ty * TILE - 6) : toScreen(player.x * TILE, player.y * TILE - 16);
+      anchor = node ? toScreen(node.slot.tx * TILE + 8, node.slot.ty * TILE - 6) : toScreen(player.x * TILE, player.y * TILE + myHeadOffset());
       anchor.y -= LABEL_FONT_PX + 10;
     } else if (key.startsWith('seat:')) {
       const node = seatNodes.find((n) => n.seatId === key.slice(5));
@@ -1205,9 +1416,10 @@ function render(seconds: number): void {
   const drawables: Drawable[] = [
     ...propDrawables(seconds),
     ...seatNodes.flatMap((node) => seatDrawables(node, seconds)),
+    ...vehicles.filter((v) => v !== riding).map((v) => vehicleDrawable(v, seconds)),
     ...map.beachgoers.map((goer) => beachgoerDrawable(goer, seconds)),
   ];
-  const me = playerDrawable();
+  const me = playerDrawable(seconds);
   if (me) drawables.push(me);
   drawables.sort((a, b) => a.sortY - b.sortY);
   for (const item of drawables) item.draw(ctx);
@@ -1240,7 +1452,7 @@ function render(seconds: number): void {
     drawPill(ctx, `${marks}${node.label}`, p.x, p.y, node.state === 'me' ? COLOR_ME : COLOR_MATE);
   }
   if (player.state !== 'seated') {
-    const p = toScreen(player.x * TILE, player.y * TILE - 16);
+    const p = toScreen(player.x * TILE, player.y * TILE + myHeadOffset());
     drawPill(ctx, `${playerPrefs.value.doNotDisturb ? '🔕 ' : ''}${t.value.common.meLabel}`, p.x, p.y, COLOR_ME);
   }
   drawBubbles(ctx, seconds, toScreen);
@@ -1303,6 +1515,11 @@ function handleClick(event: MouseEvent): void {
     walkToSeat(node);
     return;
   }
+  const vehicle = pickVehicle(point);
+  if (vehicle) {
+    walkToVehicle(vehicle);
+    return;
+  }
   walkToPoint(point);
 }
 
@@ -1318,10 +1535,14 @@ function handleMinimapClick(event: MouseEvent): void {
   const canvas = minimapRef.value;
   if (!canvas || !canInteract()) return;
   const rect = canvas.getBoundingClientRect();
-  walkToPoint({
+  const point = {
     x: ((event.clientX - rect.left) / rect.width) * map.width,
     y: ((event.clientY - rect.top) / rect.height) * map.height,
-  });
+  };
+  // 小地圖上點車子（紅點）也算點車子，範圍放寬一點
+  const vehicle = vehicles.find((v) => v !== riding && Math.hypot(point.x - v.x, point.y - v.y) < 1.5);
+  if (vehicle) walkToVehicle(vehicle);
+  else walkToPoint(point);
 }
 
 const KEY_MAP: Record<string, 'up' | 'down' | 'left' | 'right'> = {
@@ -1367,9 +1588,17 @@ function handleKeyDown(event: KeyboardEvent): void {
   }
   if ((event.code === 'Space' || event.code === 'KeyE' || event.code === 'Enter') && canInteract()) {
     event.preventDefault();
+    if (riding) {
+      dismount();
+      return;
+    }
     if (player.state === 'idle' || player.state === 'walking') {
+      // 旁邊有車又比座位近：先上車
+      const vehicle = nearestVehicle();
       const node = nearestSittableSeat();
-      if (node) startSit(node);
+      const seatDist = node ? Math.hypot(player.x - seatApproach(node.slot).x, player.y - seatApproach(node.slot).y) : Infinity;
+      if (vehicle && Math.hypot(vehicle.x - player.x, vehicle.y - player.y) < seatDist) mount(vehicle);
+      else if (node) startSit(node);
     }
   }
 }

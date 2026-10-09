@@ -4,7 +4,7 @@
 
 import { px, seeded } from './pixelUtil';
 import { RUGS, WALLS, WINDOW_GLASS, paintBackWall, paintThemedFloor, paintThemedTv, paintWallFace } from './pixelThemes';
-import { TILE, WALL_ROWS, type Facing, type MapRug, type Outfit, type PixelMap, type ThemeId } from './pixelMap';
+import { TILE, WALL_ROWS, type Facing, type MapRug, type Outfit, type PixelMap, type ThemeId, type VehicleKind } from './pixelMap';
 
 export const KENNEY_SHEET_URL = '/pixel/kenney-roguelike-indoor.png';
 const KENNEY_STRIDE = 17;
@@ -632,6 +632,169 @@ export function paintTowel(ctx: CanvasRenderingContext2D, x: number, y: number, 
   const [a, b] = TOWEL_COLORS[variant % TOWEL_COLORS.length] ?? ['#f2a541', '#fff4e6'];
   for (let i = 0; i < 4; i += 1) px(ctx, i % 2 === 0 ? a : b, x + i * 4 - 4, y + 2, 4, 24);
   px(ctx, 'rgba(0,0,0,0.12)', x - 4, y + 26, 16, 1);
+}
+
+// ── 載具：腳踏車、海灘車、小船。footX／footY 是車子貼地（或水面）的中心點 ──
+// back 畫在人物後面，front 畫在人物前面（擋住腿或船身遮住下半身）
+
+export function paintVehicle(
+  ctx: CanvasRenderingContext2D,
+  kind: VehicleKind,
+  facing: Facing,
+  footX: number,
+  footY: number,
+  layer: 'back' | 'front',
+  seconds: number,
+  moving: boolean,
+): void {
+  const x = Math.round(footX);
+  const y = Math.round(footY);
+  const side = facing === 'left' || facing === 'right';
+  ctx.save();
+  if (facing === 'left') {
+    // 面向左：以中心水平翻轉面向右的圖
+    ctx.translate(x * 2, 0);
+    ctx.scale(-1, 1);
+  }
+  if (kind === 'bike') paintBike(ctx, x, y, side, layer, seconds, moving);
+  else if (kind === 'cart') paintCart(ctx, x, y, side, layer);
+  else paintBoat(ctx, x, y, side, layer, seconds, moving);
+  ctx.restore();
+}
+
+function wheel(ctx: CanvasRenderingContext2D, cx: number, cy: number, spin: number): void {
+  px(ctx, '#2b2d33', cx - 2, cy - 4, 5, 1);
+  px(ctx, '#2b2d33', cx - 2, cy + 4, 5, 1);
+  px(ctx, '#2b2d33', cx - 4, cy - 2, 1, 5);
+  px(ctx, '#2b2d33', cx + 4, cy - 2, 1, 5);
+  px(ctx, '#2b2d33', cx - 3, cy - 3, 1, 1);
+  px(ctx, '#2b2d33', cx + 3, cy - 3, 1, 1);
+  px(ctx, '#2b2d33', cx - 3, cy + 3, 1, 1);
+  px(ctx, '#2b2d33', cx + 3, cy + 3, 1, 1);
+  // 輪輻：騎的時候會轉
+  const a = spin % 2 === 0;
+  px(ctx, '#9aa3b2', cx - (a ? 2 : 0), cy - (a ? 0 : 2), a ? 5 : 1, a ? 1 : 5);
+  px(ctx, '#e3e8f0', cx, cy, 1, 1);
+}
+
+function paintBike(ctx: CanvasRenderingContext2D, x: number, y: number, side: boolean, layer: 'back' | 'front', seconds: number, moving: boolean): void {
+  const red = '#e25a4a';
+  const spin = moving ? Math.floor(seconds * 12) : 0;
+  if (!side) {
+    // 正面／背面：只看得到前輪和把手
+    if (layer === 'back') {
+      px(ctx, 'rgba(0,0,0,0.18)', x - 4, y - 1, 8, 2);
+      px(ctx, '#2b2d33', x - 1, y - 8, 2, 8);
+      px(ctx, red, x - 1, y - 12, 2, 4);
+    } else {
+      px(ctx, '#2b2d33', x - 6, y - 13, 12, 1);
+      px(ctx, '#3a3d45', x - 7, y - 13, 2, 2);
+      px(ctx, '#3a3d45', x + 5, y - 13, 2, 2);
+    }
+    return;
+  }
+  if (layer === 'front') {
+    // 把手在人前面
+    px(ctx, '#3a3d45', x + 5, y - 15, 3, 1);
+    return;
+  }
+  px(ctx, 'rgba(0,0,0,0.18)', x - 11, y - 1, 22, 2);
+  wheel(ctx, x - 7, y - 5, spin);
+  wheel(ctx, x + 7, y - 5, spin + 1);
+  // 車架：後輪 → 座墊 → 把手 → 前輪
+  for (let i = 0; i <= 6; i += 1) px(ctx, red, x - 7 + i, y - 5 - Math.round(i * 0.8), 1, 1);
+  for (let i = 0; i <= 8; i += 1) px(ctx, red, x - 1 + i, y - 10 + Math.round(i * 0.2), 1, 1);
+  for (let i = 0; i <= 6; i += 1) px(ctx, red, x + 7 - Math.round(i * 0.3), y - 5 - i, 1, 1);
+  px(ctx, red, x - 1, y - 9, 1, 4);
+  px(ctx, '#2b2135', x - 3, y - 11, 4, 1);
+  px(ctx, '#2b2d33', x + 5, y - 14, 1, 3);
+}
+
+function paintCart(ctx: CanvasRenderingContext2D, x: number, y: number, side: boolean, layer: 'back' | 'front'): void {
+  const body = '#f2a541';
+  const dark = '#c47a1f';
+  if (!side) {
+    if (layer === 'back') {
+      px(ctx, 'rgba(0,0,0,0.16)', x - 10, y - 2, 20, 3);
+      for (const wx of [x - 10, x + 7]) {
+        px(ctx, '#2b2d33', wx, y - 7, 3, 6);
+        px(ctx, '#2b2d33', wx, y - 17, 3, 6);
+      }
+      px(ctx, '#3a3d45', x - 8, y - 22, 16, 2);
+      px(ctx, '#3a3d45', x - 8, y - 22, 1, 6);
+      px(ctx, '#3a3d45', x + 7, y - 22, 1, 6);
+      px(ctx, dark, x - 8, y - 17, 16, 13);
+      px(ctx, body, x - 7, y - 16, 14, 11);
+    } else {
+      px(ctx, dark, x - 8, y - 7, 16, 4);
+      px(ctx, body, x - 7, y - 7, 14, 2);
+      px(ctx, '#fff4d6', x - 6, y - 5, 2, 1);
+      px(ctx, '#fff4d6', x + 4, y - 5, 2, 1);
+    }
+    return;
+  }
+  if (layer === 'front') {
+    // 車門擋住腿
+    px(ctx, dark, x - 9, y - 9, 18, 5);
+    px(ctx, body, x - 8, y - 9, 16, 3);
+    px(ctx, '#fff4d6', x + 10, y - 9, 2, 2);
+    return;
+  }
+  px(ctx, 'rgba(0,0,0,0.16)', x - 13, y - 2, 26, 3);
+  // 防滾架
+  px(ctx, '#3a3d45', x - 7, y - 22, 12, 2);
+  px(ctx, '#3a3d45', x - 7, y - 22, 2, 12);
+  px(ctx, '#3a3d45', x + 3, y - 22, 2, 12);
+  px(ctx, dark, x - 12, y - 11, 24, 7);
+  px(ctx, body, x - 11, y - 11, 22, 4);
+  px(ctx, dark, x + 6, y - 14, 6, 4);
+  px(ctx, '#bfe3f2', x + 7, y - 15, 2, 4);
+  for (const wx of [x - 9, x + 7]) {
+    px(ctx, '#2b2d33', wx - 3, y - 6, 7, 6);
+    px(ctx, '#7c8088', wx - 1, y - 4, 3, 2);
+  }
+}
+
+function paintBoat(ctx: CanvasRenderingContext2D, x: number, y: number, side: boolean, layer: 'back' | 'front', seconds: number, moving: boolean): void {
+  const hull = '#8a5e36';
+  const hullDark = '#5c3d22';
+  const inside = '#c9a06b';
+  const row = moving ? Math.sin(seconds * 6) : 0;
+  if (!side) {
+    if (layer === 'back') {
+      px(ctx, 'rgba(255,255,255,0.45)', x - 8, y + 1, 16, 1);
+      [6, 10, 12, 12, 12, 12, 12, 12, 12, 12, 10, 6].forEach((w, i) => px(ctx, hullDark, x - w / 2 - 1, y - 22 + i * 2, w + 2, 2));
+      [4, 8, 10, 10, 10, 10, 10, 10, 10, 8, 4].forEach((w, i) => px(ctx, inside, x - w / 2, y - 20 + i * 2, w, 2));
+      // 槳
+      const reach = Math.round(row * 3);
+      px(ctx, '#d9b07a', x - 14, y - 11 + reach, 8, 1);
+      px(ctx, '#d9b07a', x + 6, y - 11 - reach, 8, 1);
+    } else {
+      px(ctx, hull, x - 6, y - 6, 12, 3);
+      px(ctx, hullDark, x - 6, y - 3, 12, 1);
+    }
+    return;
+  }
+  if (layer === 'front') {
+    // 船舷擋住下半身
+    px(ctx, hull, x - 13, y - 7, 26, 4);
+    px(ctx, hullDark, x - 13, y - 3, 26, 1);
+    px(ctx, '#f4eee2', x - 9, y - 6, 18, 1);
+    return;
+  }
+  // 船底的水波
+  px(ctx, 'rgba(255,255,255,0.5)', x - 15, y, 30, 1);
+  if (moving) {
+    const trail = Math.floor(seconds * 8) % 3;
+    px(ctx, 'rgba(255,255,255,0.6)', x - 18 - trail * 2, y - 1, 3, 1);
+    px(ctx, 'rgba(255,255,255,0.4)', x - 22 - trail * 2, y + 1, 2, 1);
+  }
+  [22, 26, 28, 28, 26].forEach((w, i) => px(ctx, hullDark, x - w / 2, y - 12 + i * 2, w, 2));
+  px(ctx, inside, x - 11, y - 11, 22, 4);
+  // 槳：划的時候前後擺
+  const sweep = Math.round(row * 4);
+  for (let i = 0; i < 10; i += 1) px(ctx, '#d9b07a', x - 2 + sweep + i - 5, y - 9 + Math.round(i * 0.7), 1, 1);
+  px(ctx, '#b48a5c', x - 2 + sweep + 4, y - 3, 3, 2);
 }
 
 // ── 人物：16×20 的 Q 版像素小人，四個方向 × 走路兩格，髮色與衣服可換 ──

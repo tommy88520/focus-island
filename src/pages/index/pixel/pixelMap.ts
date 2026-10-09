@@ -92,6 +92,16 @@ export function themeForZone(zoneId: string): ThemeId {
   return ZONE_THEMES[zoneId.toUpperCase()] ?? 'library';
 }
 
+// 可以騎的載具：室內腳踏車、海灘車、海上的小船（x/y 是車停的位置，以格為單位）
+export type VehicleKind = 'bike' | 'cart' | 'boat';
+
+export interface VehicleSpot {
+  kind: VehicleKind;
+  x: number;
+  y: number;
+  facing: Facing;
+}
+
 export interface PixelMap {
   theme: ThemeId;
   width: number;
@@ -100,6 +110,7 @@ export interface PixelMap {
   libraryHeight: number;
   beach: Beach;
   beachgoers: Beachgoer[];
+  vehicles: VehicleSpot[];
   seats: SeatSlot[];
   props: MapProp[];
   rugs: MapRug[];
@@ -216,6 +227,11 @@ export function createPixelMap(seatCount: number, escalator = false, theme: Them
     libraryHeight,
     beach,
     beachgoers: beachgoers(beach),
+    vehicles: [
+      { kind: 'bike', x: 20.5, y: 15.6, facing: 'right' },
+      { kind: 'cart', x: 8.5, y: beach.sandTop + 1.4, facing: 'right' },
+      { kind: 'boat', x: 24.5, y: beach.seaTop + 1.1, facing: 'left' },
+    ],
     seats,
     props,
     rugs,
@@ -289,6 +305,13 @@ function beachgoers(beach: Beach): Beachgoer[] {
     { pose: 'stand', x: 19.5, y: beach.seaTop + 0.2, facing: 'down', outfit: 'trunks', look: 5 },
     { pose: 'stroll', x: 3, y: beach.seaTop - 0.6, facing: 'right', outfit: 'bikini', look: 6, strollTo: 9 },
   ];
+}
+
+// 每種載具能去的範圍：腳踏車只在室內、海灘車在木棧道和沙灘、小船只在海上
+export function vehicleArea(map: PixelMap, kind: VehicleKind): { xMin: number; xMax: number; yMin: number; yMax: number } {
+  if (kind === 'bike') return { xMin: 1.3, xMax: map.width - 1.3, yMin: WALL_ROWS + 0.3, yMax: map.libraryHeight - 1.3 };
+  if (kind === 'cart') return { xMin: 0.5, xMax: map.width - 0.5, yMin: map.libraryHeight + 0.4, yMax: map.beach.seaTop + 0.3 };
+  return { xMin: 0.9, xMax: map.width - 0.9, yMin: map.beach.seaTop + 0.75, yMax: map.height - 0.5 };
 }
 
 export type Area = 'library' | 'beach';
