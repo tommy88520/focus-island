@@ -239,6 +239,13 @@ export const usePomodoroStore = defineStore('pomodoro', {
       this.timeLeft = this.baseDuration;
     },
 
+    // 一起專注：中途加入時，剩下的時間跟著時鐘，進度條仍以整輪 25 分鐘計
+    alignTimer(baseSeconds: number, secondsLeft: number) {
+      if (this.isRunning) return;
+      this.baseDuration = baseSeconds;
+      this.timeLeft = Math.max(1, Math.min(baseSeconds, Math.round(secondsLeft)));
+    },
+
     resetTimer() {
       this.stopTimer();
       this.timeLeft = this.baseDuration;

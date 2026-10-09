@@ -86,6 +86,9 @@
         :selected-focus-duration-minutes="selectedFocusDurationMinutes"
         :auto-restart-on-finish="autoRestartOnFinish"
         :display-name="displayName"
+        :group-focus-available="true"
+        :group-focus="playerPrefs.groupFocus"
+        :group-status="groupStatus"
         @toggle-focus="toggleFocus"
         @restart-focus-timer="restartFocusTimer"
         @resume-previous-focus="resumePreviousFocus"
@@ -93,6 +96,7 @@
         @select-focus-duration="handleFocusDurationSelect"
         @update:auto-restart-on-finish="autoRestartOnFinish = $event"
         @apply-display-name="applyDisplayName"
+        @update:group-focus="playerPrefs.groupFocus = $event"
       />
       <div class="hide-below-sm h-10 w-[2px] bg-[color:var(--px-ink)] opacity-30"></div>
       <AmbientAudioPlayer :audio="audio" />
@@ -122,8 +126,10 @@ import {
 } from 'src/pages/index/functions/uiHelpers';
 import { useLocale } from 'src/composables/useLocale';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
+import { GROUP_FOCUS_S, groupPhaseAt } from 'src/composables/groupFocus';
 const $q = useQuasar();
-const { t } = useLocale();
+const { t, locale } = useLocale();
+const playerPrefs = usePlayerPrefs();
 
 const store = usePomodoroStore();
 const DEFAULT_ZONE_CAPACITY = 15;
@@ -658,8 +664,56 @@ function loadFocusPreferences() {
   }
 }
 
+// ── 一起專注：每個整點、半點開始 25 分鐘，接著休息 5 分鐘 ──
+const groupNow = ref(new Date());
+const groupPhase = computed(() => groupPhaseAt(groupNow.value));
+// 使用者在這一輪自己按了結束：這一輪就不再自動幫他開始
+let groupSkippedRound = '';
+let groupTimer: number | undefined;
+
+const groupFocusCount = computed(
+  () => librarySocket.readers.value.filter((r) => r.state === '專注').length + (store.isRunning ? 1 : 0),
+);
+
+const groupStatus = computed(() => {
+  if (!playerPrefs.value.groupFocus) return '';
+  const phase = groupPhase.value;
+  const time = (d: Date) => d.toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit' });
+  return phase.phase === 'focus'
+    ? t.value.focusClockPanel.groupFocusing(groupFocusCount.value, time(new Date(phase.nextStart.getTime() - 5 * 60 * 1000)))
+    : t.value.focusClockPanel.groupBreak(formatTimeHelper(phase.secondsLeft), time(phase.nextStart));
+});
+
+function tickGroupFocus() {
+  groupNow.value = new Date();
+  if (!playerPrefs.value.groupFocus || store.isRunning || !selectedSeatId.value) return;
+  const phase = groupPhase.value;
+  const round = phase.nextStart.toISOString();
+  // 剩不到一分鐘就不加入了，等下一輪
+  if (phase.phase !== 'focus' || phase.secondsLeft < 60 || groupSkippedRound === round) return;
+  store.alignTimer(GROUP_FOCUS_S, phase.secondsLeft);
+  toggleFocus();
+}
+
+watch(
+  () => store.isRunning,
+  (running, wasRunning) => {
+    // 一起專注的一輪還沒結束就自己停掉：記下來，這一輪不再自動開始
+    if (wasRunning && !running && store.timeLeft > 0 && playerPrefs.value.groupFocus) {
+      groupSkippedRound = groupPhase.value.nextStart.toISOString();
+    }
+  },
+);
+
+watch(
+  () => playerPrefs.value.groupFocus,
+  (on) => {
+    groupSkippedRound = '';
+    if (on) tickGroupFocus();
+  },
+);
+
 // 外觀或勿擾改了：坐著的話重送一次座位訊息，同房間的人才看得到
-const playerPrefs = usePlayerPrefs();
 watch(
   () => [playerPrefs.value.hair, playerPrefs.value.shirt, playerPrefs.value.doNotDisturb],
   () => {
@@ -807,7 +861,8 @@ function restartFocusTimer() {
 function handleFocusFinished() {
   audio.stopPlayback();
 
-  if (autoRestartOnFinish.value) {
+  // 一起專注時，下一輪由時鐘決定，不用自動重來
+  if (autoRestartOnFinish.value && !playerPrefs.value.groupFocus) {
     store.resetTimer();
     store.startTimer();
 
@@ -890,6 +945,7 @@ watch(
 );
 
 onMounted(() => {
+  groupTimer = window.setInterval(tickGroupFocus, 1000);
   audio.playZoneTrack(activeZoneId.value);
   loadFocusPreferences();
   loadResumeCandidate();
@@ -921,6 +977,7 @@ onBeforeRouteLeave(() => {
 });
 
 onUnmounted(() => {
+  window.clearInterval(groupTimer);
   cleanupSessionOnPageLeave();
   saveFocusPreferences();
   librarySocket.clearFloorPollingTimer();

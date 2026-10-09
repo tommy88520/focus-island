@@ -1,6 +1,7 @@
 <template>
-  <div class="no-scrollbar flex h-screen items-center justify-center overflow-y-auto bg-slate-950 p-3 pb-24 text-amber-50 sm:p-4 sm:pb-28">
-    <div class="w-full max-w-sm">
+  <!-- 嵌入用：番茄鐘和音樂疊在同一張像素面板裡（主頁是放在底部工具列） -->
+  <div class="no-scrollbar flex h-screen items-center justify-center overflow-y-auto bg-[color:var(--px-page)] p-3 text-[color:var(--px-text)] sm:p-4">
+    <div class="pixel-panel w-full max-w-sm space-y-3 p-3">
       <FocusClockPanel
         :is-running="store.isRunning"
         :base-duration="store.baseDuration"
@@ -13,6 +14,9 @@
         :selected-focus-duration-minutes="selectedFocusDurationMinutes"
         :auto-restart-on-finish="autoRestartOnFinish"
         :display-name="displayName"
+        :group-focus-available="false"
+        :group-focus="false"
+        group-status=""
         @toggle-focus="toggleFocus"
         @restart-focus-timer="restartFocusTimer"
         @reset-focus-timer="resetFocusTimer"
@@ -20,10 +24,10 @@
         @update:auto-restart-on-finish="handleAutoRestartToggle"
         @apply-display-name="applyDisplayName"
       />
+      <div class="h-[2px] bg-[color:var(--px-ink)] opacity-20"></div>
+      <AmbientAudioPlayer :audio="audio" />
     </div>
   </div>
-
-  <AmbientAudioPlayer :audio="audio" />
 </template>
 
 <script setup lang="ts">

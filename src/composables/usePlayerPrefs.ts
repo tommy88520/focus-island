@@ -13,9 +13,11 @@ export interface PlayerPrefs {
   shirt: number;
   // 勿擾：別人的招呼不會出現在你的畫面上，你的名牌旁會有 🔕
   doNotDisturb: boolean;
+  // 一起專注：番茄鐘跟著時鐘走（整點、半點開始）
+  groupFocus: boolean;
 }
 
-const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, doNotDisturb: false };
+const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, doNotDisturb: false, groupFocus: false };
 
 function load(): PlayerPrefs {
   try {
@@ -26,6 +28,7 @@ function load(): PlayerPrefs {
       hair: int(parsed.hair, DEFAULTS.hair),
       shirt: int(parsed.shirt, DEFAULTS.shirt),
       doNotDisturb: parsed.doNotDisturb === true,
+      groupFocus: parsed.groupFocus === true,
     };
   } catch {
     return { ...DEFAULTS };

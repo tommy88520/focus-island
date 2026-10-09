@@ -12,6 +12,9 @@
           :aria-label="isRunning ? 'RUNNING' : 'IDLE'"
         ></span>
       </div>
+      <p v-if="groupStatus" class="!mb-0 mt-1 truncate text-[10px] font-black text-[color:var(--px-accent-dark)] dark:!text-amber-300">
+        👥 {{ groupStatus }}
+      </p>
       <div class="pixel-track mt-1.5" role="progressbar" :aria-valuenow="progressPercent" aria-valuemin="0" aria-valuemax="100">
         <div :style="{ width: `${progressPercent}%` }"></div>
       </div>
@@ -93,6 +96,16 @@
           {{ t.focusClockPanel.resetTimeButton }}
         </button>
 
+        <label v-if="groupFocusAvailable" class="pixel-field flex items-center justify-between px-3 py-2 text-[11px]">
+          <span class="font-bold">{{ t.focusClockPanel.groupFocusLabel }}</span>
+          <input
+            :checked="groupFocus"
+            type="checkbox"
+            class="accent-amber-400"
+            @change="$emit('update:groupFocus', ($event.target as HTMLInputElement).checked)"
+          />
+        </label>
+
         <label class="pixel-field flex items-center justify-between px-3 py-2 text-[11px]">
           <span class="font-bold">{{ t.focusClockPanel.autoRestartLabel }}</span>
           <input
@@ -149,6 +162,10 @@ const props = defineProps<{
   selectedFocusDurationMinutes: number;
   autoRestartOnFinish: boolean;
   displayName: string;
+  // 一起專注（跟著時鐘）；嵌入的小工具沒有座位，不提供
+  groupFocusAvailable: boolean;
+  groupFocus: boolean;
+  groupStatus: string;
 }>();
 
 const emit = defineEmits<{
@@ -159,6 +176,7 @@ const emit = defineEmits<{
   'select-focus-duration': [minutes: number];
   'update:autoRestartOnFinish': [value: boolean];
   'apply-display-name': [name: string];
+  'update:groupFocus': [value: boolean];
 }>();
 
 const showAdvancedFocusControls = ref(false);
