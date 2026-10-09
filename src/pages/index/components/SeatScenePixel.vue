@@ -6,9 +6,6 @@
       :class="isLoading ? 'opacity-0' : 'opacity-100'"
       style="touch-action: pan-y"
       tabindex="0"
-      @keydown="handleKeyDown"
-      @keyup="handleKeyUp"
-      @blur="keys.clear()"
     >
       <canvas ref="canvasRef" class="block h-full w-full" />
 
@@ -1314,7 +1311,17 @@ const KEY_MAP: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   ArrowRight: 'right',
 };
 
+// 鍵盤聽在整個視窗上：一進頁面不用先點地圖就能走。
+// 正在打字、操作滑桿／選單、或開著對話框時不搶按鍵；焦點在按鈕上時空白鍵和 Enter 留給按鈕。
+function keyBelongsToPage(event: KeyboardEvent): boolean {
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  if (!target || target === containerRef.value) return false;
+  if (target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return true;
+  return target.closest('button, a') !== null && ['Space', 'Enter'].includes(event.code);
+}
+
 function handleKeyDown(event: KeyboardEvent): void {
+  if (keyBelongsToPage(event) || !isVisible) return;
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   const direction = KEY_MAP[event.code];
   if (direction) {
@@ -1341,6 +1348,10 @@ function handleKeyDown(event: KeyboardEvent): void {
       if (node) startSit(node);
     }
   }
+}
+
+function clearKeys(): void {
+  keys.clear();
 }
 
 function handleKeyUp(event: KeyboardEvent): void {
@@ -1382,6 +1393,11 @@ onMounted(() => {
   themeObserver = new MutationObserver(readTheme);
   themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
   window.addEventListener('pagehide', handlePageHide);
+  window.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('keyup', handleKeyUp);
+  window.addEventListener('blur', clearKeys);
+  // 一進來就把焦點放在地圖上（不捲動頁面），鍵盤使用者看得到焦點框
+  containerRef.value?.focus({ preventScroll: true });
   rafId = requestAnimationFrame(animate);
 });
 
@@ -1454,6 +1470,9 @@ watchEffect(() => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(rafId);
   window.removeEventListener('pagehide', handlePageHide);
+  window.removeEventListener('keydown', handleKeyDown);
+  window.removeEventListener('keyup', handleKeyUp);
+  window.removeEventListener('blur', clearKeys);
   handlePageHide();
   resizeObserver?.disconnect();
   intersectionObserver?.disconnect();
