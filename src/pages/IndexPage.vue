@@ -43,7 +43,9 @@
             :zone-name="librarySocket.currentZone.value?.name ?? ''"
             :disabled="store.isRunning"
             :get-mate-at-seat="librarySocket.getMateAtSeat"
+            :remote-emote="librarySocket.lastEmote.value"
             @select="selectSeat"
+            @emote="librarySocket.sendEmote"
             @change-floor="currentFloor = $event"
             @webgl-failed="useCanvasScene = false"
           />

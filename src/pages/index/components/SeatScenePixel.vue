@@ -23,6 +23,20 @@
       >
         <q-icon :name="minimapOpen ? 'close' : 'map'" size="18px" />
       </button>
+      <!-- 打招呼：按鈕或數字鍵 1–4（H 也是揮手）；附近的人會回話 -->
+      <div v-if="!isLoading" class="absolute bottom-2 left-2 !flex !flex-nowrap gap-1.5">
+        <button
+          v-for="(emote, i) in EMOTE_IDS"
+          :key="emote"
+          type="button"
+          class="pixel-btn h-9 w-9 text-base"
+          :title="`${t.seatScene.emotes[emote]} (${i + 1})`"
+          :aria-label="t.seatScene.emotes[emote]"
+          @click="sendEmote(emote)"
+        >
+          {{ EMOTE_ICONS[emote] }}
+        </button>
+      </div>
       <div
         v-if="elevatorOpen"
         class="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-2xl bg-slate-900/90 px-4 py-3 text-center shadow-lg ring-1 ring-amber-400/40"
@@ -71,7 +85,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
-import type { Reader } from 'src/pages/index/composables/useLibrarySocket';
+import { EMOTE_IDS, type EmoteId, type Reader, type SeatEmote } from 'src/pages/index/composables/useLibrarySocket';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
 import { createNavigation, type Navigation, type Point } from 'src/pages/index/composables/seatNavigation';
@@ -150,6 +164,8 @@ const props = defineProps<{
   zoneName: string;
   disabled: boolean;
   getMateAtSeat: (seatId: string) => Reader | null | undefined;
+  // 同房間其他人打的招呼
+  remoteEmote: SeatEmote | null;
 }>();
 
 const emit = defineEmits<{
@@ -158,6 +174,8 @@ const emit = defineEmits<{
   'change-floor': [floor: number];
   // 瀏覽器拿不到 2D canvas 時通知父層退回 2D 座位格子
   'webgl-failed': [];
+  // 自己打招呼，父層轉送給同房間的人
+  emote: [emote: EmoteId];
 }>();
 
 const { t } = useLocale();
@@ -203,6 +221,11 @@ const MINIMAP_PROP_COLORS: Partial<Record<PropKind, string>> = {
   towel: '#f2a541',
 };
 const MINIMAP_SEAT_COLORS: Record<SeatState, string> = { empty: '#f8fafc', me: COLOR_ME, mate: COLOR_MATE, taken: '#6b7280' };
+const EMOTE_ICONS: Record<EmoteId, string> = { wave: '👋', cheer: '💪', coffee: '☕', thumbs: '👍' };
+const EMOTE_COOLDOWN_S = 1.2;
+const BUBBLE_SECONDS = 2.6;
+// 這個距離（格）內的路人和示範用的假人會回話
+const REPLY_RADIUS = 3.5;
 const TAKEN_AVATAR: AvatarColors = { hair: '#6b7280', hairLight: '#8b93a1', shirt: '#94a3b8', shirtShade: '#6f7d91' };
 
 type SeatState = 'empty' | 'me' | 'mate' | 'taken';
@@ -286,6 +309,9 @@ let pendingSpawn: { point: { x: number; y: number }; floor: number } | null = nu
 let savedPosition: SavedPosition | null = loadSavedPosition();
 // 這次是從存檔站回原地（不是坐在位子上）：父層自動幫忙保留座位時，不要把人拉回椅子
 let restoredStanding = false;
+// 頭上的對話泡泡：key 是 me、seat:<座位 id>、npc:<路人編號>
+const bubbles = new Map<string, { text: string; from: number; until: number }>();
+let lastEmoteAt = -Infinity;
 let lastSavedAt = 0;
 let lastSavedKey = '';
 let hoveredSeatId: string | null = null;
@@ -869,20 +895,24 @@ function propDrawables(seconds: number): Drawable[] {
   return list;
 }
 
+// 散步的路人此刻走到哪
+function beachgoerPose(goer: Beachgoer, seconds: number): { x: number; facing: Facing; frame: 'idle' | 'walkA' | 'walkB' } {
+  if (goer.pose !== 'stroll' || goer.strollTo === undefined) return { x: goer.x, facing: goer.facing, frame: 'idle' };
+  const span = goer.strollTo - goer.x;
+  const lap = (Math.abs(span) / BEACH_STROLL_SPEED) * 2;
+  const phase = (seconds % lap) / lap;
+  const forward = phase < 0.5;
+  return {
+    x: goer.x + span * (forward ? phase * 2 : 2 - phase * 2),
+    facing: forward === span > 0 ? 'right' : 'left',
+    frame: Math.floor(seconds / 0.18) % 2 === 0 ? 'walkA' : 'walkB',
+  };
+}
+
 // 海灘上的路人：躺著曬太陽、坐在營火邊、站在水邊、沿著岸邊散步
 function beachgoerDrawable(goer: Beachgoer, seconds: number): Drawable {
   const colors = beachAvatar(goer.look, goer.outfit);
-  let { x, facing } = goer;
-  let frame: 'idle' | 'walkA' | 'walkB' = 'idle';
-  if (goer.pose === 'stroll' && goer.strollTo !== undefined) {
-    const span = goer.strollTo - goer.x;
-    const lap = (Math.abs(span) / BEACH_STROLL_SPEED) * 2;
-    const phase = (seconds % lap) / lap;
-    const forward = phase < 0.5;
-    x = goer.x + span * (forward ? phase * 2 : 2 - phase * 2);
-    facing = forward === span > 0 ? 'right' : 'left';
-    frame = Math.floor(seconds / 0.18) % 2 === 0 ? 'walkA' : 'walkB';
-  }
+  const { x, facing, frame } = beachgoerPose(goer, seconds);
   const footX = x * TILE;
   const footY = goer.y * TILE;
   const lying = goer.pose === 'lie';
@@ -1048,6 +1078,95 @@ function drawPill(c: CanvasRenderingContext2D, text: string, cx: number, bottom:
   c.fillText(label, cx, y + height / 2 + 0.5);
 }
 
+// ── 打招呼 ──
+
+function say(key: string, text: string, delay = 0): void {
+  const from = performance.now() / 1000 + delay;
+  bubbles.set(key, { text, from, until: from + BUBBLE_SECONDS });
+}
+
+// 自己頭頂的位置（格）：坐著就是座位
+function myPosition(): { x: number; y: number } {
+  const node = player.state === 'seated' ? seatNodes.find((n) => n.seatId === player.seatId) : undefined;
+  return node ? seatCenter(node.slot) : { x: player.x, y: player.y };
+}
+
+function sendEmote(emote: EmoteId): void {
+  containerRef.value?.focus({ preventScroll: true });
+  const now = performance.now() / 1000;
+  if (props.isLoading || now - lastEmoteAt < EMOTE_COOLDOWN_S) return;
+  lastEmoteAt = now;
+  say('me', `${EMOTE_ICONS[emote]} ${t.value.seatScene.emotes[emote]}`);
+  emit('emote', emote);
+
+  // 附近的路人、示範用的假人會回一句（真人要自己回）
+  const me = myPosition();
+  const reply = t.value.seatScene.emoteReplies[emote];
+  let order = 0;
+  map.beachgoers.forEach((goer, i) => {
+    const { x } = beachgoerPose(goer, now);
+    if (Math.hypot(x - me.x, goer.y - me.y) > REPLY_RADIUS) return;
+    say(`npc:${i}`, reply, 0.5 + order * 0.35);
+    order += 1;
+  });
+  for (const node of seatNodes) {
+    if (node.state !== 'mate' || !props.getMateAtSeat(node.seatId)?.userId.startsWith('demo_')) continue;
+    const c = seatCenter(node.slot);
+    if (Math.hypot(c.x - me.x, c.y - me.y) > REPLY_RADIUS) continue;
+    say(`seat:${node.seatId}`, reply, 0.5 + order * 0.35);
+    order += 1;
+  }
+}
+
+function drawBubble(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, age: number): void {
+  c.font = `700 ${LABEL_FONT_PX + 1}px system-ui, -apple-system, "PingFang TC", sans-serif`;
+  const width = Math.ceil(c.measureText(text).width) + 18;
+  const height = LABEL_FONT_PX + 13;
+  // 冒出來時往上彈一下
+  const pop = age < 0.15 ? Math.round((1 - age / 0.15) * 4) : 0;
+  const x = Math.round(cx - width / 2);
+  const y = Math.round(bottom - height - 6 + pop);
+  c.fillStyle = '#3b2a20';
+  c.fillRect(x - 2, y - 2, width + 4, height + 4);
+  c.fillRect(Math.round(cx) - 4, y + height, 8, 4);
+  c.fillRect(Math.round(cx) - 2, y + height + 4, 4, 2);
+  c.fillStyle = '#fffaf0';
+  c.fillRect(x, y, width, height);
+  c.fillRect(Math.round(cx) - 2, y + height, 4, 3);
+  c.fillStyle = '#3b2a20';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText(text, cx, y + height / 2 + 1);
+}
+
+function drawBubbles(c: CanvasRenderingContext2D, seconds: number, toScreen: (wx: number, wy: number) => { x: number; y: number }): void {
+  const now = performance.now() / 1000;
+  for (const [key, bubble] of bubbles) {
+    if (now > bubble.until) {
+      bubbles.delete(key);
+      continue;
+    }
+    if (now < bubble.from) continue;
+    let anchor: { x: number; y: number } | null = null;
+    if (key === 'me') {
+      const node = player.state === 'seated' ? seatNodes.find((n) => n.seatId === player.seatId) : undefined;
+      // 名牌上面再高一點
+      anchor = node ? toScreen(node.slot.tx * TILE + 8, node.slot.ty * TILE - 6) : toScreen(player.x * TILE, player.y * TILE - 16);
+      anchor.y -= LABEL_FONT_PX + 10;
+    } else if (key.startsWith('seat:')) {
+      const node = seatNodes.find((n) => n.seatId === key.slice(5));
+      if (node && node.state !== 'empty') {
+        anchor = toScreen(node.slot.tx * TILE + 8, node.slot.ty * TILE - 6);
+        if (node.label) anchor.y -= LABEL_FONT_PX + 10;
+      }
+    } else if (key.startsWith('npc:')) {
+      const goer = map.beachgoers[Number(key.slice(4))];
+      if (goer) anchor = toScreen(beachgoerPose(goer, seconds).x * TILE, goer.y * TILE - AVATAR_SIZE.h - 2);
+    }
+    if (anchor) drawBubble(c, bubble.text, anchor.x, anchor.y, now - bubble.from);
+  }
+}
+
 function render(seconds: number): void {
   const canvas = canvasRef.value;
   if (!ctx || !canvas) return;
@@ -1103,6 +1222,7 @@ function render(seconds: number): void {
     const p = toScreen(player.x * TILE, player.y * TILE - 16);
     drawPill(ctx, t.value.common.meLabel, p.x, p.y, COLOR_ME);
   }
+  drawBubbles(ctx, seconds, toScreen);
   renderMinimap(seconds);
 }
 
@@ -1200,6 +1320,13 @@ function handleKeyDown(event: KeyboardEvent): void {
   if (direction) {
     event.preventDefault();
     keys.add(direction);
+    return;
+  }
+  const emoteKey = event.code === 'KeyH' ? 0 : ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(event.code);
+  const emote = EMOTE_IDS[emoteKey];
+  if (emote) {
+    event.preventDefault();
+    sendEmote(emote);
     return;
   }
   if (event.code === 'KeyM') {
@@ -1306,6 +1433,13 @@ watch(
       standUp();
     }
     syncSeatStates();
+  },
+);
+
+watch(
+  () => props.remoteEmote,
+  (emote) => {
+    if (emote) say(`seat:${emote.seatId}`, `${EMOTE_ICONS[emote.emote]} ${t.value.seatScene.emotes[emote.emote]}`);
   },
 );
 

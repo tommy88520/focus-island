@@ -70,6 +70,20 @@ const zoneLocaleMap: Record<string, { name: Record<LocaleKey, string>; descripti
   },
 };
 
+// 場景裡打招呼用的表情，跟後端 allowedEmotes 同一份清單
+export const EMOTE_IDS = ['wave', 'cheer', 'coffee', 'thumbs'] as const;
+export type EmoteId = (typeof EMOTE_IDS)[number];
+
+export function isEmoteId(value: unknown): value is EmoteId {
+  return typeof value === 'string' && (EMOTE_IDS as readonly string[]).includes(value);
+}
+
+export interface SeatEmote {
+  seatId: string;
+  emote: EmoteId;
+  at: number;
+}
+
 export function normalizeSeatId(seatId?: string | null) {
   if (!seatId) return '';
   const value = seatId.trim();
@@ -400,6 +414,14 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     }
   }
 
+  // 別人在房間裡打的招呼（自己送的不會收到這裡）；場景用座位位置畫泡泡
+  const lastEmote = ref<SeatEmote | null>(null);
+
+  function sendEmote(emote: EmoteId) {
+    if (socket?.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({ type: 'EMOTE', userId: userId.value, sessionId, payload: { emote } }));
+  }
+
   function sendMove(seatId: string, state: string, username = displayName.value) {
     if (socket?.readyState !== WebSocket.OPEN) return;
     socket.send(
@@ -615,6 +637,17 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
             break;
           }
 
+          case 'EMOTE': {
+            if (msg.sessionId === sessionId) break;
+            const emote: unknown = msg.payload?.emote;
+            if (!isEmoteId(emote)) break;
+            const senderKey = msg.sessionId || msg.userId;
+            const sender = readers.value.find((r) => (r.sessionId || r.userId) === senderKey);
+            if (!sender?.seatId) break;
+            lastEmote.value = { seatId: normalizeSeatId(sender.seatId), emote, at: Date.now() };
+            break;
+          }
+
           case 'ERROR': {
             if (msg.message === 'SEAT_TAKEN') {
               onSeatStolen();
@@ -744,6 +777,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     floorMetaData,
     readers,
     seatSnapshotMap,
+    lastEmote,
     roomID,
     floorZones,
     currentZone,
@@ -753,6 +787,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     getFloorLoadPercent,
     // actions
     sendMove,
+    sendEmote,
     reconnectRoomSession,
     stopWebSocketConnection,
     startFloorPollingTimer,
