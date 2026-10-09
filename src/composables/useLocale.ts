@@ -87,6 +87,7 @@ const translations = {
       followFocusLabel: '跟隨專注自動播放',
       loopLabel: '循環播放',
       autoplayOnLoadLabel: '進頁自動播放',
+      zoneSoundLabel: '換分區時換成該區的環境音',
       defaultTrackLabel: '預設音源',
     },
     seatGrid: {
@@ -212,6 +213,7 @@ const translations = {
       followFocusLabel: 'Auto-play with focus session',
       loopLabel: 'Loop playback',
       autoplayOnLoadLabel: 'Autoplay on page load',
+      zoneSoundLabel: 'Switch to the zone’s ambience when changing zones',
       defaultTrackLabel: 'Default track',
     },
     seatGrid: {

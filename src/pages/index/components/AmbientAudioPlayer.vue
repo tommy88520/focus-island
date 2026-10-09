@@ -69,6 +69,12 @@
           <label
             class="pixel-field flex items-center justify-between px-3 py-2 text-[11px]"
           >
+            {{ t.ambientAudioPlayer.zoneSoundLabel }}
+            <input v-model="zoneSoundEnabled" type="checkbox" class="accent-amber-400" />
+          </label>
+          <label
+            class="pixel-field flex items-center justify-between px-3 py-2 text-[11px]"
+          >
             {{ t.ambientAudioPlayer.followFocusLabel }}
             <input v-model="followFocusPlayback" type="checkbox" class="accent-amber-400" />
           </label>
@@ -142,6 +148,12 @@ const audioAutoPlayOnLoad = computed({
   get: () => props.audio.audioAutoPlayOnLoad.value,
   set: (value: boolean) => {
     props.audio.audioAutoPlayOnLoad.value = value;
+  },
+});
+const zoneSoundEnabled = computed({
+  get: () => props.audio.zoneSoundEnabled.value,
+  set: (value: boolean) => {
+    props.audio.zoneSoundEnabled.value = value;
   },
 });
 const defaultAudioTrack = computed({

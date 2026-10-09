@@ -846,6 +846,7 @@ function formatTime(seconds: number): string {
 
 watch([currentFloor, activeZoneId], () => {
   saveLastLocation(currentFloor.value, activeZoneId.value);
+  audio.playZoneTrack(activeZoneId.value);
   isLoading.value = true;
   void reconnectRoomSession();
 });
@@ -876,6 +877,7 @@ watch(
 );
 
 onMounted(() => {
+  audio.playZoneTrack(activeZoneId.value);
   loadFocusPreferences();
   loadResumeCandidate();
   // 等第一次 reconnectRoomSession 把座位快照抓回來（seatSnapshotMap 才會有

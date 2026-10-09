@@ -117,7 +117,11 @@ type AudioPrefs = {
   followFocusPlayback: boolean;
   audioLoopEnabled: boolean;
   audioAutoPlayOnLoad: boolean;
+  zoneSoundEnabled: boolean;
 };
+
+// 換分區時自動換成符合場景的環境音
+const ZONE_TRACKS: Record<string, AudioTrackKey> = { A: 'forest', B: 'warm', C: 'ocean', D: 'library' };
 
 function isTrackKey(value: unknown): value is AudioTrackKey {
   return typeof value === 'string' && value in audioTracks;
@@ -147,6 +151,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   const followFocusPlayback = ref(true);
   const audioLoopEnabled = ref(true);
   const audioAutoPlayOnLoad = ref(false);
+  const zoneSoundEnabled = ref(true);
 
   const selectedAudioTrackMeta = computed(() => audioTracks[selectedAudioTrack.value]);
   const volumeIconName = computed(() => {
@@ -174,6 +179,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
       followFocusPlayback: followFocusPlayback.value,
       audioLoopEnabled: audioLoopEnabled.value,
       audioAutoPlayOnLoad: audioAutoPlayOnLoad.value,
+      zoneSoundEnabled: zoneSoundEnabled.value,
     };
     localStorage.setItem(AUDIO_PREFS_KEY, JSON.stringify(payload));
   }
@@ -198,6 +204,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
       followFocusPlayback.value = parsed.followFocusPlayback ?? true;
       audioLoopEnabled.value = parsed.audioLoopEnabled ?? true;
       audioAutoPlayOnLoad.value = parsed.audioAutoPlayOnLoad ?? false;
+      zoneSoundEnabled.value = parsed.zoneSoundEnabled ?? true;
     } catch {
       // ignore invalid stored payload
     }
@@ -409,6 +416,13 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     switchTrack();
   }
 
+  // 有在播就直接換過去；沒在播只換選項，不會自己出聲
+  function playZoneTrack(zoneId: string) {
+    const track = ZONE_TRACKS[zoneId.toUpperCase()];
+    if (!zoneSoundEnabled.value || !track || track === selectedAudioTrack.value) return;
+    selectTrack(track);
+  }
+
   function togglePlayback() {
     if (isAudioPlaying.value) {
       stopPlayback();
@@ -444,7 +458,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   }
 
   watch(
-    [selectedAudioTrack, defaultAudioTrack, followFocusPlayback, audioLoopEnabled, audioAutoPlayOnLoad],
+    [selectedAudioTrack, defaultAudioTrack, followFocusPlayback, audioLoopEnabled, audioAutoPlayOnLoad, zoneSoundEnabled],
     () => {
       if (audioElement) {
         audioElement.loop = audioLoopEnabled.value;
@@ -495,6 +509,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     followFocusPlayback,
     audioLoopEnabled,
     audioAutoPlayOnLoad,
+    zoneSoundEnabled,
     selectedAudioTrackMeta,
     volumeIconName,
     startPlayback,
@@ -503,6 +518,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     updateVolume,
     toggleMute,
     selectTrack,
+    playZoneTrack,
   };
 }
 
