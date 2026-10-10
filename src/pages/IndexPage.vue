@@ -735,6 +735,14 @@ watch(
   },
 );
 
+// 今天專注的分鐘數變了：坐著的話重送一次，別人點你的名牌才看得到最新的數字
+watch(
+  () => store.todayFocusedMinutes,
+  () => {
+    if (selectedSeatId.value) librarySocket.sendMove(selectedSeatId.value, store.isRunning ? 'FOCUS' : 'READY');
+  },
+);
+
 // 外觀或勿擾改了：坐著的話重送一次座位訊息，同房間的人才看得到
 watch(
   () => [playerPrefs.value.hair, playerPrefs.value.shirt, playerPrefs.value.doNotDisturb],

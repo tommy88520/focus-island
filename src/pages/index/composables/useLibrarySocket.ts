@@ -2,6 +2,7 @@ import { ref, computed, type ComputedRef, type Ref } from 'vue';
 import type { QVueGlobals } from 'quasar';
 import { useLocale, type LocaleKey } from 'src/composables/useLocale';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
+import { usePomodoroStore } from 'src/stores/pomodoro';
 import {
   clampOccupancy,
   getFloorLoadPercent as getFloorLoadPercentHelper,
@@ -43,17 +44,24 @@ export interface Reader {
   shirt?: number;
   // 開了勿擾：不想被打招呼
   dnd?: boolean;
+  // 名牌小卡：今天專注幾分鐘、連續幾天
+  todayMin?: number;
+  streak?: number;
 }
 
 // 從 JOIN／MOVE／SYNC_ALL 的 payload 讀出外觀與勿擾
-function readerExtras(payload: Record<string, unknown> | undefined): Pick<Reader, 'hair' | 'shirt' | 'dnd'> {
-  const look = (v: unknown) => (Number.isInteger(v) && (v as number) >= 0 ? (v as number) : undefined);
-  const hair = look(payload?.hair);
-  const shirt = look(payload?.shirt);
+function readerExtras(payload: Record<string, unknown> | undefined): Pick<Reader, 'hair' | 'shirt' | 'dnd' | 'todayMin' | 'streak'> {
+  const int = (v: unknown) => (Number.isInteger(v) && (v as number) >= 0 ? (v as number) : undefined);
+  const hair = int(payload?.hair);
+  const shirt = int(payload?.shirt);
+  const todayMin = int(payload?.todayMin);
+  const streak = int(payload?.streak);
   return {
     ...(hair === undefined ? {} : { hair }),
     ...(shirt === undefined ? {} : { shirt }),
     ...(payload?.dnd === true ? { dnd: true } : {}),
+    ...(todayMin === undefined ? {} : { todayMin }),
+    ...(streak === undefined ? {} : { streak }),
   };
 }
 
@@ -120,6 +128,9 @@ export interface RemotePlayer {
   hair?: number;
   shirt?: number;
   dnd?: boolean;
+  todayMin?: number;
+  streak?: number;
+  state?: Reader['state'];
   // 收到的時間，太久沒更新就當作離開了
   at: number;
 }
@@ -473,7 +484,14 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
   }
 
   const playerPrefs = usePlayerPrefs();
-  const myLook = () => ({ hair: playerPrefs.value.hair, shirt: playerPrefs.value.shirt, dnd: playerPrefs.value.doNotDisturb });
+  const pomodoro = usePomodoroStore();
+  const myLook = () => ({
+    hair: playerPrefs.value.hair,
+    shirt: playerPrefs.value.shirt,
+    dnd: playerPrefs.value.doNotDisturb,
+    todayMin: Math.floor(pomodoro.todayFocusedSeconds / 60),
+    streak: pomodoro.currentStreak,
+  });
 
   // 別人在房間裡打的招呼（自己送的不會收到這裡）；場景用座位位置畫泡泡
   const lastEmote = ref<SeatEmote | null>(null);
@@ -762,6 +780,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 ...(pos.lying === true ? { lying: true } : {}),
                 ...(reader ? readerExtras(reader as unknown as Record<string, unknown>) : {}),
                 ...readerExtras(pos),
+                ...(reader ? { state: reader.state } : {}),
                 at: Date.now(),
               },
             };

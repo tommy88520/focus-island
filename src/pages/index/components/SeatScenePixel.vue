@@ -20,6 +20,35 @@
       >
         <q-icon :name="minimapOpen ? 'close' : 'map'" size="18px" />
       </button>
+      <!-- 點別人的名牌：小卡 -->
+      <div
+        v-if="profileCard && !isLoading"
+        class="pixel-panel absolute left-1/2 top-3 z-10 w-[min(18rem,calc(100%-1.5rem))] -translate-x-1/2 p-3"
+        role="dialog"
+        :aria-label="profileCard.name"
+      >
+        <div class="!flex !flex-nowrap items-start justify-between gap-2">
+          <div class="min-w-0">
+            <p class="!mb-0 truncate text-base font-black">{{ profileCard.dnd ? '🔕 ' : '' }}{{ profileCard.name }}</p>
+            <p class="!mb-0 mt-0.5 text-[11px] font-bold text-[color:var(--px-muted)]">{{ profileStatus }}</p>
+          </div>
+          <button type="button" class="shrink-0 text-[color:var(--px-muted)]" :aria-label="t.seatScene.profileClose" @click="closeProfile">
+            <q-icon name="close" size="18px" />
+          </button>
+        </div>
+        <p v-if="profileCard.todayMin !== undefined || profileCard.streak !== undefined" class="!mb-0 mt-2 font-pixel text-[11px]">
+          <span v-if="profileCard.todayMin !== undefined">⏱ {{ t.seatScene.profileToday(profileCard.todayMin) }}</span>
+          <span v-if="profileCard.streak !== undefined" class="ml-3">🔥 {{ t.seatScene.profileStreak(profileCard.streak) }}</span>
+        </p>
+        <button
+          type="button"
+          class="pixel-btn pixel-btn--primary mt-3 h-8 w-full text-xs"
+          :disabled="profileCard.dnd || isQuietZone || disabled"
+          @click="waveFromProfile"
+        >
+          {{ profileCard.dnd ? t.seatScene.profileDnd : isQuietZone ? t.seatScene.profileQuiet : `👋 ${t.seatScene.profileWave}` }}
+        </button>
+      </div>
       <!-- 第一次來的新手引導：四步，看完或略過就不再出現 -->
       <div
         v-if="tourStep !== null && !isLoading"
@@ -303,6 +332,58 @@ function handleStickUp(): void {
   stickKnob.value = { x: 0, y: 0 };
 }
 
+// ── 點別人的名牌 ──
+interface ProfileCard {
+  name: string;
+  state?: Reader['state'];
+  dnd: boolean;
+  todayMin?: number;
+  streak?: number;
+}
+const profileCard = ref<ProfileCard | null>(null);
+const profileStatus = computed(() => {
+  const state = profileCard.value?.state;
+  return state === '專注' ? t.value.seatScene.profileFocusing : state === '休息' ? t.value.seatScene.profileResting : t.value.seatScene.profileIdle;
+});
+
+function openProfile(person: { displayName: string; state?: Reader['state']; dnd?: boolean; todayMin?: number; streak?: number }): void {
+  profileCard.value = {
+    name: person.displayName,
+    dnd: person.dnd === true,
+    ...(person.state ? { state: person.state } : {}),
+    ...(person.todayMin === undefined ? {} : { todayMin: person.todayMin }),
+    ...(person.streak === undefined ? {} : { streak: person.streak }),
+  };
+}
+
+function closeProfile(): void {
+  profileCard.value = null;
+  containerRef.value?.focus({ preventScroll: true });
+}
+
+function waveFromProfile(): void {
+  closeProfile();
+  sendEmote('wave');
+}
+
+// 點到別人：站著的人看頭到腳那一塊，坐著的人用座位
+function pickPerson(point: { x: number; y: number }): boolean {
+  for (const [key, shown] of remoteShown) {
+    const remote = props.remotePlayers[key];
+    if (remote && Math.abs(point.x - shown.x) < 0.6 && point.y > shown.y - 1.4 && point.y < shown.y + 0.4) {
+      openProfile(remote);
+      return true;
+    }
+  }
+  const node = pickSeat(point);
+  const mate = node && node.state === 'mate' ? props.getMateAtSeat(node.seatId) : null;
+  if (mate) {
+    openProfile(mate);
+    return true;
+  }
+  return false;
+}
+
 // ── 新手引導 ──
 const TOUR_KEY = 'focus_island_tour_done_v1';
 const tourStep = ref<number | null>(null);
@@ -569,6 +650,7 @@ function buildMap(): void {
   });
   goalLie = null;
   lyingOn = null;
+  profileCard.value = null;
   riding = null;
   isRiding.value = false;
   goalVehicle = null;
@@ -1964,6 +2046,8 @@ function handleClick(event: MouseEvent): void {
   if (!canInteract()) return;
   const point = toWorld(event);
   if (!point) return;
+  if (pickPerson(point)) return;
+  profileCard.value = null;
   const node = pickSeat(point);
   if (node) {
     walkToSeat(node);
