@@ -20,6 +20,24 @@
       >
         <q-icon :name="minimapOpen ? 'close' : 'map'" size="18px" />
       </button>
+      <!-- 第一次來的新手引導：四步，看完或略過就不再出現 -->
+      <div
+        v-if="tourStep !== null && !isLoading"
+        class="pixel-panel absolute left-1/2 top-3 z-10 w-[min(22rem,calc(100%-1.5rem))] -translate-x-1/2 p-3"
+        role="dialog"
+        :aria-label="t.seatScene.tourTitle"
+      >
+        <p class="!mb-1 font-pixel text-[10px] uppercase text-[color:var(--px-accent-dark)] dark:!text-amber-300">
+          {{ t.seatScene.tourTitle }} · {{ tourStep + 1 }}/{{ tourSteps.length }}
+        </p>
+        <p class="!mb-0 text-sm font-bold leading-snug">{{ tourSteps[tourStep] }}</p>
+        <div class="mt-3 !flex !flex-nowrap justify-end gap-2">
+          <button type="button" class="pixel-btn h-8 px-3 text-xs" @click="finishTour">{{ t.seatScene.tourSkip }}</button>
+          <button type="button" class="pixel-btn pixel-btn--primary h-8 px-3 text-xs" @click="nextTourStep">
+            {{ tourStep + 1 < tourSteps.length ? t.seatScene.tourNext : t.seatScene.tourDone }}
+          </button>
+        </div>
+      </div>
       <!-- 騎車時的下車鍵（手機沒有鍵盤） -->
       <button
         v-if="isRiding && !isLoading"
@@ -217,6 +235,27 @@ const minimapOpen = ref(false);
 // 靜謐森林是完全靜音區：不能打招呼，也不顯示別人的表情
 const isQuietZone = ref(false);
 const isRiding = ref(false);
+
+// ── 新手引導 ──
+const TOUR_KEY = 'focus_island_tour_done_v1';
+const tourStep = ref<number | null>(null);
+const tourSteps = computed(() => (isTouch.value ? t.value.seatScene.tourTouch : t.value.seatScene.tourDesktop));
+
+function finishTour(): void {
+  tourStep.value = null;
+  try {
+    localStorage.setItem(TOUR_KEY, '1');
+  } catch {
+    // ignore storage errors (e.g. private mode)
+  }
+  containerRef.value?.focus({ preventScroll: true });
+}
+
+function nextTourStep(): void {
+  if (tourStep.value === null) return;
+  if (tourStep.value + 1 >= tourSteps.value.length) finishTour();
+  else tourStep.value += 1;
+}
 // 走到電梯口會跳出樓層按鈕；走開就收起來
 const elevatorOpen = ref(false);
 const elevatorFloors = computed(() => [...props.floors].sort((a, b) => a - b));
@@ -1936,6 +1975,11 @@ onMounted(() => {
     return;
   }
   isTouch.value = window.matchMedia('(pointer: coarse)').matches;
+  try {
+    if (!localStorage.getItem(TOUR_KEY)) tourStep.value = 0;
+  } catch {
+    // 讀不到儲存空間就不顯示引導
+  }
   readTheme();
   rebuildMap();
   void loadImage(KENNEY_SHEET_URL)
