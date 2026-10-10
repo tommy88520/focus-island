@@ -195,8 +195,9 @@ const translations = {
       stationPrompt: '回到圖書館？',
       goBack: '搭車回去',
       yourCar: '你的賽車 · E 上車',
+      vipSeats: 'VIP 看台 · 點座位坐下專注',
       getOut: '下車',
-      hintDesktop: 'WASD／方向鍵移動 · 走到黃色賽車旁按 E 上車 · 開車時方向鍵指哪就往哪開 · 從左往右通過起終點線開始計時',
+      hintDesktop: 'WASD／方向鍵移動 · 走到黃色賽車旁按 E 上車 · 點 VIP 看台座位坐下專注 · 開車時方向鍵指哪就往哪開 · 從左往右通過起終點線開始計時',
       hintTouch: '用右下角搖桿移動 · 點黃色賽車上車 · 開車時搖桿指哪就往哪開',
     },
     floorTabs: {
@@ -415,8 +416,9 @@ const translations = {
       stationPrompt: 'Head back to the library?',
       goBack: 'Take the train back',
       yourCar: 'Your car · E to drive',
+      vipSeats: 'VIP stand · tap a seat to sit and focus',
       getOut: 'Get out',
-      hintDesktop: 'WASD / arrows to move · press E next to the yellow car to drive · the car heads where you point · cross the start line left to right to start timing',
+      hintDesktop: 'WASD / arrows to move · press E next to the yellow car to drive · click a VIP seat to sit and focus · the car heads where you point · cross the start line left to right to start timing',
       hintTouch: 'Move with the joystick · tap the yellow car to drive · the car heads where you point the stick',
     },
     floorTabs: {

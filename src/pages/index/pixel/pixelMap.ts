@@ -5,7 +5,7 @@ import type { Rect } from 'src/pages/index/composables/seatNavigation';
 import { createOutdoorWorld, outdoorAreaAt, type OutdoorAreaId, type OutdoorWorld } from './pixelWorld';
 
 export type Facing = 'up' | 'down' | 'left' | 'right';
-export type SeatKind = 'chair' | 'stool' | 'pouf' | 'armchair';
+export type SeatKind = 'chair' | 'stool' | 'pouf' | 'armchair' | 'bench' | 'plasticStool' | 'beachChair';
 
 export interface SeatSlot {
   kind: SeatKind;
@@ -143,6 +143,11 @@ export interface PixelMap {
 export const TILE = 16;
 export const WALL_ROWS = 3;
 const BASE_HEIGHT = 18;
+// 每個分區的座位數：圖書館 18 + 101 6 + 動物園 6 + 夜市 12 + 海灘 8 + F1 6（跟後端 seatsPerZone 一樣）
+export const LIBRARY_SEATS = 18;
+export const F1_SEAT_START = 50;
+export const F1_SEAT_COUNT = 6;
+export const SEATS_PER_ZONE = F1_SEAT_START + F1_SEAT_COUNT;
 const DECK_ROWS = 2;
 const SAND_ROWS = 8;
 const SEA_ROWS = 4;
@@ -211,23 +216,7 @@ export function createPixelMap(
     { tx: 23, ty: 5, w: 7, h: 5, color: 'slate' },
   ];
 
-  const seats = base.slice(0, seatCount);
-
-  // 超過預設座位數：在右下角往下加一張張 2×2 方桌，圖書館跟著變高
-  let height = BASE_HEIGHT;
-  const extraTables = Math.ceil(Math.max(0, seatCount - base.length) / 4);
-  const columns = [22, 26];
-  for (let i = 0; i < extraTables; i += 1) {
-    const tx = columns[i % columns.length] ?? 22;
-    const ty = 12 + Math.floor(i / columns.length) * 5;
-    props.push(table(tx, ty));
-    for (const slot of tableSeats(tx, ty)) {
-      if (seats.length < seatCount) seats.push(slot);
-    }
-    height = Math.max(height, ty + 6);
-  }
-
-  const libraryHeight = height;
+  const libraryHeight = BASE_HEIGHT;
   const beach: Beach = {
     wallRow: libraryHeight - 1,
     door: [DOOR_X, DOOR_X + 2],
@@ -236,9 +225,8 @@ export function createPixelMap(
     sandTop: libraryHeight + DECK_ROWS,
     seaTop: libraryHeight + DECK_ROWS + SAND_ROWS,
   };
-  // 懶骨頭區：右下角空地，一塊地毯、四顆懶骨頭圍一張小圓桌。
-  // 座位多到要往右下角加桌子時那裡會被佔掉，就不擺了
-  if (extraTables === 0) {
+  // 懶骨頭區：右下角空地，一塊地毯、四顆懶骨頭圍一張小圓桌
+  {
     const bx = 22;
     const by = 11;
     rugs.push({ tx: bx, ty: by, w: 7, h: 5, color: 'slate' });
@@ -253,6 +241,39 @@ export function createPixelMap(
   }
 
   props.push(...beachProps(beach));
+
+  // 座位：圖書館 18 個之後依序是 101、動物園、夜市、海灘（F1 賽車場的在 F1Scene 裡）。
+  // 座位編號（{room}-{NN}）跟這個順序一一對應，不要調換順序
+  const R = MAP_WIDTH;
+  const s = beach.sandTop;
+  const outdoor: SeatSlot[] = [
+    // 101：兩張長椅 + 露天咖啡座
+    { kind: 'bench', tx: -4, ty: -9, facing: 'down' },
+    { kind: 'bench', tx: -3, ty: -9, facing: 'down' },
+    { kind: 'bench', tx: -4, ty: 15, facing: 'down' },
+    { kind: 'bench', tx: -3, ty: 15, facing: 'down' },
+    { kind: 'chair', tx: -6, ty: 8, facing: 'right' },
+    { kind: 'chair', tx: -4, ty: 8, facing: 'left' },
+    // 動物園：三張長椅
+    { kind: 'bench', tx: R + 2, ty: -4, facing: 'down' },
+    { kind: 'bench', tx: R + 3, ty: -4, facing: 'down' },
+    { kind: 'bench', tx: R + 2, ty: 4, facing: 'down' },
+    { kind: 'bench', tx: R + 3, ty: 4, facing: 'down' },
+    { kind: 'bench', tx: R + 3, ty: 13, facing: 'down' },
+    { kind: 'bench', tx: R + 4, ty: 13, facing: 'down' },
+    // 士林夜市：三張折疊桌，每桌四張紅色塑膠椅
+    ...[3, 9, 15].flatMap((x): SeatSlot[] => [
+      { kind: 'plasticStool', tx: x - 1, ty: -4, facing: 'right' },
+      { kind: 'plasticStool', tx: x - 1, ty: -3, facing: 'right' },
+      { kind: 'plasticStool', tx: x + 1, ty: -4, facing: 'left' },
+      { kind: 'plasticStool', tx: x + 1, ty: -3, facing: 'left' },
+    ]),
+    // 海灘：左右兩側延伸出去的沙灘，各兩組陽傘下的沙灘椅（面向海）
+    ...[-10, -9, -6, -5, R + 4, R + 5, R + 8, R + 9].map((x): SeatSlot => ({ kind: 'beachChair', tx: x, ty: s + 3, facing: 'down' })),
+  ];
+  props.push({ kind: 'roundTable', tx: -5, ty: 8, w: 1, h: 1, blocks: true });
+  for (const x of [-10, -6, R + 4, R + 8]) props.push({ kind: 'umbrella', tx: x, ty: s + 2, w: 1, h: 1, blocks: false, variant: x < 0 ? 0 : 1 });
+  const seats = [...base, ...outdoor].slice(0, seatCount);
 
   return {
     theme,

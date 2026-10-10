@@ -225,7 +225,10 @@ import {
   getAvatarFrame,
   loadImage,
   paintCampfire,
+  paintBeachChair,
+  paintBenchSeat,
   paintCounter,
+  paintPlasticStool,
   paintVehicle,
   paintElevatorDoors,
   paintEscalatorSteps,
@@ -1533,6 +1536,12 @@ function seatDrawables(node: SeatNode, seconds: number): Drawable[] {
     if (slot.kind === 'chair') {
       const tile = slot.facing === 'down' ? 'chairDown' : slot.facing === 'up' ? 'chairUp' : slot.facing === 'right' ? 'chairRight' : 'chairLeft';
       drawKenney(c, sheet, tile, x, y);
+    } else if (slot.kind === 'bench') {
+      paintBenchSeat(c, x, y);
+    } else if (slot.kind === 'plasticStool') {
+      paintPlasticStool(c, x, y);
+    } else if (slot.kind === 'beachChair') {
+      paintBeachChair(c, x, y);
     } else if (slot.kind === 'stool') {
       if (map.theme === 'forest') paintStump(c, x, y);
       else paintStool(c, x, y);
@@ -1550,7 +1559,7 @@ function seatDrawables(node: SeatNode, seconds: number): Drawable[] {
   const drawPerson = (c: CanvasRenderingContext2D) => {
     if (!occupied) return;
     const breathe = Math.sin(seconds * 1.6 + node.index) > 0.92 ? 1 : 0;
-    const lift = slot.kind === 'pouf' ? 5 : slot.kind === 'armchair' ? 6 : slot.facing === 'up' ? 2 : 4;
+    const lift = slot.kind === 'pouf' ? 5 : slot.kind === 'armchair' ? 6 : slot.kind === 'beachChair' ? 3 : slot.facing === 'up' ? 2 : 4;
     drawAvatar(c, node.colors, slot.facing, 'idle', x + 8, y + TILE - lift + breathe, true);
   };
   const drawGlow = (c: CanvasRenderingContext2D) => {

@@ -15,9 +15,9 @@ import {
 import { fetchSeatSnapshotAction, type SeatSnapshotItem } from 'src/pages/index/actions/seatSnapshotActions';
 import { fetchWebSocketTokenAction } from 'src/pages/index/actions/webSocketTokenActions';
 
-const DEFAULT_FLOOR_CAPACITY = 60;
+const DEFAULT_FLOOR_CAPACITY = 224;
 const TOKEN_RETRY_DELAYS_MS = [2000, 5000, 10000];
-const DEFAULT_ZONE_CAPACITY = 15;
+const DEFAULT_ZONE_CAPACITY = 56;
 const FLOOR_POLL_INTERVAL_ACTIVE_MS = 8000;
 const FLOOR_POLL_INTERVAL_BACKGROUND_MS = 30000;
 const WS_HEARTBEAT_INTERVAL_MS = 25000;

@@ -493,6 +493,31 @@ export function paintArmchairBack(ctx: CanvasRenderingContext2D, x: number, y: n
   px(ctx, outline, x + 12, y + 15, 2, 1);
 }
 
+// 戶外的座位：公園長椅（一格一段，兩格拼成一張）、夜市紅色塑膠椅、沙灘椅
+export function paintBenchSeat(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  px(ctx, 'rgba(0,0,0,0.15)', x, y + 13, 16, 2);
+  px(ctx, '#6b4428', x, y + 2, 16, 3);
+  px(ctx, '#9a6a43', x, y + 7, 16, 5);
+  px(ctx, '#b48a5c', x, y + 7, 16, 1);
+  px(ctx, '#3a3d45', x + 3, y + 12, 2, 3);
+  px(ctx, '#3a3d45', x + 11, y + 12, 2, 3);
+}
+
+export function paintPlasticStool(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  px(ctx, 'rgba(0,0,0,0.15)', x + 3, y + 13, 10, 2);
+  px(ctx, '#b8402f', x + 4, y + 9, 2, 5);
+  px(ctx, '#b8402f', x + 10, y + 9, 2, 5);
+  px(ctx, '#e25a4a', x + 3, y + 5, 10, 5);
+  px(ctx, '#f07a6a', x + 4, y + 5, 8, 2);
+}
+
+export function paintBeachChair(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  px(ctx, 'rgba(0,0,0,0.15)', x + 1, y + 13, 14, 2);
+  px(ctx, '#d9b07a', x + 2, y + 1, 2, 14);
+  px(ctx, '#d9b07a', x + 12, y + 1, 2, 14);
+  for (let i = 0; i < 8; i += 1) px(ctx, i % 2 === 0 ? '#2fb3a6' : '#f4eee2', x + 4 + i, y + 2, 1, 10);
+}
+
 export function paintFloorLamp(ctx: CanvasRenderingContext2D, x: number, y: number): void {
   px(ctx, '#2b2d33', x + 5, y + 13, 6, 2);
   px(ctx, '#3a3d45', x + 7, y - 6, 2, 19);

@@ -112,14 +112,13 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
     prop('youbike', 19, 15, 3, 1),
     prop('youbike', 26, -2, 3, 1),
     prop('youbike', R + 1, 7, 3, 1),
-    prop('bench', -4, -9, 2, 1, true),
-    prop('bench', -4, 15, 2, 1, true),
     ...[-10, -5, 4, 9, 14].map((y) => prop('streetTree', -2, y)),
     ...[-10, -2, 4].map((y) => prop('streetTree', -13, y)),
     // ── 士林夜市 ──
     // 北邊一排八個攤位（各有一個老闆），南邊是吃東西的桌椅和撈金魚
     ...[1, 5, 9, 13, 17, 21, 25, 29].map((x, i) => prop('stall', x, -10, 3, 2, true, i)),
-    ...[2, 8, 14].map((x) => prop('tableSet', x, -4, 3, 2, true)),
+    // 桌子只佔中間那格，旁邊的紅色塑膠椅是座位（在 pixelMap 的座位清單裡）
+    ...[3, 9, 15].map((x) => prop('tableSet', x, -4, 1, 2, true)),
     prop('goldfish', 20, -4, 4, 2, true),
     ...[0, 8, 16, 24, 31].map((x) => prop('lanternPole', x, -7, 1, 1, true)),
     // ── 動物園 ──
@@ -132,7 +131,6 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
     prop('zooTree', R + 3, 15),
     prop('zooTree', R + 14, 7),
     prop('rock', R + 9, 1, 2, 1, false),
-    prop('bench', R + 2, -4, 2, 1, true),
   ];
 
   const walkers: Walker[] = [
@@ -513,18 +511,15 @@ export function paintOutdoorProp(ctx: CanvasRenderingContext2D, prop: OutdoorPro
       px(ctx, '#3a3d45', x + w - 4, y + 12, 2, 3);
       break;
     case 'tableSet': {
-      // 夜市吃東西的折疊桌 + 四張塑膠椅
-      px(ctx, 'rgba(0,0,0,0.18)', x + 8, y + 22, 32, 4);
-      for (const [sx, sy] of [[2, 4], [38, 4], [2, 20], [38, 20]] as const) {
-        px(ctx, '#e25a4a', x + sx, y + sy, 8, 6);
-        px(ctx, '#f07a6a', x + sx + 1, y + sy, 6, 2);
-      }
-      px(ctx, '#d9d4c8', x + 10, y + 6, 28, 16);
-      px(ctx, '#f4eee2', x + 11, y + 7, 26, 4);
-      px(ctx, '#ffffff', x + 14, y + 12, 6, 4);
-      px(ctx, '#c98a3c', x + 15, y + 13, 4, 2);
-      px(ctx, '#e9dcc4', x + 26, y + 10, 4, 7);
-      px(ctx, '#3b2a20', x + 26, y + 15, 4, 2);
+      // 夜市吃東西的折疊桌（佔中間那格，桌面往兩側伸出去一點）
+      px(ctx, 'rgba(0,0,0,0.18)', x - 4, y + 26, 24, 4);
+      px(ctx, '#9aa3b2', x - 6, y + 4, 28, 22);
+      px(ctx, '#d9d4c8', x - 5, y + 4, 26, 20);
+      px(ctx, '#f4eee2', x - 4, y + 5, 24, 4);
+      px(ctx, '#ffffff', x - 2, y + 11, 6, 4);
+      px(ctx, '#c98a3c', x - 1, y + 12, 4, 2);
+      px(ctx, '#e9dcc4', x + 10, y + 13, 4, 7);
+      px(ctx, '#3b2a20', x + 10, y + 18, 4, 2);
       break;
     }
     case 'goldfish': {

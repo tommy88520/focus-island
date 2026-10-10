@@ -56,13 +56,22 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import type { Reader } from 'src/pages/index/composables/useLibrarySocket';
+import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
-import { AVATAR_SIZE, getAvatarFrame, lookColors } from 'src/pages/index/pixel/pixelArt';
+import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, SEATED_ROWS } from 'src/pages/index/pixel/pixelArt';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
 
-const emit = defineEmits<{ leave: [] }>();
+// 看台的座位跟圖書館的一樣是這個分區的座位（同步給所有人），只是畫在賽車場裡
+const props = defineProps<{
+  seats: Seat[];
+  selectedSeatId: string | null;
+  disabled: boolean;
+  getMateAtSeat: (seatId: string) => Reader | null | undefined;
+}>();
+const emit = defineEmits<{ leave: []; select: [seatId: string] }>();
 const { t } = useLocale();
 const prefs = usePlayerPrefs();
 
@@ -103,6 +112,8 @@ const BLOCKS = [
 ];
 const STATION = { x0: 2, y0: 1.5, x1: 6, y1: 4, trigger: { x: 4, y: 5 } };
 const CAR_HOME = { x: 23, y: 5.7, angle: 0 };
+// VIP 看台的座位：內場看台前面一排，面向看台後方的賽道
+const SEAT_SPOTS = Array.from({ length: 6 }, (_, i) => ({ x: 20.5 + i * 2.2, y: 17.4 }));
 const NPC_CARS = [
   { color: '#d72d2d', accent: '#f6c945', speed: 10.5, offset: 0 },
   { color: '#2fb3a6', accent: '#2b2d33', speed: 11.2, offset: 0.25 },
@@ -141,12 +152,18 @@ function distanceToTrack(x: number, y: number): number {
 }
 
 const blocked = (x: number, y: number) =>
+  SEAT_SPOTS.some((s) => Math.abs(x - s.x) < 0.45 && Math.abs(y - s.y) < 0.45) ||
   x < 0.5 || y < 0.5 || x > W - 0.5 || y > H - 0.5 || BLOCKS.some((b) => x > b.x0 && x < b.x1 && y > b.y0 && y < b.y1) || (x > STATION.x0 && x < STATION.x1 && y > STATION.y0 && y < STATION.y1);
 
 // ── 自己 ──
 const me = { x: STATION.trigger.x + 1.5, y: STATION.trigger.y + 0.5, facing: 'down' as 'up' | 'down' | 'left' | 'right', moving: false, walkClock: 0 };
 const car = { x: CAR_HOME.x, y: CAR_HOME.y, angle: CAR_HOME.angle, speed: 0 };
 let stationLock = false;
+// 坐在第幾個看台座位上（null = 站著）；走過去要坐的那個
+let seatedIndex: number | null = null;
+let walkTarget: number | null = null;
+// 走向座位時卡住多久了（被看台擋住就直接坐過去）
+let stuckFor = 0;
 let lapStart: number | null = null;
 let lastX = car.x;
 
@@ -244,15 +261,86 @@ function updateCar(dt: number, now: number): void {
   currentLap.value = lapStart === null ? null : now - lapStart;
 }
 
+function seatState(i: number): 'empty' | 'me' | 'mate' | 'taken' {
+  const seat = props.seats[i];
+  if (!seat) return 'taken';
+  if (props.selectedSeatId === seat.id) return 'me';
+  if (props.getMateAtSeat(seat.id)) return 'mate';
+  return seat.available ? 'empty' : 'taken';
+}
+
+function sitAt(i: number): void {
+  const seat = props.seats[i];
+  const spot = SEAT_SPOTS[i];
+  if (!seat || !spot) return;
+  seatedIndex = i;
+  walkTarget = null;
+  me.x = spot.x;
+  me.y = spot.y;
+  me.facing = 'up';
+  if (props.selectedSeatId !== seat.id) emit('select', seat.id);
+}
+
+function standUp(): void {
+  const spot = seatedIndex === null ? null : SEAT_SPOTS[seatedIndex];
+  seatedIndex = null;
+  if (spot) {
+    me.x = spot.x;
+    me.y = spot.y + 1;
+  }
+}
+
+function nearestSeat(): number | null {
+  let best: number | null = null;
+  let bestDist = 1.4;
+  SEAT_SPOTS.forEach((spot, i) => {
+    const d = Math.hypot(me.x - spot.x, me.y - (spot.y + 1));
+    if (d < bestDist && seatState(i) === 'empty') {
+      bestDist = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
 function updateWalk(dt: number): void {
-  const { x, y } = input();
+  // 開始專注時人還沒坐好：直接坐回自己的看台座位
+  if (props.disabled && seatedIndex === null) {
+    const mine = props.seats.findIndex((s) => s.id === props.selectedSeatId);
+    if (mine >= 0) sitAt(mine);
+  }
+  let { x, y } = input();
+  if (seatedIndex !== null) {
+    if ((x === 0 && y === 0) || props.disabled) return;
+    standUp();
+  }
+  // 點了座位：自己走過去（場地空曠，直線走）
+  if (x === 0 && y === 0 && walkTarget !== null) {
+    const spot = SEAT_SPOTS[walkTarget];
+    if (spot) {
+      x = spot.x - me.x;
+      y = spot.y + 1 - me.y;
+      if (Math.hypot(x, y) < 0.2 || stuckFor > 0.5) {
+        const target = walkTarget;
+        walkTarget = null;
+        stuckFor = 0;
+        if (seatState(target) === 'empty') sitAt(target);
+        return;
+      }
+    }
+  } else if (x !== 0 || y !== 0) {
+    walkTarget = null;
+  }
   me.moving = x !== 0 || y !== 0;
   if (me.moving) {
     const length = Math.hypot(x, y);
     const nx = me.x + (x / length) * 4.2 * dt;
     const ny = me.y + (y / length) * 4.2 * dt;
+    const beforeX = me.x;
+    const beforeY = me.y;
     if (!blocked(nx, me.y)) me.x = nx;
     if (!blocked(me.x, ny)) me.y = ny;
+    stuckFor = walkTarget !== null && Math.hypot(me.x - beforeX, me.y - beforeY) < 0.01 ? stuckFor + dt : 0;
     me.facing = Math.abs(x) > Math.abs(y) ? (x > 0 ? 'right' : 'left') : y > 0 ? 'down' : 'up';
     me.walkClock += dt;
   }
@@ -368,6 +456,31 @@ function drawF1(c: CanvasRenderingContext2D, x: number, y: number, angle: number
   c.restore();
 }
 
+// VIP 看台座位：紅色桶型座椅；有人坐著就畫出上半身
+function drawSeat(c: CanvasRenderingContext2D, i: number, seconds: number): void {
+  const spot = SEAT_SPOTS[i];
+  if (!spot) return;
+  const x = Math.round(spot.x * T);
+  const y = Math.round(spot.y * T);
+  const state = seatState(i);
+  const occupied = state === 'mate' || state === 'taken' || (state === 'me' && seatedIndex === i);
+  px(c, 'rgba(0,0,0,0.2)', x - 7, y + 6, 14, 3);
+  px(c, '#3a3d45', x - 1, y + 3, 2, 5);
+  px(c, '#d72d2d', x - 6, y - 4, 12, 8);
+  px(c, '#f06a5a', x - 5, y - 4, 10, 2);
+  if (state === 'me' && seatedIndex !== i) {
+    // 自己的位子但人不在：底下閃黃光
+    c.fillStyle = `rgba(251, 191, 36, ${0.35 + Math.sin(seconds * 3) * 0.15})`;
+    c.fillRect(x - 7, y + 6, 14, 2);
+  }
+  if (!occupied) return;
+  const mate = props.seats[i] ? props.getMateAtSeat(props.seats[i]?.id ?? '') : null;
+  const colors = state === 'me' ? lookColors(prefs.value.hair, prefs.value.shirt) : mate ? avatarColorsFor(mate.displayName) : { hair: '#6b7280', hairLight: '#8b93a1', shirt: '#94a3b8', shirtShade: '#6f7d91' };
+  const sprite = getAvatarFrame(colors, 'up', 'idle');
+  c.drawImage(sprite, 0, 0, AVATAR_SIZE.w, SEATED_ROWS, x - AVATAR_SIZE.w / 2, y + 2 - SEATED_ROWS, AVATAR_SIZE.w, SEATED_ROWS);
+  px(c, '#d72d2d', x - 6, y - 1, 12, 5);
+}
+
 function drawMe(c: CanvasRenderingContext2D): void {
   const colors = lookColors(prefs.value.hair, prefs.value.shirt);
   const frame = me.moving ? (Math.floor(me.walkClock / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
@@ -427,7 +540,8 @@ function render(seconds: number): void {
     items.push({ y: p.y, draw: () => drawF1(c, p.x, p.y, p.angle, npc.color, npc.accent) });
   });
   items.push({ y: car.y, draw: () => drawF1(c, car.x, car.y, car.angle, '#f6c945', '#2b2d33') });
-  if (!driving.value) items.push({ y: me.y + 0.35, draw: () => drawMe(c) });
+  SEAT_SPOTS.forEach((spot, i) => items.push({ y: spot.y + 0.4, draw: () => drawSeat(c, i, seconds) }));
+  if (!driving.value && seatedIndex === null) items.push({ y: me.y + 0.35, draw: () => drawMe(c) });
   items.sort((a, b) => a.y - b.y).forEach((item) => item.draw());
 
   // 名牌（螢幕座標）
@@ -439,6 +553,14 @@ function render(seconds: number): void {
   if (!driving.value) pill(ctx, t.value.f1.yourCar, cp.x, cp.y, '#fbbf24');
   const mp = driving.value ? screen(car.x, car.y - 0.8) : screen(me.x, me.y - 1);
   pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
+  const vp = screen(SEAT_SPOTS[0] ? (SEAT_SPOTS[0].x + (SEAT_SPOTS[SEAT_SPOTS.length - 1]?.x ?? 0)) / 2 : 0, 18.9);
+  pill(ctx, t.value.f1.vipSeats, vp.x, vp.y + 22, '#2dd4bf');
+  SEAT_SPOTS.forEach((spot, i) => {
+    const mate = props.seats[i] ? props.getMateAtSeat(props.seats[i]?.id ?? '') : null;
+    if (!mate) return;
+    const p = screen(spot.x, spot.y - 1.1);
+    pill(c, mate.displayName, p.x, p.y, '#2dd4bf');
+  });
 }
 
 let rafId = 0;
@@ -481,7 +603,12 @@ function onKeyDown(event: KeyboardEvent): void {
   if (event.code === 'KeyE' || event.code === 'Space') {
     event.preventDefault();
     if (driving.value) getOut();
+    else if (seatedIndex !== null) standUp();
     else if (nearCar()) getIn();
+    else {
+      const seat = nearestSeat();
+      if (seat !== null) sitAt(seat);
+    }
   }
 }
 
@@ -497,7 +624,16 @@ function handleClick(event: MouseEvent): void {
   if (!rect || driving.value) return;
   const x = (event.clientX - rect.left - view.ox) / view.scale / T;
   const y = (event.clientY - rect.top - view.oy) / view.scale / T;
-  if (Math.hypot(x - car.x, y - car.y) < 1.5 && nearCar()) getIn();
+  if (Math.hypot(x - car.x, y - car.y) < 1.5 && nearCar()) {
+    getIn();
+    return;
+  }
+  // 點看台座位：走過去坐
+  const seat = SEAT_SPOTS.findIndex((s) => Math.abs(x - s.x) < 0.6 && y > s.y - 1.4 && y < s.y + 0.6);
+  if (seat >= 0 && seatState(seat) === 'empty' && !props.disabled) {
+    if (seatedIndex !== null) standUp();
+    walkTarget = seat;
+  }
 }
 
 function updateStick(event: PointerEvent): void {
@@ -541,12 +677,23 @@ onMounted(() => {
   ground = paintGround();
   // 一抵達就站在車站旁：先走開才會再跳出回程面板
   stationLock = true;
+  // 上次就坐在看台上：直接坐回去
+  const mine = props.seats.findIndex((s) => s.id === props.selectedSeatId);
+  if (mine >= 0) sitAt(mine);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', clearKeys);
   containerRef.value?.focus({ preventScroll: true });
   rafId = requestAnimationFrame(frame);
 });
+
+// 座位被釋放（例如換房間）時，人還坐著就站起來
+watch(
+  () => props.selectedSeatId,
+  (id) => {
+    if (seatedIndex !== null && props.seats[seatedIndex]?.id !== id) standUp();
+  },
+);
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(rafId);

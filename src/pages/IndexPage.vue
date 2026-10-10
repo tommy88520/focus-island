@@ -32,7 +32,15 @@
             @update:active-zone-id="activeZoneId = $event"
           />
 
-          <F1Scene v-if="useCanvasScene && sceneLocation === 'f1'" @leave="sceneLocation = 'library'" />
+          <F1Scene
+            v-if="useCanvasScene && sceneLocation === 'f1'"
+            :seats="currentSeats.slice(F1_SEAT_START, F1_SEAT_START + F1_SEAT_COUNT)"
+            :selected-seat-id="selectedSeatId"
+            :disabled="store.isRunning"
+            :get-mate-at-seat="librarySocket.getMateAtSeat"
+            @select="selectSeat"
+            @leave="sceneLocation = 'library'"
+          />
           <SeatScenePixel
             v-else-if="useCanvasScene"
             :seats="currentSeats"
@@ -122,6 +130,7 @@ import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTa
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
 import SeatScenePixel from 'src/pages/index/components/SeatScenePixel.vue';
 import F1Scene from 'src/pages/index/components/F1Scene.vue';
+import { F1_SEAT_COUNT, F1_SEAT_START, LIBRARY_SEATS, SEATS_PER_ZONE } from 'src/pages/index/pixel/pixelMap';
 import SeatGrid, { type Seat } from 'src/pages/index/components/SeatGrid.vue';
 import FocusClockPanel from 'src/pages/index/components/FocusClockPanel.vue';
 import { useLibrarySocket, buildSeatId } from 'src/pages/index/composables/useLibrarySocket';
@@ -141,7 +150,7 @@ const { t, locale } = useLocale();
 const playerPrefs = usePlayerPrefs();
 
 const store = usePomodoroStore();
-const DEFAULT_ZONE_CAPACITY = 15;
+const DEFAULT_ZONE_CAPACITY = SEATS_PER_ZONE;
 
 // --- 狀態控制 ---
 // 進站時如果本地記得上一次選的座位，樓層/分區直接從那裡帶入，這樣
@@ -692,7 +701,21 @@ const sceneLocation = ref<'library' | 'f1'>('library');
 watch(
   () => store.isRunning,
   (running) => {
-    if (running) sceneLocation.value = 'library';
+    if (running) sceneLocation.value = isF1Seat(selectedSeatId.value) ? 'f1' : 'library';
+  },
+);
+
+// 座位編號落在 F1 那段的就是 F1 賽車場的看台座位
+function isF1Seat(seatId: string | null): boolean {
+  const n = Number(seatId?.split('-').pop());
+  return Number.isFinite(n) && n > F1_SEAT_START && n <= F1_SEAT_START + F1_SEAT_COUNT;
+}
+
+// 上次坐的是 F1 看台：一進來就回到賽車場坐好
+watch(
+  () => selectedSeatId.value,
+  (id) => {
+    if (isF1Seat(id)) sceneLocation.value = 'f1';
   },
 );
 
@@ -822,7 +845,8 @@ function selectSeat(id: string) {
 function autoAssignSeatOnLoad() {
   if (selectedSeatId.value || store.isRunning) return;
 
-  const availableSeats = currentSeats.value.filter((seat) => seat.available);
+  // 一進來自動入座只挑圖書館裡的位子（戶外和 F1 的要自己走過去坐）
+  const availableSeats = currentSeats.value.filter((seat, index) => seat.available && index < LIBRARY_SEATS);
   if (availableSeats.length === 0) return;
 
   const lastSeatId = initialLastSeat?.seatId ?? null;
