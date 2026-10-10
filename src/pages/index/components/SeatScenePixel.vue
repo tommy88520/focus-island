@@ -227,6 +227,8 @@ const props = defineProps<{
   remotePlayers: Record<string, RemotePlayer>;
   // 有人剛進房：要再送一次自己的位置
   peerJoinedAt: number;
+  // 正在播雨聲：場景跟著下雨
+  raining: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -1544,14 +1546,16 @@ function playerDrawable(seconds: number): Drawable | null {
   };
 }
 
-function drawNightLighting(c: CanvasRenderingContext2D, seconds: number): void {
+// tint：整張圖乘上去的色調；lamps：燈光的強度（黃昏時燈剛點起來，比較弱）
+function drawNightLighting(c: CanvasRenderingContext2D, seconds: number, tint = NIGHT_TINT[map.theme], lamps = 1): void {
   const w = map.width * TILE;
   const h = map.height * TILE;
   c.save();
   c.globalCompositeOperation = 'multiply';
-  c.fillStyle = NIGHT_TINT[map.theme];
+  c.fillStyle = tint;
   c.fillRect(0, 0, w, h);
   c.globalCompositeOperation = 'lighter';
+  c.globalAlpha = lamps;
   const glow = (x: number, y: number, r: number, color: string) => {
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, color);
@@ -1569,6 +1573,50 @@ function drawNightLighting(c: CanvasRenderingContext2D, seconds: number): void {
   const tvX = (map.tv.tx + map.tv.w / 2) * TILE;
   glow(tvX, TILE * 3, 60, `rgba(${TV_GLOW[map.theme]}, ${0.2 + Math.sin(seconds * 0.8) * 0.03})`);
   for (const [y0, y1] of map.windows) glow(TILE, ((y0 + y1) / 2) * TILE, 40, 'rgba(150, 180, 255, 0.14)');
+  c.restore();
+}
+
+// 場景的光線：跟著真實時間（清晨、傍晚是黃昏），或跟著網站的深淺色
+const DUSK_TINT = '#f0c9a8';
+function lightingNow(): 'day' | 'dusk' | 'night' {
+  if (!playerPrefs.value.sceneClock) return dark ? 'night' : 'day';
+  const hour = new Date().getHours() + new Date().getMinutes() / 60;
+  if (hour >= 19 || hour < 5) return 'night';
+  if (hour >= 17 || hour < 7) return 'dusk';
+  return 'day';
+}
+
+// 下雨：海灘上整片斜斜的雨絲、海面和沙上的小水花；室內只看得到窗戶上的雨痕
+function drawRain(c: CanvasRenderingContext2D, seconds: number): void {
+  const w = map.width * TILE;
+  const top = map.libraryHeight * TILE;
+  const h = map.height * TILE - top;
+  c.save();
+  c.fillStyle = 'rgba(40, 60, 90, 0.18)';
+  c.fillRect(0, top, w, h);
+  c.fillStyle = 'rgba(210, 225, 255, 0.55)';
+  for (let i = 0; i < 160; i += 1) {
+    const x = (i * 97 + seconds * 40) % w;
+    const y = top + ((i * 53 + seconds * 220) % h);
+    c.fillRect(Math.round(x), Math.round(y), 1, 4);
+    c.fillRect(Math.round(x) - 1, Math.round(y) + 4, 1, 2);
+  }
+  for (let i = 0; i < 26; i += 1) {
+    const phase = (seconds * 1.7 + i * 0.29) % 1;
+    if (phase > 0.35) continue;
+    const x = (i * 131 + Math.floor(seconds * 1.7 + i * 0.29) * 47) % w;
+    const y = top + ((i * 71) % h);
+    c.fillRect(x - 2, y, 1, 1);
+    c.fillRect(x + 2, y, 1, 1);
+    c.fillRect(x, y - 1, 1, 1);
+  }
+  c.fillStyle = 'rgba(220, 235, 255, 0.7)';
+  for (const [y0, y1] of map.windows) {
+    for (let i = 0; i < 6; i += 1) {
+      const y = y0 * TILE + ((i * 13 + seconds * 18) % ((y1 - y0) * TILE));
+      c.fillRect(5 + (i % 3) * 2, Math.round(y), 1, 3);
+    }
+  }
   c.restore();
 }
 
@@ -1623,7 +1671,7 @@ function renderMinimap(seconds: number): void {
     c.fillStyle = color;
     c.fillRect(prop.tx * TILE + 1, prop.ty * TILE + 1, prop.w * TILE - 2, prop.h * TILE - 2);
   }
-  if (dark) {
+  if (lightingNow() === 'night') {
     c.fillStyle = 'rgba(24, 20, 52, 0.35)';
     c.fillRect(0, 0, worldW, worldH);
   }
@@ -1795,7 +1843,7 @@ function render(seconds: number): void {
   if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
   paintWaves(ctx, map, seconds);
   paintElevatorDoors(ctx, map, elevatorDoor);
-  paintAmbient(ctx, map, seconds, dark, 'under');
+  paintAmbient(ctx, map, seconds, lightingNow() === 'night', 'under');
   paintEscalatorSteps(ctx, map, seconds);
   const drawables: Drawable[] = [
     ...propDrawables(seconds),
@@ -1808,9 +1856,14 @@ function render(seconds: number): void {
   if (me) drawables.push(me);
   drawables.sort((a, b) => a.sortY - b.sortY);
   for (const item of drawables) item.draw(ctx);
-  if (dark) drawNightLighting(ctx, seconds);
-  else drawSunlight(ctx);
-  paintAmbient(ctx, map, seconds, dark, 'over');
+  const light = lightingNow();
+  if (light === 'night') drawNightLighting(ctx, seconds);
+  else if (light === 'dusk') {
+    drawSunlight(ctx);
+    drawNightLighting(ctx, seconds, DUSK_TINT, 0.55);
+  } else drawSunlight(ctx);
+  if (props.raining) drawRain(ctx, seconds);
+  paintAmbient(ctx, map, seconds, lightingNow() === 'night', 'over');
 
   // 名牌與樓梯牌用螢幕座標畫，字才清楚、不會跟著像素一起放大
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

@@ -17,9 +17,11 @@ export interface PlayerPrefs {
   groupFocus: boolean;
   // 番茄鐘結束、一起專注開始時跳瀏覽器通知（頁面在背景時）
   notifications: boolean;
+  // 場景的光線跟著真實時間（白天、黃昏、夜晚）；關掉就跟著網站的深淺色
+  sceneClock: boolean;
 }
 
-const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, doNotDisturb: false, groupFocus: false, notifications: false };
+const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, doNotDisturb: false, groupFocus: false, notifications: false, sceneClock: true };
 
 function load(): PlayerPrefs {
   try {
@@ -32,6 +34,7 @@ function load(): PlayerPrefs {
       doNotDisturb: parsed.doNotDisturb === true,
       groupFocus: parsed.groupFocus === true,
       notifications: parsed.notifications === true,
+      sceneClock: parsed.sceneClock !== false,
     };
   } catch {
     return { ...DEFAULTS };

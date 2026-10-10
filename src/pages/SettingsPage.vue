@@ -81,6 +81,17 @@
 
       <section class="pixel-panel space-y-3 p-5 sm:p-6">
         <div>
+          <h2 class="!mb-0 !text-lg !font-black">🌇 {{ t.settingsPage.sceneClockTitle }}</h2>
+          <p class="!mb-0 mt-1 text-xs text-[color:var(--px-muted)]">{{ t.settingsPage.sceneClockHint }}</p>
+        </div>
+        <label class="pixel-field !flex items-center justify-between px-3 py-2.5 text-sm font-bold">
+          {{ t.settingsPage.sceneClockLabel }}
+          <input v-model="prefs.sceneClock" type="checkbox" class="h-4 w-4 accent-amber-400" />
+        </label>
+      </section>
+
+      <section class="pixel-panel space-y-3 p-5 sm:p-6">
+        <div>
           <h2 class="!mb-0 !text-lg !font-black">🔕 {{ t.settingsPage.dndTitle }}</h2>
           <p class="!mb-0 mt-1 text-xs text-[color:var(--px-muted)]">{{ t.settingsPage.dndHint }}</p>
         </div>

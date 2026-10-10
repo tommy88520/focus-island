@@ -47,6 +47,7 @@
             :remote-emote="librarySocket.lastEmote.value"
             :remote-players="librarySocket.remotePlayers.value"
             :peer-joined-at="librarySocket.peerJoinedAt.value"
+            :raining="audio.isAudioPlaying.value && audio.selectedAudioTrack.value === 'rain'"
             @select="selectSeat"
             @emote="librarySocket.sendEmote"
             @position="librarySocket.sendPosition"
