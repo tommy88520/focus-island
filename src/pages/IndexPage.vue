@@ -99,6 +99,8 @@
         @update:auto-restart-on-finish="autoRestartOnFinish = $event"
         @apply-display-name="applyDisplayName"
         @update:group-focus="playerPrefs.groupFocus = $event"
+        :notifications="playerPrefs.notifications"
+        @update:notifications="handleNotificationsToggle"
       />
       <div class="hide-below-sm h-10 w-[2px] bg-[color:var(--px-ink)] opacity-30"></div>
       <AmbientAudioPlayer :audio="audio" />
@@ -129,6 +131,7 @@ import {
 import { useLocale } from 'src/composables/useLocale';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { GROUP_FOCUS_S, groupPhaseAt } from 'src/composables/groupFocus';
+import { requestNotifyPermission, sendFocusNotification } from 'src/composables/focusNotify';
 const $q = useQuasar();
 const { t, locale } = useLocale();
 const playerPrefs = usePlayerPrefs();
@@ -666,6 +669,19 @@ function loadFocusPreferences() {
   }
 }
 
+// 打開通知時順便要權限（一定要在點擊當下要）；被拒絕就關回去
+async function handleNotificationsToggle(on: boolean) {
+  if (!on) {
+    playerPrefs.value.notifications = false;
+    return;
+  }
+  const granted = await requestNotifyPermission();
+  playerPrefs.value.notifications = granted;
+  if (!granted) {
+    $q.notify({ message: t.value.focusClockPanel.notifyDenied, color: 'warning', icon: 'notifications_off', position: 'top', timeout: 3000 });
+  }
+}
+
 // ── 一起專注：每個整點、半點開始 25 分鐘，接著休息 5 分鐘 ──
 const groupNow = ref(new Date());
 const groupPhase = computed(() => groupPhaseAt(groupNow.value));
@@ -695,6 +711,9 @@ function tickGroupFocus() {
   if (phase.phase !== 'focus' || phase.secondsLeft < 60 || groupSkippedRound === round) return;
   store.alignTimer(GROUP_FOCUS_S, phase.secondsLeft);
   toggleFocus();
+  if (playerPrefs.value.notifications) {
+    sendFocusNotification(t.value.focusClockPanel.notifyGroupStartTitle, t.value.focusClockPanel.notifyGroupStartBody);
+  }
 }
 
 watch(
@@ -862,6 +881,12 @@ function restartFocusTimer() {
 
 function handleFocusFinished() {
   audio.stopPlayback();
+  if (playerPrefs.value.notifications) {
+    sendFocusNotification(
+      t.value.indexPage.notifySessionComplete,
+      playerPrefs.value.groupFocus ? t.value.focusClockPanel.notifyBreakBody : t.value.focusClockPanel.notifyDoneBody,
+    );
+  }
 
   // 一起專注時，下一輪由時鐘決定，不用自動重來
   if (autoRestartOnFinish.value && !playerPrefs.value.groupFocus) {

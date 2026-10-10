@@ -17,6 +17,7 @@
         :group-focus-available="false"
         :group-focus="false"
         group-status=""
+        :notifications="false"
         @toggle-focus="toggleFocus"
         @restart-focus-timer="restartFocusTimer"
         @reset-focus-timer="resetFocusTimer"

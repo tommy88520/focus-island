@@ -96,6 +96,17 @@
           {{ t.focusClockPanel.resetTimeButton }}
         </button>
 
+        <!-- 嵌入的小工具不提供通知和一起專注 -->
+        <label v-if="groupFocusAvailable" class="pixel-field flex items-center justify-between px-3 py-2 text-[11px]">
+          <span class="font-bold">{{ t.focusClockPanel.notificationsLabel }}</span>
+          <input
+            :checked="notifications"
+            type="checkbox"
+            class="accent-amber-400"
+            @change="$emit('update:notifications', ($event.target as HTMLInputElement).checked)"
+          />
+        </label>
+
         <label v-if="groupFocusAvailable" class="pixel-field flex items-center justify-between px-3 py-2 text-[11px]">
           <span class="font-bold">{{ t.focusClockPanel.groupFocusLabel }}</span>
           <input
@@ -162,10 +173,12 @@ const props = defineProps<{
   selectedFocusDurationMinutes: number;
   autoRestartOnFinish: boolean;
   displayName: string;
-  // 一起專注（跟著時鐘）；嵌入的小工具沒有座位，不提供
+  // 一起專注（跟著時鐘）與通知；嵌入的小工具沒有座位，不提供
   groupFocusAvailable: boolean;
   groupFocus: boolean;
   groupStatus: string;
+  // 背景時跳瀏覽器通知
+  notifications: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -177,6 +190,7 @@ const emit = defineEmits<{
   'update:autoRestartOnFinish': [value: boolean];
   'apply-display-name': [name: string];
   'update:groupFocus': [value: boolean];
+  'update:notifications': [value: boolean];
 }>();
 
 const showAdvancedFocusControls = ref(false);

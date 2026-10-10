@@ -15,9 +15,11 @@ export interface PlayerPrefs {
   doNotDisturb: boolean;
   // 一起專注：番茄鐘跟著時鐘走（整點、半點開始）
   groupFocus: boolean;
+  // 番茄鐘結束、一起專注開始時跳瀏覽器通知（頁面在背景時）
+  notifications: boolean;
 }
 
-const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, doNotDisturb: false, groupFocus: false };
+const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, doNotDisturb: false, groupFocus: false, notifications: false };
 
 function load(): PlayerPrefs {
   try {
@@ -29,6 +31,7 @@ function load(): PlayerPrefs {
       shirt: int(parsed.shirt, DEFAULTS.shirt),
       doNotDisturb: parsed.doNotDisturb === true,
       groupFocus: parsed.groupFocus === true,
+      notifications: parsed.notifications === true,
     };
   } catch {
     return { ...DEFAULTS };
