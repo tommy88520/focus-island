@@ -601,6 +601,23 @@ interface VehicleState {
   // 小船會滑：速度慢慢跟上方向鍵
   vx: number;
   vy: number;
+  // 原本停的位置（海灘車、小船）；從 YouBike 站借的車沒有，閒置太久就收回站裡
+  home?: { x: number; y: number; facing: Facing };
+  // 最後一次有人下車的時間（秒）；騎著的時候是 null
+  idleSince: number | null;
+}
+
+// 車子停在外面沒人騎超過 3 分鐘：YouBike 收回站裡，海灘車和小船開回原位
+const VEHICLE_IDLE_RETURN_S = 180;
+
+function returnIdleVehicles(): void {
+  const now = performance.now() / 1000;
+  vehicles = vehicles.flatMap((v) => {
+    if (v === riding || v.idleSince === null || now - v.idleSince < VEHICLE_IDLE_RETURN_S) return [v];
+    if (!v.home) return [];
+    Object.assign(v, { x: v.home.x, y: v.home.y, facing: v.home.facing, vx: 0, vy: 0, idleSince: null });
+    return [v];
+  });
 }
 
 // ── 沙灘上可以躺的地方：沒有路人躺著的躺椅和海灘巾 ──
@@ -663,7 +680,7 @@ function buildMap(): void {
   // 分區決定主題：A 森林、B 咖啡店、C 深海艙、D 圖書館
   map = createPixelMap(props.seats.length, hasEscalator(), themeForZone(currentRoom().split('-')[1] ?? ''));
   isQuietZone.value = map.theme === 'forest';
-  vehicles = map.vehicles.map((spot) => ({ ...spot, vx: 0, vy: 0 }));
+  vehicles = map.vehicles.map((spot) => ({ ...spot, vx: 0, vy: 0, home: { x: spot.x, y: spot.y, facing: spot.facing }, idleSince: null }));
   lieSpots = map.props.flatMap((prop) => {
     if (prop.kind !== 'lounger' && prop.kind !== 'towel' && prop.kind !== 'beanbag') return [];
     const spot: LieSpot =
@@ -932,6 +949,7 @@ function nearestVehicle(): VehicleState | undefined {
 function mount(v: VehicleState): void {
   if (player.state === 'seated') standUp();
   riding = v;
+  v.idleSince = null;
   isRiding.value = true;
   goalVehicle = null;
   placePlayer(v.x, v.y);
@@ -954,6 +972,7 @@ function dismount(): boolean {
   isRiding.value = false;
   v.vx = 0;
   v.vy = 0;
+  v.idleSince = performance.now() / 1000;
   placePlayer(spot.x, spot.z);
   player.state = 'idle';
   // 在 YouBike 站旁下車就是還車：車子收進站裡
@@ -983,9 +1002,16 @@ function nearestStation(): { x: number; y: number } | undefined {
   return stations().find((s) => Math.hypot(s.x - player.x, s.y - player.y) < STATION_REACH);
 }
 
+// 整個地圖同時最多 10 台借出去的 YouBike（停在外面的也算）
+const MAX_RENTED_BIKES = 10;
+
 function takeBike(): void {
+  if (vehicles.filter((v) => v.kind === 'bike' && !v.home).length >= MAX_RENTED_BIKES) {
+    say('me', `🚲 ${t.value.seatScene.bikesAllOut}`);
+    return;
+  }
   if (player.state === 'seated') standUp();
-  const bike: VehicleState = { kind: 'bike', x: player.x, y: player.y, facing: player.facing, vx: 0, vy: 0 };
+  const bike: VehicleState = { kind: 'bike', x: player.x, y: player.y, facing: player.facing, vx: 0, vy: 0, idleSince: null };
   vehicles.push(bike);
   mount(bike);
   say('me', `🚲 ${t.value.seatScene.bikeTaken}`);
@@ -1242,6 +1268,7 @@ function updatePlayer(dt: number): void {
     // 開始專注（disabled）時還站著：直接回到自己的座位（車子留在原地）
     if (props.disabled && player.state !== 'seated') {
       lyingOn = null;
+      if (riding) riding.idleSince = performance.now() / 1000;
       riding = null;
       isRiding.value = false;
       const mine = seatNodes.find((n) => n.seatId === props.selectedSeatId);
@@ -2161,6 +2188,7 @@ function animate(time: number): void {
   const dt = lastFrameTime ? Math.min(0.05, seconds - lastFrameTime) : 0;
   lastFrameTime = seconds;
   updatePlayer(dt);
+  returnIdleVehicles();
   updateRemotePlayers(dt);
   syncPosition(seconds);
   savePosition(seconds);
