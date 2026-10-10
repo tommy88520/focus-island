@@ -3,7 +3,7 @@
 // 這裡放資料（家具、會動的人車動物）和畫法；碰撞照樣交給 mapObstacles。
 
 import { TILE } from './pixelMap';
-import { px, seeded } from './pixelUtil';
+import { disc, px, seeded } from './pixelUtil';
 
 export const WORLD_LEFT = 16;
 export const WORLD_RIGHT = 16;
@@ -19,6 +19,8 @@ export type OutdoorKind =
   | 'youbike'
   | 'bench'
   | 'stall'
+  | 'tableSet'
+  | 'goldfish'
   | 'lanternPole'
   | 'enclosure'
   | 'pool'
@@ -67,6 +69,18 @@ export interface OutdoorWorld {
 
 export const BACK_DOOR: [number, number] = [29, 31];
 
+// 夜市北邊八個攤位的招牌與老闆的叫賣（順序跟 stall 的 variant 一樣）
+export const STALLS: { name: { 'zh-TW': string; 'en-US': string }; call: { 'zh-TW': string; 'en-US': string } }[] = [
+  { name: { 'zh-TW': '花生捲冰淇淋', 'en-US': 'Peanut ice cream roll' }, call: { 'zh-TW': '花生捲冰淇淋，加香菜嗎？', 'en-US': 'Ice cream roll! Cilantro?' } },
+  { name: { 'zh-TW': '烤香腸', 'en-US': 'Grilled sausage' }, call: { 'zh-TW': '香腸剛烤好！配大蒜！', 'en-US': 'Fresh sausages! With garlic!' } },
+  { name: { 'zh-TW': '芋圓王', 'en-US': 'Taro ball king' }, call: { 'zh-TW': '芋圓王，冰的熱的都有～', 'en-US': 'Taro balls, hot or iced~' } },
+  { name: { 'zh-TW': '豪大雞排', 'en-US': 'Fried chicken' }, call: { 'zh-TW': '雞排要切不要辣？', 'en-US': 'Chicken cutlet, sliced?' } },
+  { name: { 'zh-TW': '珍珠奶茶', 'en-US': 'Bubble tea' }, call: { 'zh-TW': '珍奶半糖少冰！', 'en-US': 'Bubble tea, half sugar!' } },
+  { name: { 'zh-TW': '臭豆腐', 'en-US': 'Stinky tofu' }, call: { 'zh-TW': '臭豆腐，泡菜加多一點！', 'en-US': 'Stinky tofu, extra kimchi!' } },
+  { name: { 'zh-TW': '射氣球', 'en-US': 'Balloon darts' }, call: { 'zh-TW': '射中三個送娃娃喔！', 'en-US': 'Pop three, win a plushie!' } },
+  { name: { 'zh-TW': '蚵仔煎', 'en-US': 'Oyster omelette' }, call: { 'zh-TW': '蚵仔煎，現煎的！', 'en-US': 'Oyster omelette, made fresh!' } },
+];
+
 export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, worldBottom: number): OutdoorWorld {
   const x0 = -WORLD_LEFT;
   const x1 = libraryWidth + WORLD_RIGHT;
@@ -98,8 +112,10 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
     ...[-10, -5, 4, 9, 14].map((y) => prop('streetTree', -2, y)),
     ...[-10, -2, 4].map((y) => prop('streetTree', -13, y)),
     // ── 士林夜市 ──
+    // 北邊一排八個攤位（各有一個老闆），南邊是吃東西的桌椅和撈金魚
     ...[1, 5, 9, 13, 17, 21, 25, 29].map((x, i) => prop('stall', x, -10, 3, 2, true, i)),
-    ...[2, 7, 12, 17, 22].map((x, i) => prop('stall', x, -4, 3, 2, true, (i + 3) % 8)),
+    ...[2, 8, 14].map((x) => prop('tableSet', x, -4, 3, 2, true)),
+    prop('goldfish', 20, -4, 4, 2, true),
     ...[0, 8, 16, 24, 31].map((x) => prop('lanternPole', x, -7, 1, 1, true)),
     // ── 動物園 ──
     prop('enclosure', R + 6, -11, 9, 7, true, 0),
@@ -264,52 +280,118 @@ const STALL_COLORS: [string, string][] = [
   ['#3b6f86', '#f6e2b8'],
 ];
 
-function paintStallFood(ctx: CanvasRenderingContext2D, x: number, y: number, variant: number): void {
+// 攤位檯面上的食物（variant 跟 STALLS 一樣）；seconds 用來做烤架的火光、冒煙
+function paintStallFood(ctx: CanvasRenderingContext2D, x: number, y: number, variant: number, seconds: number): void {
+  const flick = Math.floor(seconds * 6) % 2;
   switch (variant % 8) {
-    case 0: // 雞排
-      px(ctx, '#b87a34', x, y, 10, 6);
-      px(ctx, '#d99a4e', x + 1, y + 1, 8, 2);
+    case 0: {
+      // 花生捲冰淇淋：一大塊花生糖 + 刨刀、三球冰淇淋、一疊潤餅皮
+      px(ctx, '#c98a3c', x, y, 12, 6);
+      px(ctx, '#e3ad5e', x + 1, y + 1, 10, 2);
+      for (let i = 0; i < 4; i += 1) px(ctx, '#8a5e36', x + 2 + i * 3, y + 3, 1, 1);
+      px(ctx, '#c3cad6', x + 12, y - 2, 2, 6);
+      ['#f4eee2', '#f59ab3', '#ffe39a'].forEach((c, i) => {
+        px(ctx, c, x + 16 + i * 5, y + 1, 4, 3);
+        px(ctx, '#ffffff', x + 17 + i * 5, y + 1, 1, 1);
+      });
+      px(ctx, '#f4eee2', x + 31, y + 2, 8, 4);
+      px(ctx, '#e3dccb', x + 31, y + 4, 8, 1);
+      px(ctx, '#57a862', x + 34, y, 3, 2);
       break;
-    case 1: // 珍奶
-      for (const dx of [0, 6, 12]) {
-        px(ctx, '#e9dcc4', x + dx, y - 2, 4, 7);
-        px(ctx, '#3b2a20', x + dx, y + 3, 4, 2);
-        px(ctx, '#e25a4a', x + dx + 2, y - 4, 1, 3);
+    }
+    case 1: {
+      // 烤香腸：炭火烤架（會閃）+ 一排香腸 + 冒煙 + 大蒜
+      px(ctx, '#2b2d33', x, y + 1, 30, 6);
+      px(ctx, flick ? '#e8572a' : '#f6a531', x + 1, y + 4, 28, 2);
+      for (let i = 0; i < 5; i += 1) {
+        px(ctx, '#8a3b2f', x + 2 + i * 6, y + 1, 4, 3);
+        px(ctx, '#b0574a', x + 2 + i * 6, y + 1, 4, 1);
+      }
+      for (let i = 0; i < 3; i += 1) {
+        const rise = (seconds * 6 + i * 4) % 12;
+        px(ctx, `rgba(240,240,240,${0.55 - rise * 0.04})`, x + 6 + i * 9, Math.round(y - 2 - rise), 2, 2);
+      }
+      px(ctx, '#f4eee2', x + 33, y + 3, 3, 3);
+      px(ctx, '#f4eee2', x + 37, y + 3, 3, 3);
+      break;
+    }
+    case 2: {
+      // 芋圓王：大鍋芋圓（紫、橘、黃）+ 冒煙 + 一疊碗
+      px(ctx, '#55596a', x, y - 1, 18, 8);
+      px(ctx, '#c9a06b', x + 1, y, 16, 3);
+      ['#8a5ec4', '#f2a541', '#f6c945', '#8a5ec4', '#f2a541', '#f6c945', '#8a5ec4'].forEach((c, i) => px(ctx, c, x + 2 + i * 2, y + (i % 2), 2, 2));
+      for (let i = 0; i < 2; i += 1) {
+        const rise = (seconds * 5 + i * 5) % 10;
+        px(ctx, `rgba(255,255,255,${0.5 - rise * 0.05})`, x + 5 + i * 6, Math.round(y - 3 - rise), 2, 2);
+      }
+      for (let i = 0; i < 3; i += 1) px(ctx, '#f4eee2', x + 22 + i * 6, y + 2, 5, 3);
+      px(ctx, '#8a5ec4', x + 23, y + 2, 1, 1);
+      px(ctx, '#f2a541', x + 29, y + 2, 1, 1);
+      break;
+    }
+    case 3: // 雞排
+      for (const dx of [0, 13, 26]) {
+        px(ctx, '#b87a34', x + dx, y, 11, 6);
+        px(ctx, '#d99a4e', x + dx + 1, y + 1, 9, 2);
       }
       break;
-    case 2: // 臭豆腐
-      for (const dx of [0, 5, 10]) {
-        px(ctx, '#c98a3c', x + dx, y + 1, 4, 4);
-        px(ctx, '#e3ad5e', x + dx, y + 1, 4, 1);
-      }
-      px(ctx, '#57a862', x + 3, y + 5, 8, 1);
-      break;
-    case 3: // 射氣球
-      ['#e25a4a', '#fbbf24', '#2fb3a6', '#e86a8a', '#5b6ee1', '#4fa35a'].forEach((c, i) => px(ctx, c, x + (i % 3) * 5, y - 6 + Math.floor(i / 3) * 5, 4, 4));
-      break;
-    case 4: // 烤玉米
-      for (const dx of [0, 6, 12]) {
-        px(ctx, '#e3b04b', x + dx, y, 4, 7);
-        px(ctx, '#8a5e36', x + dx + 1, y + 1, 1, 5);
+    case 4: // 珍奶
+      for (const dx of [0, 7, 14, 21, 28]) {
+        px(ctx, '#e9dcc4', x + dx + 2, y - 2, 4, 7);
+        px(ctx, '#3b2a20', x + dx + 2, y + 3, 4, 2);
+        px(ctx, '#e25a4a', x + dx + 4, y - 4, 1, 3);
       }
       break;
-    case 5: // 蚵仔煎
-      px(ctx, '#f4eee2', x, y + 1, 14, 5);
-      px(ctx, '#e8d29c', x + 2, y + 2, 10, 3);
-      px(ctx, '#e25a4a', x + 4, y + 2, 5, 1);
-      break;
-    case 6: // 大腸包小腸
-      px(ctx, '#f4eee2', x, y + 1, 14, 5);
-      px(ctx, '#8a3b2f', x + 1, y + 2, 12, 3);
-      px(ctx, '#d9b07a', x + 2, y + 2, 10, 1);
-      break;
-    default: // 剉冰
-      for (const dx of [0, 7]) {
-        px(ctx, '#f4eee2', x + dx, y + 3, 6, 3);
-        px(ctx, '#ffffff', x + dx + 1, y, 4, 3);
-        px(ctx, '#e86a8a', x + dx + 2, y, 2, 1);
+    case 5: // 臭豆腐
+      for (const dx of [0, 6, 12, 18]) {
+        px(ctx, '#c98a3c', x + dx, y + 1, 5, 4);
+        px(ctx, '#e3ad5e', x + dx, y + 1, 5, 1);
       }
+      px(ctx, '#57a862', x + 26, y + 2, 10, 3);
+      px(ctx, '#e25a4a', x + 28, y + 3, 4, 1);
+      break;
+    case 6: // 射氣球：後面一整面氣球牆
+      ['#e25a4a', '#fbbf24', '#2fb3a6', '#e86a8a', '#5b6ee1', '#4fa35a', '#f2a541', '#a78bfa'].forEach((c, i) =>
+        px(ctx, c, x + (i % 4) * 9 + 2, y - 8 + Math.floor(i / 4) * 6, 5, 5),
+      );
+      break;
+    default: // 蚵仔煎
+      for (const dx of [0, 14]) {
+        px(ctx, '#f4eee2', x + dx, y + 1, 12, 5);
+        px(ctx, '#e8d29c', x + dx + 1, y + 2, 10, 3);
+        px(ctx, '#e25a4a', x + dx + 3, y + 2, 5, 1);
+      }
+      px(ctx, '#2b2d33', x + 30, y + 1, 10, 5);
   }
+}
+
+// 攤位分兩層畫，中間夾著老闆：後面是背板和柱子，前面是屋頂和檯面（擋住老闆的下半身）
+export function paintStall(ctx: CanvasRenderingContext2D, prop: OutdoorProp, layer: 'back' | 'front', seconds: number, night: boolean): void {
+  const x = prop.tx * TILE;
+  const y = prop.ty * TILE;
+  const w = prop.w * TILE;
+  const h = prop.h * TILE;
+  const variant = prop.variant ?? 0;
+  const [awning, stripe] = STALL_COLORS[variant % STALL_COLORS.length] ?? ['#e25a4a', '#fff4e6'];
+  if (layer === 'back') {
+    px(ctx, 'rgba(0,0,0,0.25)', x + 2, y + h - 2, w, 4);
+    px(ctx, '#4a3326', x + 2, y - 8, w - 4, 20);
+    px(ctx, '#5c3d22', x + 3, y - 7, w - 6, 18);
+    px(ctx, '#3a3d45', x + 1, y - 14, 2, h + 14);
+    px(ctx, '#3a3d45', x + w - 3, y - 14, 2, h + 14);
+    return;
+  }
+  // 檯面
+  px(ctx, '#6b4428', x + 2, y + 16, w - 4, h - 16);
+  px(ctx, '#9a6a43', x + 3, y + 17, w - 6, 4);
+  px(ctx, '#c3cad6', x + 2, y + 14, w - 4, 3);
+  paintStallFood(ctx, x + 4, y + 9, variant, seconds);
+  // 條紋屋頂 + 一排小燈
+  for (let i = 0; i < w; i += 6) px(ctx, (i / 6) % 2 === 0 ? awning : stripe, x + i, y - 20, Math.min(6, w - i), 8);
+  for (let i = 0; i < w; i += 6) px(ctx, (i / 6) % 2 === 0 ? awning : stripe, x + i + 3, y - 12, 3, 2);
+  px(ctx, 'rgba(0,0,0,0.2)', x, y - 12, w, 1);
+  const glow = night ? '#fff1a8' : '#fbd27a';
+  for (let i = 5; i < w - 2; i += 9) px(ctx, glow, x + i, y - 10, 3, 3);
 }
 
 function paintTower101(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, seconds: number, night: boolean): void {
@@ -410,20 +492,38 @@ export function paintOutdoorProp(ctx: CanvasRenderingContext2D, prop: OutdoorPro
       px(ctx, '#3a3d45', x + 2, y + 12, 2, 3);
       px(ctx, '#3a3d45', x + w - 4, y + 12, 2, 3);
       break;
+    case 'tableSet': {
+      // 夜市吃東西的折疊桌 + 四張塑膠椅
+      px(ctx, 'rgba(0,0,0,0.18)', x + 8, y + 22, 32, 4);
+      for (const [sx, sy] of [[2, 4], [38, 4], [2, 20], [38, 20]] as const) {
+        px(ctx, '#e25a4a', x + sx, y + sy, 8, 6);
+        px(ctx, '#f07a6a', x + sx + 1, y + sy, 6, 2);
+      }
+      px(ctx, '#d9d4c8', x + 10, y + 6, 28, 16);
+      px(ctx, '#f4eee2', x + 11, y + 7, 26, 4);
+      px(ctx, '#ffffff', x + 14, y + 12, 6, 4);
+      px(ctx, '#c98a3c', x + 15, y + 13, 4, 2);
+      px(ctx, '#e9dcc4', x + 26, y + 10, 4, 7);
+      px(ctx, '#3b2a20', x + 26, y + 15, 4, 2);
+      break;
+    }
+    case 'goldfish': {
+      // 撈金魚：藍色淺池，金魚游來游去
+      px(ctx, 'rgba(0,0,0,0.18)', x + 2, y + h - 2, w - 2, 4);
+      px(ctx, '#e3e8f0', x, y + 2, w, h - 4);
+      px(ctx, '#4fc3d9', x + 3, y + 5, w - 6, h - 10);
+      for (let i = 0; i < 7; i += 1) {
+        const fx = x + 6 + ((i * 17 + seconds * (8 + i)) % (w - 14));
+        const fy = y + 8 + ((i * 7) % (h - 18));
+        px(ctx, i % 3 === 0 ? '#ffffff' : '#f2a541', Math.round(fx), fy, 4, 2);
+        px(ctx, i % 3 === 0 ? '#e3e8f0' : '#e8572a', Math.round(fx) - 1, fy, 1, 2);
+      }
+      px(ctx, '#f4eee2', x + w - 10, y - 4, 6, 6);
+      break;
+    }
     case 'stall': {
-      const [awning, stripe] = STALL_COLORS[variant % STALL_COLORS.length] ?? ['#e25a4a', '#fff4e6'];
-      px(ctx, 'rgba(0,0,0,0.25)', x + 2, y + h - 2, w, 4);
-      // 攤車
-      px(ctx, '#6b4428', x + 2, y + 10, w - 4, h - 10);
-      px(ctx, '#9a6a43', x + 3, y + 11, w - 6, 6);
-      px(ctx, '#c3cad6', x + 3, y + 17, w - 6, 2);
-      paintStallFood(ctx, x + w / 2 - 7, y + 12, variant);
-      // 條紋雨遮（往上伸出去）
-      for (let i = 0; i < w; i += 6) px(ctx, (i / 6) % 2 === 0 ? awning : stripe, x + i, y - 4, Math.min(6, w - i), 10);
-      px(ctx, 'rgba(0,0,0,0.2)', x, y + 6, w, 1);
-      // 掛燈
-      const glow = night ? '#fff1a8' : '#fbd27a';
-      for (let i = 6; i < w - 2; i += 12) px(ctx, glow, x + i, y + 7, 3, 3);
+      paintStall(ctx, prop, 'back', seconds, night);
+      paintStall(ctx, prop, 'front', seconds, night);
       break;
     }
     case 'lanternPole': {
@@ -512,55 +612,62 @@ export function paintWalker(
       px(ctx, down ? '#fff4d6' : '#e25a4a', fx + 5, down ? fy + 12 : fy - 16, 4, 2);
       break;
     }
-    case 'panda': {
+    case 'panda':
+    case 'pandaCub': {
+      // 圓滾滾的熊貓：大頭、圓耳朵、八字形黑眼圈、黑手腳；小熊貓整隻縮小
+      const k = walker.kind === 'pandaCub' ? 0.6 : 1;
       const flip = dx < 0 ? -1 : 1;
-      px(ctx, 'rgba(0,0,0,0.15)', fx - 9, fy - 2, 18, 3);
-      px(ctx, '#f4f2ea', fx - 8, fy - 11, 16, 10);
-      px(ctx, '#2b2d33', fx - 8, fy - 5, 16, 3);
-      px(ctx, '#2b2d33', fx - 7, fy - 2, 3, 2 + step);
-      px(ctx, '#2b2d33', fx + 4, fy - 2, 3, 3 - step);
-      const hx = fx + flip * 6 - 4;
-      px(ctx, '#f4f2ea', hx, fy - 16, 9, 8);
-      px(ctx, '#2b2d33', hx, fy - 17, 3, 3);
-      px(ctx, '#2b2d33', hx + 6, fy - 17, 3, 3);
-      px(ctx, '#2b2d33', hx + 1, fy - 13, 3, 2);
-      px(ctx, '#2b2d33', hx + 5, fy - 13, 3, 2);
+      const r = (v: number) => Math.round(v * k);
+      px(ctx, 'rgba(0,0,0,0.15)', fx - r(10), fy - 2, r(20), 3);
+      // 身體（白）+ 黑色的手腳和肩帶
+      disc(ctx, '#2b2d33', fx, fy - r(8), r(8));
+      disc(ctx, '#f6f4ee', fx - flip * r(1), fy - r(8), r(7));
+      px(ctx, '#2b2d33', fx - r(7), fy - r(11), r(14), r(4));
+      px(ctx, '#2b2d33', fx - r(8), fy - r(3), r(5), r(3) + step);
+      px(ctx, '#2b2d33', fx + r(3), fy - r(3), r(5), r(4) - step);
+      // 頭
+      const hx = fx + flip * r(7);
+      const hy = fy - r(15);
+      disc(ctx, '#2b2d33', hx - r(5), hy - r(5), r(3));
+      disc(ctx, '#2b2d33', hx + r(5), hy - r(5), r(3));
+      disc(ctx, '#2b2d33', hx, hy, r(7));
+      disc(ctx, '#ffffff', hx, hy, r(6));
+      px(ctx, '#2b2d33', hx - r(4), hy - r(1), r(3), r(3));
+      px(ctx, '#2b2d33', hx + r(1), hy - r(1), r(3), r(3));
+      px(ctx, '#ffffff', hx - r(3), hy - r(1), 1, 1);
+      px(ctx, '#ffffff', hx + r(2), hy - r(1), 1, 1);
+      px(ctx, '#2b2d33', hx - 1, hy + r(3), 2, 1);
+      px(ctx, '#f4a3a3', hx - r(5), hy + r(2), r(2), 1);
+      px(ctx, '#f4a3a3', hx + r(4), hy + r(2), r(2), 1);
       break;
     }
     case 'pandaEat': {
-      // 坐著，雙手抱著竹子往嘴裡送
+      // 坐著抱竹子啃：圓身體、腳往前伸，竹子一上一下
       const chew = Math.floor(seconds * 3) % 2;
-      px(ctx, 'rgba(0,0,0,0.15)', fx - 10, fy - 2, 20, 3);
-      px(ctx, '#f4f2ea', fx - 9, fy - 15, 18, 14);
-      px(ctx, '#2b2d33', fx - 10, fy - 4, 6, 4);
-      px(ctx, '#2b2d33', fx + 4, fy - 4, 6, 4);
-      px(ctx, '#f4f2ea', fx - 7, fy - 25, 14, 11);
-      px(ctx, '#2b2d33', fx - 8, fy - 27, 4, 4);
-      px(ctx, '#2b2d33', fx + 4, fy - 27, 4, 4);
-      px(ctx, '#2b2d33', fx - 5, fy - 21, 3, 3);
-      px(ctx, '#2b2d33', fx + 2, fy - 21, 3, 3);
-      px(ctx, '#2b2d33', fx - 1, fy - 17, 2, 1 + chew);
-      // 竹子 + 抱著竹子的黑手
-      px(ctx, '#57a862', fx + 6, fy - 26 + chew, 3, 18);
-      px(ctx, '#2f6b3a', fx + 6, fy - 19 + chew, 3, 1);
-      px(ctx, '#6fbf72', fx + 9, fy - 27 + chew, 4, 2);
-      px(ctx, '#2b2d33', fx + 2, fy - 13, 7, 4);
-      px(ctx, '#2b2d33', fx - 8, fy - 13, 5, 4);
-      break;
-    }
-    case 'pandaCub': {
-      const flip = dx < 0 ? -1 : 1;
-      px(ctx, 'rgba(0,0,0,0.15)', fx - 5, fy - 1, 10, 2);
-      px(ctx, '#f4f2ea', fx - 5, fy - 7, 10, 6);
-      px(ctx, '#2b2d33', fx - 5, fy - 4, 10, 2);
-      px(ctx, '#2b2d33', fx - 4, fy - 1, 2, 1 + step);
-      px(ctx, '#2b2d33', fx + 2, fy - 1, 2, 2 - step);
-      const hx = fx + flip * 4 - 3;
-      px(ctx, '#f4f2ea', hx, fy - 11, 6, 5);
-      px(ctx, '#2b2d33', hx, fy - 12, 2, 2);
-      px(ctx, '#2b2d33', hx + 4, fy - 12, 2, 2);
-      px(ctx, '#2b2d33', hx + 1, fy - 9, 1, 1);
-      px(ctx, '#2b2d33', hx + 4, fy - 9, 1, 1);
+      px(ctx, 'rgba(0,0,0,0.15)', fx - 12, fy - 2, 24, 3);
+      disc(ctx, '#2b2d33', fx, fy - 9, 10);
+      disc(ctx, '#f6f4ee', fx, fy - 9, 9);
+      disc(ctx, '#2b2d33', fx - 7, fy - 2, 3);
+      disc(ctx, '#2b2d33', fx + 7, fy - 2, 3);
+      disc(ctx, '#f4a3a3', fx - 7, fy - 2, 1);
+      disc(ctx, '#f4a3a3', fx + 7, fy - 2, 1);
+      const hy = fy - 23;
+      disc(ctx, '#2b2d33', fx - 6, hy - 6, 3);
+      disc(ctx, '#2b2d33', fx + 6, hy - 6, 3);
+      disc(ctx, '#2b2d33', fx, hy, 8);
+      disc(ctx, '#ffffff', fx, hy, 7);
+      px(ctx, '#2b2d33', fx - 5, hy - 1, 3, 4);
+      px(ctx, '#2b2d33', fx + 2, hy - 1, 3, 4);
+      px(ctx, '#ffffff', fx - 4, hy, 1, 1);
+      px(ctx, '#ffffff', fx + 3, hy, 1, 1);
+      px(ctx, '#2b2d33', fx - 1, hy + 3, 2, 1 + chew);
+      px(ctx, '#f4a3a3', fx - 6, hy + 3, 2, 1);
+      px(ctx, '#f4a3a3', fx + 5, hy + 3, 2, 1);
+      // 竹子 + 抱著竹子的兩隻黑手
+      px(ctx, '#57a862', fx + 4, hy + 1 - chew * 2, 3, 20);
+      px(ctx, '#2f6b3a', fx + 4, hy + 8 - chew * 2, 3, 1);
+      px(ctx, '#6fbf72', fx + 7, hy - 1 - chew * 2, 5, 3);
+      px(ctx, '#2b2d33', fx - 2, fy - 16, 10, 5);
       break;
     }
     case 'penguin': {

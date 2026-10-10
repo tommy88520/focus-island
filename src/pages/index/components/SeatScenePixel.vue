@@ -255,7 +255,9 @@ import {
   paintBackDoor,
   paintOutdoorGround,
   paintOutdoorProp,
+  paintStall,
   paintWalker,
+  STALLS,
   walkerPose,
   type OutdoorKind,
 } from 'src/pages/index/pixel/pixelWorld';
@@ -1727,14 +1729,65 @@ function drawLying(c: CanvasRenderingContext2D, colors: AvatarColors, footX: num
   paintSunglasses(c, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - AVATAR_SIZE.h));
 }
 
+// 夜市老闆：白色圍裙，髮色每攤不同
+function vendorAvatar(variant: number): AvatarColors {
+  const hair = avatarColorsFor(`vendor-${variant}`);
+  return { hair: hair.hair, hairLight: hair.hairLight, shirt: '#f4eee2', shirtShade: '#d9d4c8' };
+}
+
+// 夜市老闆招呼客人：走到攤位前面會說「歡迎光臨」，人在夜市裡時偶爾有攤位吆喝
+const VENDOR_GREET_COOLDOWN_S = 25;
+const VENDOR_SHOUT_EVERY_S = 9;
+const vendorLastGreet = new Map<number, number>();
+let lastVendorShout = 0;
+
+function updateVendors(seconds: number): void {
+  // 夜市在戶外，不受圖書館分區的靜音規則影響；勿擾和專注中照樣不吵你
+  if (area.value !== 'nightmarket' || props.disabled || playerPrefs.value.doNotDisturb) return;
+  const stalls = map.world.props.filter((p) => p.kind === 'stall');
+  for (const stall of stalls) {
+    const i = stall.variant ?? 0;
+    const front = { x: stall.tx + stall.w / 2, y: stall.ty + stall.h + 0.6 };
+    if (Math.hypot(front.x - player.x, front.y - player.y) > 1.8) continue;
+    if (seconds - (vendorLastGreet.get(i) ?? -Infinity) < VENDOR_GREET_COOLDOWN_S) continue;
+    vendorLastGreet.set(i, seconds);
+    say(`vendor:${i}`, `${t.value.seatScene.vendorWelcome} ${STALLS[i]?.call[locale.value] ?? ''}`);
+    lastVendorShout = seconds;
+    return;
+  }
+  if (seconds - lastVendorShout > VENDOR_SHOUT_EVERY_S) {
+    lastVendorShout = seconds;
+    const stall = stalls[Math.floor(Math.random() * stalls.length)];
+    const i = stall?.variant ?? 0;
+    if (stall) say(`vendor:${i}`, STALLS[i]?.call[locale.value] ?? '');
+  }
+}
+
 // 戶外的建築、攤位、動物園，以及走來走去的路人、計程車、動物
 function outdoorDrawables(seconds: number): Drawable[] {
   const night = lightingNow() !== 'day';
-  const list: Drawable[] = map.world.props.map((prop) => ({
-    // 展區和水池是地面，要畫在裡面的動物底下
-    sortY: prop.kind === 'enclosure' || prop.kind === 'pool' ? prop.ty : prop.ty + prop.h,
-    draw: (c: CanvasRenderingContext2D) => paintOutdoorProp(c, prop, seconds, night),
-  }));
+  const list: Drawable[] = [];
+  for (const prop of map.world.props) {
+    if (prop.kind === 'stall') {
+      // 攤位：背板 → 老闆 → 屋頂和檯面（擋住老闆的下半身）
+      const vendorColors = vendorAvatar(prop.variant ?? 0);
+      const bob = Math.sin(seconds * 2 + (prop.variant ?? 0)) > 0.6 ? 1 : 0;
+      list.push(
+        { sortY: prop.ty + 0.2, draw: (c) => paintStall(c, prop, 'back', seconds, night) },
+        {
+          sortY: prop.ty + 0.5,
+          draw: (c) => drawAvatar(c, vendorColors, 'down', 'idle', (prop.tx + prop.w / 2) * TILE, prop.ty * TILE + 18 + bob, true),
+        },
+        { sortY: prop.ty + prop.h, draw: (c) => paintStall(c, prop, 'front', seconds, night) },
+      );
+      continue;
+    }
+    list.push({
+      // 展區和水池是地面，要畫在裡面的動物底下
+      sortY: prop.kind === 'enclosure' || prop.kind === 'pool' ? prop.ty : prop.ty + prop.h,
+      draw: (c: CanvasRenderingContext2D) => paintOutdoorProp(c, prop, seconds, night),
+    });
+  }
   for (const walker of map.world.walkers) {
     const pose = walkerPose(walker, seconds);
     list.push({
@@ -2085,6 +2138,13 @@ function drawBubbles(c: CanvasRenderingContext2D, seconds: number, toScreen: (wx
         anchor = toScreen(shown.x * TILE, shown.y * TILE + remoteHeadOffset(remote));
         anchor.y -= LABEL_FONT_PX + 10;
       }
+    } else if (key.startsWith('vendor:')) {
+      const stall = map.world.props.find((p) => p.kind === 'stall' && String(p.variant ?? 0) === key.slice(7));
+      // 冒在攤位招牌上面
+      if (stall) {
+        anchor = toScreen((stall.tx + stall.w / 2) * TILE, stall.ty * TILE - 20);
+        anchor.y -= LABEL_FONT_PX + 10;
+      }
     } else if (key.startsWith('npc:')) {
       const goer = map.beachgoers[Number(key.slice(4))];
       if (goer) anchor = toScreen(beachgoerPose(goer, seconds).x * TILE, goer.y * TILE - AVATAR_SIZE.h - 2);
@@ -2146,6 +2206,14 @@ function render(seconds: number): void {
     const p = toScreen(sign.x * TILE, sign.y * TILE);
     drawPill(ctx, sign.text[locale.value], p.x, p.y, '#fbbf24');
   }
+  // 夜市攤位的招牌（掛在屋頂上）
+  for (const stall of map.world.props) {
+    if (stall.kind !== 'stall') continue;
+    const name = STALLS[stall.variant ?? 0]?.name[locale.value];
+    if (!name) continue;
+    const p = toScreen((stall.tx + stall.w / 2) * TILE, stall.ty * TILE - 20);
+    drawPill(ctx, name, p.x, p.y, '#e25a4a');
+  }
   const doors: [number, number, string][] = [
     [1.3, (map.sideExits.left?.y0 ?? 0) - 0.15, `← ${t.value.seatScene.exitTaipei101}`],
     [map.width - 1.3, (map.sideExits.right?.y0 ?? 0) - 0.15, `${t.value.seatScene.exitZoo} →`],
@@ -2189,6 +2257,7 @@ function animate(time: number): void {
   lastFrameTime = seconds;
   updatePlayer(dt);
   returnIdleVehicles();
+  updateVendors(seconds);
   updateRemotePlayers(dt);
   syncPosition(seconds);
   savePosition(seconds);
