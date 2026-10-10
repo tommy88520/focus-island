@@ -129,6 +129,7 @@ const translations = {
       areaBeach: '陽光沙灘',
       escalatorBeach: '↓ 沙灘',
       boatTooFar: '要靠岸才能下船',
+      joystick: '移動搖桿',
       tourTitle: '歡迎來到 Focus Island',
       tourNext: '下一步',
       tourDone: '開始吧',
@@ -140,7 +141,7 @@ const translations = {
         '按 H 或 1–4 跟大家打招呼，按 M 打開小地圖。祝專注愉快！',
       ],
       tourTouch: [
-        '點地板就會走過去。',
+        '拖動右下角的搖桿走路，或直接點地板走過去。',
         '點一個空位子坐下，再按下方的「入座」開始番茄鐘。',
         '點腳踏車、躺椅、懶骨頭就能騎或躺；走樓梯、搭電梯或從左右出口換地方。南邊出去是海灘。',
         '左下角可以跟大家打招呼，右上角是小地圖。祝專注愉快！',
@@ -299,6 +300,7 @@ const translations = {
       areaBeach: 'Sunny beach',
       escalatorBeach: '↓ Beach',
       boatTooFar: 'Paddle back to shore to get off',
+      joystick: 'Movement joystick',
       tourTitle: 'Welcome to Focus Island',
       tourNext: 'Next',
       tourDone: "Let's go",
@@ -310,7 +312,7 @@ const translations = {
         'Press H or 1–4 to say hi and M for the minimap. Happy focusing!',
       ],
       tourTouch: [
-        'Tap the floor to walk there.',
+        'Drag the joystick at the bottom-right to walk, or tap the floor.',
         'Tap an empty seat to sit, then press Start Focus below.',
         'Tap a bike, lounger or beanbag to use it. Stairs, the elevator and the side exits take you elsewhere; the south exit leads to the beach.',
         'Say hi from the bottom-left, and the minimap is top-right. Happy focusing!',

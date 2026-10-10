@@ -38,11 +38,29 @@
           </button>
         </div>
       </div>
+      <!-- 手機的虛擬搖桿：按住拖動就能走 -->
+      <div
+        v-if="isTouch && !isLoading && !disabled"
+        ref="stickRef"
+        class="pixel-panel absolute bottom-2 right-2 h-24 w-24 !rounded-full opacity-80"
+        style="touch-action: none"
+        :aria-label="t.seatScene.joystick"
+        @pointerdown="handleStickDown"
+        @pointermove="handleStickMove"
+        @pointerup="handleStickUp"
+        @pointercancel="handleStickUp"
+      >
+        <div
+          class="pointer-events-none absolute left-1/2 top-1/2 h-10 w-10 rounded-full border-2 border-[color:var(--px-ink)] bg-[color:var(--px-accent)]"
+          :style="{ transform: `translate(calc(-50% + ${stickKnob.x}px), calc(-50% + ${stickKnob.y}px))` }"
+        ></div>
+      </div>
       <!-- 騎車時的下車鍵（手機沒有鍵盤） -->
       <button
         v-if="isRiding && !isLoading"
         type="button"
-        class="pixel-btn pixel-btn--primary absolute bottom-2 right-2 h-9 px-3 text-xs"
+        class="pixel-btn pixel-btn--primary absolute right-2 h-9 px-3 text-xs"
+        :class="isTouch && !disabled ? 'bottom-28' : 'bottom-2'"
         @click="handleDismountClick"
       >
         {{ t.seatScene.getOff }}
@@ -235,6 +253,53 @@ const minimapOpen = ref(false);
 // 靜謐森林是完全靜音區：不能打招呼，也不顯示別人的表情
 const isQuietZone = ref(false);
 const isRiding = ref(false);
+
+// ── 手機虛擬搖桿：stick 是 -1～1 的方向，跟方向鍵一起算 ──
+const STICK_RADIUS_PX = 30;
+const stickRef = ref<HTMLDivElement | null>(null);
+const stickKnob = ref({ x: 0, y: 0 });
+const stick = { x: 0, y: 0 };
+
+function updateStick(event: PointerEvent): void {
+  const rect = stickRef.value?.getBoundingClientRect();
+  if (!rect) return;
+  let x = event.clientX - (rect.left + rect.width / 2);
+  let y = event.clientY - (rect.top + rect.height / 2);
+  const length = Math.hypot(x, y);
+  if (length > STICK_RADIUS_PX) {
+    x = (x / length) * STICK_RADIUS_PX;
+    y = (y / length) * STICK_RADIUS_PX;
+  }
+  stickKnob.value = { x, y };
+  // 推不到兩成當作沒推，避免手指輕碰就亂走
+  const strength = Math.min(1, length / STICK_RADIUS_PX);
+  stick.x = strength > 0.2 ? x / STICK_RADIUS_PX : 0;
+  stick.y = strength > 0.2 ? y / STICK_RADIUS_PX : 0;
+}
+
+let stickPointer: number | null = null;
+
+function handleStickDown(event: PointerEvent): void {
+  stickPointer = event.pointerId;
+  try {
+    // 手指滑出搖桿範圍也繼續算
+    stickRef.value?.setPointerCapture(event.pointerId);
+  } catch {
+    // 拿不到 capture 也沒關係，只是滑出去就停
+  }
+  updateStick(event);
+}
+
+function handleStickMove(event: PointerEvent): void {
+  if (event.pointerId === stickPointer) updateStick(event);
+}
+
+function handleStickUp(): void {
+  stickPointer = null;
+  stick.x = 0;
+  stick.y = 0;
+  stickKnob.value = { x: 0, y: 0 };
+}
 
 // ── 新手引導 ──
 const TOUR_KEY = 'focus_island_tour_done_v1';
@@ -914,11 +979,11 @@ function facingFrom(dx: number, dy: number): Facing {
 function updatePlayer(dt: number): void {
   const active = canInteract();
   // 躺著時按方向鍵就起身
-  if (active && player.state === 'lying' && ['up', 'down', 'left', 'right'].some((k) => keys.has(k))) getUp();
+  if (active && player.state === 'lying' && (['up', 'down', 'left', 'right'].some((k) => keys.has(k)) || stick.x || stick.y)) getUp();
 
   if (active && (player.state === 'idle' || player.state === 'walking' || player.state === 'seated')) {
-    const dx = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
-    const dy = (keys.has('down') ? 1 : 0) - (keys.has('up') ? 1 : 0);
+    const dx = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0) || stick.x;
+    const dy = (keys.has('down') ? 1 : 0) - (keys.has('up') ? 1 : 0) || stick.y;
     if (dx !== 0 || dy !== 0) {
       if (player.state === 'seated') standUp();
       player.path = [];
