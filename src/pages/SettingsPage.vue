@@ -9,6 +9,26 @@
 
       <section class="pixel-panel space-y-3 p-5 sm:p-6">
         <div>
+          <h2 class="!mb-0 !text-lg !font-black">☁️ {{ t.settingsPage.accountTitle }}</h2>
+          <p class="!mb-0 mt-1 text-xs text-[color:var(--px-muted)]">
+            {{ account.session.value ? t.settingsPage.accountSignedInHint : t.settingsPage.accountHint }}
+          </p>
+        </div>
+        <template v-if="account.session.value">
+          <p class="!mb-0 text-sm font-bold">✅ {{ t.settingsPage.accountSignedIn }}</p>
+          <div class="!flex flex-wrap gap-2">
+            <button type="button" class="pixel-btn px-3 py-2 text-xs" @click="account.logout()">{{ t.settingsPage.accountLogout }}</button>
+            <button type="button" class="pixel-btn pixel-btn--danger px-3 py-2 text-xs" @click="confirmDelete">{{ t.settingsPage.accountDelete }}</button>
+          </div>
+        </template>
+        <template v-else>
+          <div ref="googleButtonRef" class="min-h-[44px]"></div>
+          <p v-if="loginError" class="!mb-0 text-xs font-bold text-[#e25a4a]">{{ loginError }}</p>
+        </template>
+      </section>
+
+      <section class="pixel-panel space-y-3 p-5 sm:p-6">
+        <div>
           <h2 class="!mb-0 !text-lg !font-black">{{ t.settingsPage.goalTitle }}</h2>
           <p class="!mb-0 mt-1 text-xs text-[color:var(--px-muted)]">{{ t.settingsPage.goalHint }}</p>
         </div>
@@ -106,12 +126,19 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
+import { useQuasar } from 'quasar';
+import { GOOGLE_CLIENT_ID, useAccount } from 'src/composables/useAccount';
+import { renderGoogleButton } from 'src/composables/googleIdentity';
 import { useLocale } from 'src/composables/useLocale';
 import { DAILY_GOAL_OPTIONS, usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, HAIR_UNLOCK, LOOK_HAIRS, LOOK_SHIRTS, SHIRT_UNLOCK, getAvatarFrame, lookColors } from 'src/pages/index/pixel/pixelArt';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 
-const { t } = useLocale();
+const { t, locale } = useLocale();
+const $q = useQuasar();
+const account = useAccount();
+const googleButtonRef = ref<HTMLDivElement | null>(null);
+const loginError = ref('');
 const prefs = usePlayerPrefs();
 const store = usePomodoroStore();
 store.loadProgress();
@@ -130,6 +157,27 @@ function drawPreview(): void {
   ctx.drawImage(getAvatarFrame(lookColors(prefs.value.hair, prefs.value.shirt), 'down', 'idle'), 0, 0);
 }
 
-onMounted(drawPreview);
+onMounted(() => {
+  drawPreview();
+  if (!account.session.value && googleButtonRef.value) {
+    renderGoogleButton(
+      googleButtonRef.value,
+      GOOGLE_CLIENT_ID,
+      (credential) => {
+        loginError.value = '';
+        void account.loginWithGoogle(credential).then((ok) => {
+          if (!ok) loginError.value = t.value.settingsPage.accountLoginFailed;
+        });
+      },
+      { dark: $q.dark.isActive, locale: locale.value },
+    ).catch(() => {
+      loginError.value = t.value.settingsPage.accountLoadFailed;
+    });
+  }
+});
+
+function confirmDelete(): void {
+  if (window.confirm(t.value.settingsPage.accountDeleteConfirm)) void account.deleteAccount();
+}
 watch(() => [prefs.value.hair, prefs.value.shirt], drawPreview);
 </script>

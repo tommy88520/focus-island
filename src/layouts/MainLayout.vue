@@ -182,11 +182,13 @@ import { useRoute, useRouter } from 'vue-router';
 import { Dark, useQuasar } from 'quasar';
 import { useLocale } from 'src/composables/useLocale';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
+import { useAccount } from 'src/composables/useAccount';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 import { HAIR_UNLOCK, SHIRT_UNLOCK } from 'src/pages/index/pixel/pixelArt';
 
 const leftDrawerOpen = ref(false);
 const store = usePomodoroStore();
+const useAccountSync = useAccount();
 const playerPrefs = usePlayerPrefs();
 // 完成一輪剛好跨過解鎖門檻：跳個通知
 const unlockedCount = (sessions: number) => [...HAIR_UNLOCK, ...SHIRT_UNLOCK].filter((n) => n > 0 && n <= sessions).length;
@@ -366,6 +368,8 @@ function refreshCurrentRoomInfo() {
 
 onMounted(() => {
   store.loadProgress();
+  // 已登入：把雲端最新的進度合併進來，之後自動同步
+  void useAccountSync.startSync();
   Dark.set(isDarkMode.value);
   persistLayoutPreferences();
   refreshCurrentRoomInfo();

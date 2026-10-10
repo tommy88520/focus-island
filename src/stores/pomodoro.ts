@@ -14,6 +14,14 @@ type FocusProgressPayload = {
   todayCompletedSessions: number;
 };
 
+export type SyncedProgress = {
+  todayKey: string;
+  todayFocusedSeconds: number;
+  todayCompletedSessions: number;
+  history: DailyHistoryEntry[];
+  lifetimeSessions: number;
+};
+
 export type DailyHistoryEntry = {
   date: string; // 'YYYY-MM-DD', local date
   focusedSeconds: number;
@@ -186,6 +194,31 @@ export const usePomodoroStore = defineStore('pomodoro', {
 
       this.todayFocusedSeconds += Math.floor(delta);
       this.saveProgress();
+    },
+
+    // 雲端同步：要上傳的那一份
+    syncSnapshot(): SyncedProgress {
+      this.loadProgress();
+      return {
+        todayKey: this.todayKey,
+        todayFocusedSeconds: this.todayFocusedSeconds,
+        todayCompletedSessions: this.todayCompletedSessions,
+        history: this.history,
+        lifetimeSessions: this.lifetimeSessions,
+      };
+    },
+
+    // 雲端同步：套用合併好的紀錄
+    applySynced(data: SyncedProgress) {
+      this.todayKey = data.todayKey;
+      this.todayFocusedSeconds = data.todayFocusedSeconds;
+      this.todayCompletedSessions = data.todayCompletedSessions;
+      this.history = data.history.filter(isValidHistoryEntry).slice(-HISTORY_MAX_DAYS);
+      this.lifetimeSessions = data.lifetimeSessions;
+      localStorage.setItem(LIFETIME_SESSIONS_KEY, String(this.lifetimeSessions));
+      this.saveHistory();
+      this.saveProgress();
+      this.ensureTodayProgress();
     },
 
     markSessionCompleted() {
