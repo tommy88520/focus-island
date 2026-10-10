@@ -2,6 +2,7 @@
 // 純邏輯、不碰 canvas，碰撞與尋路直接沿用 seatNavigation（它的 z 就是這裡的 y）。
 
 import type { Rect } from 'src/pages/index/composables/seatNavigation';
+import { createOutdoorWorld, outdoorAreaAt, type OutdoorAreaId, type OutdoorWorld } from './pixelWorld';
 
 export type Facing = 'up' | 'down' | 'left' | 'right';
 export type SeatKind = 'chair' | 'stool' | 'pouf' | 'armchair';
@@ -115,6 +116,8 @@ const RIGHT_EXIT = { y0: 10, y1: 12 };
 
 export interface PixelMap {
   theme: ThemeId;
+  // 圖書館四周的戶外區（101、動物園、士林夜市）與整個世界的範圍
+  world: OutdoorWorld;
   sideExits: SideExits;
   width: number;
   height: number;
@@ -169,7 +172,6 @@ export function createPixelMap(
   seatCount: number,
   escalator = false,
   theme: ThemeId = 'library',
-  exits: { left: boolean; right: boolean } = { left: false, right: false },
 ): PixelMap {
   const lounge = { tx: 16, ty: 10 };
   const base: SeatSlot[] = [
@@ -254,7 +256,9 @@ export function createPixelMap(
 
   return {
     theme,
-    sideExits: { left: exits.left ? LEFT_EXIT : null, right: exits.right ? RIGHT_EXIT : null },
+    world: createOutdoorWorld(MAP_WIDTH, libraryHeight, beach.seaTop + SEA_ROWS),
+    // 左右牆的門通往 101 一帶和動物園
+    sideExits: { left: LEFT_EXIT, right: RIGHT_EXIT },
     width: MAP_WIDTH,
     height: beach.seaTop + SEA_ROWS,
     libraryHeight,
@@ -274,7 +278,7 @@ export function createPixelMap(
       [ELEVATOR_X + 2, DOWN_STAIR_X],
       [DOWN_STAIR_X + 2, UP_STAIR_X],
       [UP_STAIR_X + 2, TV.tx],
-      [TV.tx + TV.w, MAP_WIDTH - 1],
+      // 電視右邊那段牆開了後門通往夜市（BACK_DOOR），不放書櫃
     ],
     windows: [
       [4, 6],
@@ -343,14 +347,15 @@ function beachgoers(beach: Beach): Beachgoer[] {
 // 每種載具能去的範圍：腳踏車只在室內、海灘車在木棧道和沙灘、小船只在海上
 export function vehicleArea(map: PixelMap, kind: VehicleKind): { xMin: number; xMax: number; yMin: number; yMax: number } {
   if (kind === 'bike') return { xMin: 1.3, xMax: map.width - 1.3, yMin: WALL_ROWS + 0.3, yMax: map.libraryHeight - 1.3 };
-  if (kind === 'cart') return { xMin: 0.5, xMax: map.width - 0.5, yMin: map.libraryHeight + 0.4, yMax: map.beach.seaTop + 0.3 };
-  return { xMin: 0.9, xMax: map.width - 0.9, yMin: map.beach.seaTop + 0.75, yMax: map.height - 0.5 };
+  if (kind === 'cart') return { xMin: map.world.x0 + 0.5, xMax: map.world.x1 - 0.5, yMin: map.libraryHeight + 0.4, yMax: map.beach.seaTop + 0.3 };
+  return { xMin: map.world.x0 + 0.9, xMax: map.world.x1 - 0.9, yMin: map.beach.seaTop + 0.75, yMax: map.height - 0.5 };
 }
 
-export type Area = 'library' | 'beach';
+export type Area = 'library' | 'beach' | OutdoorAreaId;
 
-export function areaAt(map: PixelMap, y: number): Area {
-  return y >= map.libraryHeight - 0.5 ? 'beach' : 'library';
+export function areaAt(map: PixelMap, x: number, y: number): Area {
+  if (y >= map.libraryHeight - 0.5) return 'beach';
+  return outdoorAreaAt(map.world, map.width, map.libraryHeight, x, y) ?? 'library';
 }
 
 // 坐下後人在畫面上的位置：格子中心（以格為單位的連續座標）
@@ -380,21 +385,6 @@ export function stairTrigger(stair: StairSpot): { x: number; y: number } {
   return { x: stair.tx + 1, y: WALL_ROWS + 0.45 };
 }
 
-// 走到出口最外面就換分區
-export function sideExitAt(map: PixelMap, x: number, y: number): 'left' | 'right' | null {
-  const inside = (exit: { y0: number; y1: number } | null) => exit !== null && y > exit.y0 && y < exit.y1;
-  if (x < 0.6 && inside(map.sideExits.left)) return 'left';
-  if (x > map.width - 0.6 && inside(map.sideExits.right)) return 'right';
-  return null;
-}
-
-// 從隔壁分區走進來時站的位置：剛好在出口內側一格
-export function sideExitArrival(map: PixelMap, side: 'left' | 'right'): { x: number; y: number } {
-  const exit = side === 'left' ? LEFT_EXIT : RIGHT_EXIT;
-  const y = (exit.y0 + exit.y1) / 2;
-  return side === 'left' ? { x: 1.8, y } : { x: map.width - 1.8, y };
-}
-
 export function elevatorTrigger(map: PixelMap): { x: number; y: number } {
   return { x: map.elevator.tx + 1, y: WALL_ROWS + 0.45 };
 }
@@ -415,6 +405,16 @@ export function mapObstacles(map: PixelMap): Rect[] {
   };
   sideWall(0, 1, map.sideExits.left);
   sideWall(map.width - 1, map.width, map.sideExits.right);
+  // 後牆（牆頂 + 書櫃那兩格），後門那段留空通往夜市
+  const [door0, door1] = map.world.backDoor;
+  rects.push({ x0: 0, x1: door0, z0: 0, z1: WALL_ROWS });
+  rects.push({ x0: door1, x1: map.width, z0: 0, z1: WALL_ROWS });
+  for (const prop of map.world.props) {
+    if (!prop.blocks) continue;
+    const thin = prop.kind === 'streetTree' || prop.kind === 'zooTree' || prop.kind === 'lanternPole';
+    const inset = thin ? 0.25 : 0.04;
+    rects.push({ x0: prop.tx + inset, x1: prop.tx + prop.w - inset, z0: prop.ty + inset, z1: prop.ty + prop.h - inset });
+  }
   rects.push({ x0: 0, x1: map.beach.door[0], z0: map.beach.wallRow, z1: wallBottom });
   rects.push({ x0: map.beach.door[1], x1: map.width, z0: map.beach.wallRow, z1: wallBottom });
   if (map.beach.escalator) {
@@ -435,6 +435,6 @@ export function mapObstacles(map: PixelMap): Rect[] {
 }
 
 export function walkBounds(map: PixelMap): { xMin: number; xMax: number; zMin: number; zMax: number } {
-  // 可以走到海邊踩水，但不會走進海裡
-  return { xMin: 0.35, xMax: map.width - 0.35, zMin: WALL_ROWS + 0.25, zMax: map.beach.seaTop + 0.55 };
+  // 整個世界都走得到；可以走到海邊踩水，但不會走進海裡
+  return { xMin: map.world.x0 + 0.35, xMax: map.world.x1 - 0.35, zMin: map.world.y0 + 0.35, zMax: map.beach.seaTop + 0.55 };
 }

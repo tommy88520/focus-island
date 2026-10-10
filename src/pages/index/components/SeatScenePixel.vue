@@ -131,9 +131,26 @@
           </button>
         </div>
       </div>
+      <!-- 捷運站：選要去哪個分區（同一層樓） -->
+      <div v-if="mrtOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
+        <p class="!mb-2 !text-[11px] font-black tracking-wide">🚇 {{ t.seatScene.mrtPrompt }}</p>
+        <div class="!flex !flex-nowrap justify-center gap-2">
+          <button
+            v-for="zone in zones"
+            :key="zone.id"
+            type="button"
+            class="pixel-btn h-9 whitespace-nowrap px-2 text-xs"
+            :class="{ 'pixel-btn--active': zone.id === currentZoneId }"
+            :disabled="zone.id === currentZoneId"
+            @click="rideMrt(zone.id)"
+          >
+            {{ zone.name }}
+          </button>
+        </div>
+      </div>
       <div v-show="minimapOpen" class="absolute right-2 top-12 rounded-xl bg-slate-900/85 p-2 shadow-lg ring-1 ring-white/15">
         <p class="!mb-1.5 text-center !text-[10px] font-black tracking-wide text-amber-300">
-          {{ area === 'beach' ? t.seatScene.areaBeach : zoneName ? `${zoneName} ${currentFloor}F` : t.seatScene.areaLibrary(currentFloor) }}
+          {{ areaTitle }}
         </p>
         <canvas ref="minimapRef" class="block cursor-pointer rounded-md" @click="handleMinimapClick" />
       </div>
@@ -170,14 +187,13 @@ import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { createNavigation, type Navigation, type Point } from 'src/pages/index/composables/seatNavigation';
 import {
   TILE,
+  WALL_ROWS,
   areaAt,
   createPixelMap,
   elevatorTrigger,
   mapObstacles,
   seatApproach,
   seatCenter,
-  sideExitArrival,
-  sideExitAt,
   stairTrigger,
   themeForZone,
   vehicleArea,
@@ -235,6 +251,14 @@ import {
   paintThemedPlant,
   paintThemedTableTop,
 } from 'src/pages/index/pixel/pixelThemes';
+import {
+  paintBackDoor,
+  paintOutdoorGround,
+  paintOutdoorProp,
+  paintWalker,
+  walkerPose,
+  type OutdoorKind,
+} from 'src/pages/index/pixel/pixelWorld';
 
 const props = defineProps<{
   seats: Seat[];
@@ -274,7 +298,7 @@ const emit = defineEmits<{
   position: [position: MyPosition];
 }>();
 
-const { t } = useLocale();
+const { t, locale } = useLocale();
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -406,6 +430,18 @@ function nextTourStep(): void {
 }
 // 走到電梯口會跳出樓層按鈕；走開就收起來
 const elevatorOpen = ref(false);
+// 走到 101 旁的捷運站口會跳出分區選單
+const mrtOpen = ref(false);
+// 小地圖標題：目前在哪一區
+const areaTitle = computed(() => {
+  const s = t.value.seatScene;
+  if (area.value === 'beach') return s.areaBeach;
+  if (area.value === 'taipei101') return s.areaTaipei101;
+  if (area.value === 'zoo') return s.areaZoo;
+  if (area.value === 'nightmarket') return s.areaNightMarket;
+  return props.zoneName ? `${props.zoneName} ${props.currentFloor}F` : s.areaLibrary(props.currentFloor);
+});
+const currentZoneId = computed(() => (props.seats[0]?.id ?? '').split('-')[1] ?? '');
 const elevatorFloors = computed(() => [...props.floors].sort((a, b) => a - b));
 // 人現在在圖書館還是海灘（小地圖的標題、要不要換泳裝）
 const area = ref<Area>('library');
@@ -444,6 +480,16 @@ const MINIMAP_PROP_COLORS: Partial<Record<PropKind, string>> = {
   surfboard: '#2fb3a6',
   sandcastle: '#d7b36f',
   towel: '#f2a541',
+};
+const MINIMAP_OUTDOOR_COLORS: Partial<Record<OutdoorKind, string>> = {
+  tower101: '#3e6f6a',
+  office: '#59606e',
+  mrt: '#e25a4a',
+  stall: '#f2a541',
+  enclosure: '#8a5e36',
+  pool: '#4fc3d9',
+  streetTree: '#3d7a4c',
+  zooTree: '#2f6b3a',
 };
 const MINIMAP_SEAT_COLORS: Record<SeatState, string> = { empty: '#f8fafc', me: COLOR_ME, mate: COLOR_MATE, taken: '#6b7280' };
 const EMOTE_ICONS: Record<EmoteId, string> = { wave: '👋', cheer: '💪', coffee: '☕', thumbs: '👍' };
@@ -531,7 +577,8 @@ let stairs: StairInfo[] = [];
 let nav: Navigation | null = null;
 let stairLock = false;
 // 剛從隔壁分區走進來時站在出口旁：要先離開出口才會再觸發
-let exitLock = false;
+// 剛搭捷運到這一區時人就站在捷運站口：先走開再走回來才會再跳出面板
+let mrtLock = false;
 // 剛搭電梯抵達時人就站在電梯口：要先走開再走回來才會再跳出按鈕
 let elevatorLock = false;
 let elevatorDoor = 0;
@@ -605,22 +652,6 @@ const view = { scale: MIN_SCALE, ox: 0, oy: 0, cssW: 0, cssH: 0, dpr: 1 };
 
 // ── 地圖與座位 ──
 
-// 左右隔壁的分區
-function neighborZones(): { left?: { id: string; name: string }; right?: { id: string; name: string } } {
-  const current = currentRoom().split('-')[1] ?? '';
-  const index = props.zones.findIndex((z) => z.id === current);
-  if (index < 0) return {};
-  const left = props.zones[index - 1];
-  const right = props.zones[index + 1];
-  return { ...(left ? { left } : {}), ...(right ? { right } : {}) };
-}
-
-// 分區清單晚到時，左右出口要不要開會跟著變
-function sideExitsChanged(): boolean {
-  const n = neighborZones();
-  return !!map.sideExits.left !== !!n.left || !!map.sideExits.right !== !!n.right;
-}
-
 // 最低的樓層直接開門就是海灘；樓上的出口換成往下的手扶梯
 function hasEscalator(): boolean {
   const lowest = props.floors.length > 0 ? Math.min(...props.floors) : 1;
@@ -629,11 +660,7 @@ function hasEscalator(): boolean {
 
 function buildMap(): void {
   // 分區決定主題：A 森林、B 咖啡店、C 深海艙、D 圖書館
-  const neighbors = neighborZones();
-  map = createPixelMap(props.seats.length, hasEscalator(), themeForZone(currentRoom().split('-')[1] ?? ''), {
-    left: !!neighbors.left,
-    right: !!neighbors.right,
-  });
+  map = createPixelMap(props.seats.length, hasEscalator(), themeForZone(currentRoom().split('-')[1] ?? ''));
   isQuietZone.value = map.theme === 'forest';
   vehicles = map.vehicles.map((spot) => ({ ...spot, vx: 0, vy: 0 }));
   lieSpots = map.props.flatMap((prop) => {
@@ -679,12 +706,19 @@ function buildNavigation(): void {
   nav = createNavigation(walkBounds(map), mapObstacles(map), PLAYER_RADIUS);
 }
 
+// 底圖涵蓋整個世界（包含負座標的戶外區），畫的時候先把原點移過去
 function paintStatic(): void {
+  const { world } = map;
   const canvas = document.createElement('canvas');
-  canvas.width = map.width * TILE;
-  canvas.height = map.height * TILE;
+  canvas.width = (world.x1 - world.x0) * TILE;
+  canvas.height = (world.y1 - world.y0) * TILE;
   const layer = canvas.getContext('2d');
-  if (layer) paintStaticLayer(layer, map);
+  if (layer) {
+    layer.translate(-world.x0 * TILE, -world.y0 * TILE);
+    paintOutdoorGround(layer, world, map.width, map.libraryHeight, map.beach.seaTop);
+    paintStaticLayer(layer, map);
+    paintBackDoor(layer, world.backDoor);
+  }
   staticLayer = canvas;
 }
 
@@ -727,6 +761,23 @@ function insideElevatorZone(x: number, y: number): boolean {
   if (props.floors.length < 2) return false;
   const trigger = elevatorTrigger(map);
   return Math.hypot(x - trigger.x, y - trigger.y) < STAIR_RADIUS;
+}
+
+function insideMrtZone(x: number, y: number): boolean {
+  const trigger = map.world.mrtTrigger;
+  return props.zones.length > 1 && Math.hypot(x - trigger.x, y - trigger.y) < 0.9;
+}
+
+// 搭捷運到同一層樓的另一個分區：從那一區的捷運站口出來
+function rideMrt(zoneId: string): void {
+  mrtOpen.value = false;
+  containerRef.value?.focus({ preventScroll: true });
+  if (zoneId === currentZoneId.value || !canInteract()) return;
+  const trigger = map.world.mrtTrigger;
+  pendingSpawn = { point: { x: trigger.x, y: trigger.y + 0.3 }, floor: props.currentFloor };
+  savedPosition = null;
+  restoredStanding = false;
+  emit('change-zone', zoneId);
 }
 
 function rideElevator(floor: number): void {
@@ -820,9 +871,10 @@ function spawnPlayer(): void {
     player.seatId = null;
   }
   stairLock = insideStairZone(player.x, player.y) !== undefined;
-  exitLock = sideExitAt(map, player.x, player.y) !== null;
+  mrtLock = insideMrtZone(player.x, player.y);
   elevatorLock = insideElevatorZone(player.x, player.y);
   elevatorOpen.value = false;
+  mrtOpen.value = false;
 }
 
 // 站起來：座位在伺服器端仍保留，所以只是人離開椅子，站到椅子後方
@@ -1152,30 +1204,17 @@ function updatePlayer(dt: number): void {
   const atElevator = active && inElevatorZone;
   const showElevator = atElevator && !elevatorLock;
   if (showElevator !== elevatorOpen.value) elevatorOpen.value = showElevator;
+  const inMrtZone = !riding && player.state !== 'seated' && player.state !== 'sitting' && insideMrtZone(player.x, player.y);
+  if (!inMrtZone) mrtLock = false;
+  const showMrt = active && inMrtZone && !mrtLock;
+  if (showMrt !== mrtOpen.value) mrtOpen.value = showMrt;
   // 門：有人站在門口就滑開
   const doorTarget = atElevator ? 1 : 0;
   elevatorDoor += Math.sign(doorTarget - elevatorDoor) * Math.min(Math.abs(doorTarget - elevatorDoor), dt * 3);
-  const nowArea = areaAt(map, player.y);
+  const nowArea = areaAt(map, player.x, player.y);
   if (nowArea !== area.value) area.value = nowArea;
 
   nearSeatId = active && !riding && (player.state === 'idle' || player.state === 'walking') ? (nearestSittableSeat()?.seatId ?? null) : null;
-
-  // 走出左右牆的出口 → 換到隔壁分區，從對面那道出口走進來
-  if (active && !riding && (player.state === 'idle' || player.state === 'walking')) {
-    const side = sideExitAt(map, player.x, player.y);
-    const target = side ? neighborZones()[side] : undefined;
-    if (!side) {
-      exitLock = false;
-    } else if (!exitLock && target) {
-      exitLock = true;
-      player.path = [];
-      player.state = 'idle';
-      pendingSpawn = { point: sideExitArrival(map, side === 'left' ? 'right' : 'left'), floor: props.currentFloor };
-      savedPosition = null;
-      restoredStanding = false;
-      emit('change-zone', target.id);
-    }
-  }
 
   // 走進樓梯口 → 換樓層
   if (active && !riding && (player.state === 'idle' || player.state === 'walking')) {
@@ -1277,7 +1316,7 @@ function updateRemotePlayers(dt: number): void {
 
 function remoteColors(remote: RemotePlayer, y: number): AvatarColors {
   const base = remote.hair !== undefined && remote.shirt !== undefined ? lookColors(remote.hair, remote.shirt) : avatarColorsFor(remote.displayName);
-  return areaAt(map, y) === 'beach' ? { ...base, outfit: 'trunks' } : base;
+  return areaAt(map, remote.x, y) === 'beach' ? { ...base, outfit: 'trunks' } : base;
 }
 
 function remoteHeadOffset(remote: RemotePlayer): number {
@@ -1299,7 +1338,7 @@ function remoteDrawables(seconds: number): Drawable[] {
       draw: (c) => {
         if (remote.lying) {
           // 室內就是窩在懶骨頭裡，海灘上是躺著曬太陽
-          drawLying(c, colors, footX, shown.y * TILE, areaAt(map, shown.y) === 'library');
+          drawLying(c, colors, footX, shown.y * TILE, areaAt(map, shown.x, shown.y) === 'library');
           return;
         }
         if (vehicle) {
@@ -1337,8 +1376,9 @@ function updateView(): void {
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
   }
-  const worldW = map.width * TILE;
-  const worldH = map.height * TILE;
+  const { world } = map;
+  const worldW = (world.x1 - world.x0) * TILE;
+  const worldH = (world.y1 - world.y0) * TILE;
   const fit = Math.floor(Math.min(cssW / worldW, cssH / worldH));
   // 桌機畫面夠大就放大到 3 倍，跟 Gather 一樣只看得到人附近、鏡頭跟著走
   const scale = Math.max(cssW >= 900 ? 3 : MIN_SCALE, fit);
@@ -1347,8 +1387,9 @@ function updateView(): void {
   // 放得下就置中；放不下就讓玩家在畫面中間，但不超出地圖邊緣
   const follow = (size: number, world: number, focus: number) =>
     world <= size ? (size - world) / 2 : Math.min(0, Math.max(size - world, size / 2 - focus));
-  const ox = follow(cssW, viewW, player.x * TILE * scale);
-  const oy = follow(cssH, viewH, player.y * TILE * scale);
+  // 世界左上角是負座標：先當作從 0 開始算，再把原點移回去
+  const ox = follow(cssW, viewW, (player.x - world.x0) * TILE * scale) - world.x0 * TILE * scale;
+  const oy = follow(cssH, viewH, (player.y - world.y0) * TILE * scale) - world.y0 * TILE * scale;
   // 對齊實體像素，畫面捲動時像素才不會閃
   view.ox = Math.round(ox * dpr) / dpr;
   view.oy = Math.round(oy * dpr) / dpr;
@@ -1589,6 +1630,28 @@ function drawLying(c: CanvasRenderingContext2D, colors: AvatarColors, footX: num
   paintSunglasses(c, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - AVATAR_SIZE.h));
 }
 
+// 戶外的建築、攤位、動物園，以及走來走去的路人、計程車、動物
+function outdoorDrawables(seconds: number): Drawable[] {
+  const night = lightingNow() !== 'day';
+  const list: Drawable[] = map.world.props.map((prop) => ({
+    // 展區和水池是地面，要畫在裡面的動物底下
+    sortY: prop.kind === 'enclosure' || prop.kind === 'pool' ? prop.ty : prop.ty + prop.h,
+    draw: (c: CanvasRenderingContext2D) => paintOutdoorProp(c, prop, seconds, night),
+  }));
+  for (const walker of map.world.walkers) {
+    const pose = walkerPose(walker, seconds);
+    list.push({
+      sortY: pose.y + 0.35,
+      draw: (c) =>
+        paintWalker(c, walker, pose.x, pose.y, pose.dx, seconds, (footX, footY, facing, look) => {
+          const frame = Math.floor(seconds / 0.18) % 2 === 0 ? 'walkA' : 'walkB';
+          drawAvatar(c, avatarColorsFor(`walker-${look}`), facing, frame, footX, footY, false);
+        }),
+    });
+  }
+  return list;
+}
+
 function playerDrawable(seconds: number): Drawable | null {
   if (player.state === 'seated') return null;
   if (player.state === 'lying') {
@@ -1630,12 +1693,11 @@ function playerDrawable(seconds: number): Drawable | null {
 
 // tint：整張圖乘上去的色調；lamps：燈光的強度（黃昏時燈剛點起來，比較弱）
 function drawNightLighting(c: CanvasRenderingContext2D, seconds: number, tint = NIGHT_TINT[map.theme], lamps = 1): void {
-  const w = map.width * TILE;
-  const h = map.height * TILE;
+  const { world } = map;
   c.save();
   c.globalCompositeOperation = 'multiply';
   c.fillStyle = tint;
-  c.fillRect(0, 0, w, h);
+  c.fillRect(world.x0 * TILE, world.y0 * TILE, (world.x1 - world.x0) * TILE, (world.y1 - world.y0) * TILE);
   c.globalCompositeOperation = 'lighter';
   c.globalAlpha = lamps;
   const glow = (x: number, y: number, r: number, color: string) => {
@@ -1651,6 +1713,13 @@ function drawNightLighting(c: CanvasRenderingContext2D, seconds: number, tint = 
     if (prop.kind === 'campfire') {
       glow(prop.tx * TILE + 8, prop.ty * TILE + 6, 64 + Math.sin(seconds * 9) * 3, `rgba(255, 150, 60, ${0.5 + Math.sin(seconds * 13) * 0.05})`);
     }
+  }
+  // 戶外：夜市的攤位與燈籠、101 的路燈與辦公室、捷運站
+  for (const prop of world.props) {
+    if (prop.kind === 'stall') glow((prop.tx + prop.w / 2) * TILE, prop.ty * TILE + 6, 46, 'rgba(255, 200, 120, 0.42)');
+    if (prop.kind === 'lanternPole') glow(prop.tx * TILE + 8, prop.ty * TILE - 14, 56, `rgba(255, 120, 80, ${0.34 + Math.sin(seconds * 2 + prop.tx) * 0.04})`);
+    if (prop.kind === 'mrt') glow((prop.tx + prop.w / 2) * TILE, prop.ty * TILE, 40, 'rgba(255, 255, 255, 0.25)');
+    if (prop.kind === 'tower101') glow((prop.tx + prop.w / 2) * TILE, prop.ty * TILE - 60, 90, 'rgba(140, 220, 255, 0.18)');
   }
   const tvX = (map.tv.tx + map.tv.w / 2) * TILE;
   glow(tvX, TILE * 3, 60, `rgba(${TV_GLOW[map.theme]}, ${0.2 + Math.sin(seconds * 0.8) * 0.03})`);
@@ -1670,24 +1739,30 @@ function lightingNow(): 'day' | 'dusk' | 'night' {
 
 // 下雨：海灘上整片斜斜的雨絲、海面和沙上的小水花；室內只看得到窗戶上的雨痕
 function drawRain(c: CanvasRenderingContext2D, seconds: number): void {
-  const w = map.width * TILE;
-  const top = map.libraryHeight * TILE;
-  const h = map.height * TILE - top;
+  // 戶外整片都下雨，圖書館裡面不下
+  const { world } = map;
+  const left = world.x0 * TILE;
+  const top = world.y0 * TILE;
+  const w = (world.x1 - world.x0) * TILE;
+  const h = (world.y1 - world.y0) * TILE;
+  const indoor = (x: number, y: number) => x >= 0 && x < map.width * TILE && y >= 0 && y < map.libraryHeight * TILE;
   c.save();
   c.fillStyle = 'rgba(40, 60, 90, 0.18)';
-  c.fillRect(0, top, w, h);
+  c.fillRect(left, top, w, h);
   c.fillStyle = 'rgba(210, 225, 255, 0.55)';
-  for (let i = 0; i < 160; i += 1) {
-    const x = (i * 97 + seconds * 40) % w;
+  for (let i = 0; i < 420; i += 1) {
+    const x = left + ((i * 97 + seconds * 40) % w);
     const y = top + ((i * 53 + seconds * 220) % h);
+    if (indoor(x, y)) continue;
     c.fillRect(Math.round(x), Math.round(y), 1, 4);
     c.fillRect(Math.round(x) - 1, Math.round(y) + 4, 1, 2);
   }
-  for (let i = 0; i < 26; i += 1) {
+  for (let i = 0; i < 70; i += 1) {
     const phase = (seconds * 1.7 + i * 0.29) % 1;
     if (phase > 0.35) continue;
-    const x = (i * 131 + Math.floor(seconds * 1.7 + i * 0.29) * 47) % w;
+    const x = left + ((i * 131 + Math.floor(seconds * 1.7 + i * 0.29) * 47) % w);
     const y = top + ((i * 71) % h);
+    if (indoor(x, y)) continue;
     c.fillRect(x - 2, y, 1, 1);
     c.fillRect(x + 2, y, 1, 1);
     c.fillRect(x, y - 1, 1, 1);
@@ -1723,7 +1798,7 @@ function drawSunlight(c: CanvasRenderingContext2D): void {
   }
   // 海灘：整片曬得暖暖的
   c.fillStyle = 'rgba(255, 232, 150, 0.4)';
-  c.fillRect(0, map.libraryHeight * TILE, map.width * TILE, (map.height - map.libraryHeight) * TILE);
+  c.fillRect(map.world.x0 * TILE, map.libraryHeight * TILE, (map.world.x1 - map.world.x0) * TILE, (map.height - map.libraryHeight) * TILE);
   c.restore();
 }
 
@@ -1731,8 +1806,9 @@ function drawSunlight(c: CanvasRenderingContext2D): void {
 function renderMinimap(seconds: number): void {
   const canvas = minimapRef.value;
   if (!minimapOpen.value || !canvas || !staticLayer) return;
-  const worldW = map.width * TILE;
-  const worldH = map.height * TILE;
+  const { world } = map;
+  const worldW = (world.x1 - world.x0) * TILE;
+  const worldH = (world.y1 - world.y0) * TILE;
   const k = MINIMAP_WIDTH / worldW;
   const cssH = Math.round(worldH * k);
   const { dpr } = view;
@@ -1744,9 +1820,16 @@ function renderMinimap(seconds: number): void {
   }
   const c = canvas.getContext('2d');
   if (!c) return;
-  c.setTransform(dpr * k, 0, 0, dpr * k, 0, 0);
+  // 之後都用世界座標畫（左上角是負的）
+  c.setTransform(dpr * k, 0, 0, dpr * k, -world.x0 * TILE * k * dpr, -world.y0 * TILE * k * dpr);
   c.imageSmoothingEnabled = true;
-  c.drawImage(staticLayer, 0, 0);
+  c.drawImage(staticLayer, world.x0 * TILE, world.y0 * TILE);
+  for (const prop of world.props) {
+    const color = MINIMAP_OUTDOOR_COLORS[prop.kind];
+    if (!color) continue;
+    c.fillStyle = color;
+    c.fillRect(prop.tx * TILE + 1, prop.ty * TILE + 1, prop.w * TILE - 2, prop.h * TILE - 2);
+  }
   for (const prop of map.props) {
     const color = MINIMAP_PROP_COLORS[prop.kind];
     if (!color) continue;
@@ -1755,7 +1838,7 @@ function renderMinimap(seconds: number): void {
   }
   if (lightingNow() === 'night') {
     c.fillStyle = 'rgba(24, 20, 52, 0.35)';
-    c.fillRect(0, 0, worldW, worldH);
+    c.fillRect(world.x0 * TILE, world.y0 * TILE, worldW, worldH);
   }
   for (const node of seatNodes) {
     c.fillStyle = MINIMAP_SEAT_COLORS[node.state];
@@ -1770,10 +1853,10 @@ function renderMinimap(seconds: number): void {
   c.fillStyle = '#e25a4a';
   for (const v of vehicles) if (v !== riding) c.fillRect(v.x * TILE - 6, v.y * TILE - 6, 12, 12);
   // 目前主畫面看到的範圍
-  const x0 = Math.max(0, -view.ox / view.scale);
-  const y0 = Math.max(0, -view.oy / view.scale);
-  const x1 = Math.min(worldW, (view.cssW - view.ox) / view.scale);
-  const y1 = Math.min(worldH, (view.cssH - view.oy) / view.scale);
+  const x0 = Math.max(world.x0 * TILE, -view.ox / view.scale);
+  const y0 = Math.max(world.y0 * TILE, -view.oy / view.scale);
+  const x1 = Math.min(world.x1 * TILE, (view.cssW - view.ox) / view.scale);
+  const y1 = Math.min(world.y1 * TILE, (view.cssH - view.oy) / view.scale);
   c.lineWidth = 1.5 / k;
   c.strokeStyle = 'rgba(255, 255, 255, 0.9)';
   c.strokeRect(x0 + c.lineWidth / 2, y0 + c.lineWidth / 2, x1 - x0 - c.lineWidth, y1 - y0 - c.lineWidth);
@@ -1922,7 +2005,7 @@ function render(seconds: number): void {
   ctx.imageSmoothingEnabled = false;
   ctx.setTransform(scale * dpr, 0, 0, scale * dpr, ox * dpr, oy * dpr);
 
-  if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
+  if (staticLayer) ctx.drawImage(staticLayer, map.world.x0 * TILE, map.world.y0 * TILE);
   paintWaves(ctx, map, seconds);
   paintElevatorDoors(ctx, map, elevatorDoor);
   paintAmbient(ctx, map, seconds, lightingNow() === 'night', 'under');
@@ -1933,6 +2016,7 @@ function render(seconds: number): void {
     ...vehicles.filter((v) => v !== riding).map((v) => vehicleDrawable(v, seconds)),
     ...map.beachgoers.map((goer) => beachgoerDrawable(goer, seconds)),
     ...remoteDrawables(seconds),
+    ...outdoorDrawables(seconds),
   ];
   const me = playerDrawable(seconds);
   if (me) drawables.push(me);
@@ -1959,13 +2043,19 @@ function render(seconds: number): void {
     const p = toScreen((map.elevator.tx + 1) * TILE, TILE + 2);
     drawPill(ctx, t.value.seatScene.elevator, p.x, p.y, '#cbd5e1');
   }
-  const neighbors = neighborZones();
-  for (const side of ['left', 'right'] as const) {
-    const exit = map.sideExits[side];
-    const zone = neighbors[side];
-    if (!exit || !zone) continue;
-    const p = toScreen((side === 'left' ? 1.3 : map.width - 1.3) * TILE, exit.y0 * TILE - 2);
-    drawPill(ctx, side === 'left' ? `← ${zone.name}` : `${zone.name} →`, p.x, p.y, COLOR_MATE);
+  // 戶外的地標名牌，以及圖書館三道門通往哪裡
+  for (const sign of map.world.signs) {
+    const p = toScreen(sign.x * TILE, sign.y * TILE);
+    drawPill(ctx, sign.text[locale.value], p.x, p.y, '#fbbf24');
+  }
+  const doors: [number, number, string][] = [
+    [1.3, (map.sideExits.left?.y0 ?? 0) - 0.15, `← ${t.value.seatScene.exitTaipei101}`],
+    [map.width - 1.3, (map.sideExits.right?.y0 ?? 0) - 0.15, `${t.value.seatScene.exitZoo} →`],
+    [(map.world.backDoor[0] + map.world.backDoor[1]) / 2, WALL_ROWS + 0.9, `↑ ${t.value.seatScene.exitNightMarket}`],
+  ];
+  for (const [x, y, text] of doors) {
+    const p = toScreen(x * TILE, y * TILE);
+    drawPill(ctx, text, p.x, p.y, COLOR_MATE);
   }
   if (map.beach.escalator) {
     const p = toScreen(((map.beach.door[0] + map.beach.door[1]) / 2) * TILE, map.beach.wallRow * TILE - 4);
@@ -2079,9 +2169,10 @@ function handleMinimapClick(event: MouseEvent): void {
   const canvas = minimapRef.value;
   if (!canvas || !canInteract()) return;
   const rect = canvas.getBoundingClientRect();
+  const { world } = map;
   const point = {
-    x: ((event.clientX - rect.left) / rect.width) * map.width,
-    y: ((event.clientY - rect.top) / rect.height) * map.height,
+    x: world.x0 + ((event.clientX - rect.left) / rect.width) * (world.x1 - world.x0),
+    y: world.y0 + ((event.clientY - rect.top) / rect.height) * (world.y1 - world.y0),
   };
   // 小地圖上點車子（紅點）也算點車子，範圍放寬一點
   const vehicle = vehicles.find((v) => v !== riding && Math.hypot(point.x - v.x, point.y - v.y) < 1.5);
@@ -2222,7 +2313,7 @@ watch(
   () => {
     rebuildStairs();
     // 樓層清單晚到才知道這層是不是樓上：出口換了就重畫，但人留在原地
-    if (map.beach.escalator !== hasEscalator() || sideExitsChanged()) {
+    if (map.beach.escalator !== hasEscalator()) {
       buildMap();
       syncSeatStates();
     }

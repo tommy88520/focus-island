@@ -374,24 +374,26 @@ function paintBeach(ctx: CanvasRenderingContext2D, map: PixelMap): void {
 
 // 每一格都重畫的浪：沿著岸邊一條會前後推的白浪，海面上幾點閃光
 export function paintWaves(ctx: CanvasRenderingContext2D, map: PixelMap, seconds: number): void {
-  const width = map.width * TILE;
+  // 海從世界最左邊延伸到最右邊
+  const left = map.world.x0 * TILE;
+  const width = map.world.x1 * TILE;
   const seaY = map.beach.seaTop * TILE;
   const reach = Math.round(Math.sin(seconds * 0.9) * 3);
-  for (let x = 0; x < width; x += 2) {
+  for (let x = left; x < width; x += 2) {
     const wobble = Math.round(Math.sin(x * 0.09 + seconds * 1.6) * 1.5);
     const y = seaY - 2 - reach + wobble;
     px(ctx, SEA.foam, x, y, 2, 2);
     if ((x / 2) % 3 !== 0) px(ctx, 'rgba(233,251,255,0.55)', x, y + 3, 2, 1);
   }
   // 第二道浪，往外一點、慢一點
-  for (let x = 0; x < width; x += 3) {
+  for (let x = left; x < width; x += 3) {
     const y = seaY + 14 + Math.round(Math.sin(x * 0.05 - seconds * 1.1) * 2);
     px(ctx, 'rgba(233,251,255,0.5)', x, y, 2, 1);
   }
   for (let i = 0; i < 9; i += 1) {
     const phase = (seconds * 0.7 + i * 0.37) % 1;
     if (phase > 0.4) continue;
-    const x = ((i * 157 + Math.floor(seconds / 2.7) * 61) % (width - 8)) + 4;
+    const x = left + ((i * 157 + Math.floor(seconds / 2.7) * 61) % (width - left - 8)) + 4;
     const y = seaY + 24 + ((i * 29) % Math.max(8, map.height * TILE - seaY - 30));
     px(ctx, '#ffffff', x, y, 2, 1);
   }
