@@ -7,7 +7,7 @@ import { usePlayerPrefs, type PlayerPrefs } from 'src/composables/usePlayerPrefs
 import { usePomodoroStore, type DailyHistoryEntry, type SyncedProgress } from 'src/stores/pomodoro';
 
 // 公開的 OAuth Client ID（本來就會出現在網頁裡，不是密碼）
-export const GOOGLE_CLIENT_ID = '1052714665565-2a3drmoau1hbhe6865v4koea431o3k2n.apps.googleusercontent.com';
+export const GOOGLE_CLIENT_ID = '1052714665565-oc9po12vftshf3psrhd32jktoq61d00v.apps.googleusercontent.com';
 
 const SESSION_KEY = 'focus_island_session_v1';
 const USER_ID_KEY = 'lib_uid';
