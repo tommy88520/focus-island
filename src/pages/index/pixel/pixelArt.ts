@@ -695,7 +695,8 @@ function wheel(ctx: CanvasRenderingContext2D, cx: number, cy: number, spin: numb
 }
 
 function paintBike(ctx: CanvasRenderingContext2D, x: number, y: number, side: boolean, layer: 'back' | 'front', seconds: number, moving: boolean): void {
-  const red = '#e25a4a';
+  // YouBike 的黃色車身
+  const red = '#f6c945';
   const spin = moving ? Math.floor(seconds * 12) : 0;
   if (!side) {
     // 正面／背面：只看得到前輪和把手

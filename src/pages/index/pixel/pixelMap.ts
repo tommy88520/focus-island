@@ -265,7 +265,6 @@ export function createPixelMap(
     beach,
     beachgoers: beachgoers(beach),
     vehicles: [
-      { kind: 'bike', x: 20.5, y: 15.6, facing: 'right' },
       { kind: 'cart', x: 8.5, y: beach.sandTop + 1.4, facing: 'right' },
       { kind: 'boat', x: 24.5, y: beach.seaTop + 1.1, facing: 'left' },
     ],
@@ -344,9 +343,10 @@ function beachgoers(beach: Beach): Beachgoer[] {
   ];
 }
 
-// 每種載具能去的範圍：腳踏車只在室內、海灘車在木棧道和沙灘、小船只在海上
+// 每種載具能去的範圍：腳踏車在陸地上、海灘車在木棧道和沙灘、小船只在海上
 export function vehicleArea(map: PixelMap, kind: VehicleKind): { xMin: number; xMax: number; yMin: number; yMax: number } {
-  if (kind === 'bike') return { xMin: 1.3, xMax: map.width - 1.3, yMin: WALL_ROWS + 0.3, yMax: map.libraryHeight - 1.3 };
+  // 腳踏車哪裡都能騎（除了海裡），出圖書館也行；牆和家具照樣擋
+  if (kind === 'bike') return { xMin: map.world.x0 + 0.5, xMax: map.world.x1 - 0.5, yMin: map.world.y0 + 0.5, yMax: map.beach.seaTop + 0.3 };
   if (kind === 'cart') return { xMin: map.world.x0 + 0.5, xMax: map.world.x1 - 0.5, yMin: map.libraryHeight + 0.4, yMax: map.beach.seaTop + 0.3 };
   return { xMin: map.world.x0 + 0.9, xMax: map.world.x1 - 0.9, yMin: map.beach.seaTop + 0.75, yMax: map.height - 0.5 };
 }

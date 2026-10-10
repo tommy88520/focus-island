@@ -125,6 +125,8 @@ export interface RemotePlayer {
   moving: boolean;
   vehicle?: RemoteVehicle;
   lying?: boolean;
+  // 躺在地板上（不是躺椅或懶骨頭）
+  floor?: boolean;
   hair?: number;
   shirt?: number;
   dnd?: boolean;
@@ -142,6 +144,7 @@ export interface MyPosition {
   moving: boolean;
   vehicle?: RemoteVehicle;
   lying?: boolean;
+  pose?: 'floor';
   hidden?: boolean;
 }
 
@@ -778,6 +781,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 moving: pos.moving === true,
                 ...(['bike', 'cart', 'boat'].includes(pos.vehicle) ? { vehicle: pos.vehicle as RemoteVehicle } : {}),
                 ...(pos.lying === true ? { lying: true } : {}),
+                ...(pos.pose === 'floor' ? { floor: true } : {}),
                 ...(reader ? readerExtras(reader as unknown as Record<string, unknown>) : {}),
                 ...readerExtras(pos),
                 ...(reader ? { state: reader.state } : {}),

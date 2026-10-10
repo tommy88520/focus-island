@@ -609,7 +609,8 @@ interface LieSpot {
   x: number;
   y: number;
   // lie：沙灘上平躺曬太陽；sink：窩在室內的懶骨頭裡
-  pose: 'lie' | 'sink';
+  // floor：直接躺在圖書館地板上
+  pose: 'lie' | 'sink' | 'floor';
   // 點這個範圍算點到它
   rect: { x0: number; x1: number; y0: number; y1: number };
 }
@@ -955,12 +956,56 @@ function dismount(): boolean {
   v.vy = 0;
   placePlayer(spot.x, spot.z);
   player.state = 'idle';
+  // 在 YouBike 站旁下車就是還車：車子收進站裡
+  if (v.kind === 'bike' && nearestStation()) {
+    vehicles = vehicles.filter((other) => other !== v);
+    say('me', `🚲 ${t.value.seatScene.bikeReturned}`);
+  }
   return true;
 }
 
 function handleDismountClick(): void {
   containerRef.value?.focus({ preventScroll: true });
   dismount();
+}
+
+// ── YouBike 站：借車（站旁按 E 或點站）、騎到任何一站旁下車就還車 ──
+const STATION_REACH = 1.8;
+let goalStation: { x: number; y: number } | null = null;
+
+function stations(): { x: number; y: number; rect: { x0: number; x1: number; y0: number; y1: number } }[] {
+  return map.world.props
+    .filter((p) => p.kind === 'youbike')
+    .map((p) => ({ x: p.tx + p.w / 2, y: p.ty + p.h + 0.4, rect: { x0: p.tx, x1: p.tx + p.w, y0: p.ty - 1, y1: p.ty + p.h } }));
+}
+
+function nearestStation(): { x: number; y: number } | undefined {
+  return stations().find((s) => Math.hypot(s.x - player.x, s.y - player.y) < STATION_REACH);
+}
+
+function takeBike(): void {
+  if (player.state === 'seated') standUp();
+  const bike: VehicleState = { kind: 'bike', x: player.x, y: player.y, facing: player.facing, vx: 0, vy: 0 };
+  vehicles.push(bike);
+  mount(bike);
+  say('me', `🚲 ${t.value.seatScene.bikeTaken}`);
+}
+
+function walkToStation(station: { x: number; y: number }): void {
+  if (riding && !dismount()) return;
+  if (Math.hypot(station.x - player.x, station.y - player.y) < STATION_REACH) {
+    takeBike();
+    return;
+  }
+  walkToPoint(station);
+  goalStation = station;
+}
+
+// 躺在圖書館地板上（L，或沒有其他東西可以用時按 E；手機點自己）
+function lieOnFloor(): void {
+  if (riding || areaAt(map, player.x, player.y) !== 'library') return;
+  lieDown({ x: player.x, y: player.y, pose: 'floor', rect: { x0: 0, x1: 0, y0: 0, y1: 0 } });
+  player.facing = 'down';
 }
 
 function nearestLieSpot(): LieSpot | undefined {
@@ -989,6 +1034,10 @@ function lieDown(spot: LieSpot): void {
 function getUp(): void {
   const spot = lyingOn;
   lyingOn = null;
+  if (spot?.pose === 'floor') {
+    player.state = 'idle';
+    return;
+  }
   const free = spot && nav ? nav.nearestFree({ x: spot.x + 0.9, z: spot.y }) : null;
   if (free) placePlayer(free.x, free.z);
   player.state = 'idle';
@@ -1041,6 +1090,7 @@ function walkToPoint(target: { x: number; y: number }): void {
   if (player.state === 'seated') standUp();
   goalVehicle = null;
   goalLie = null;
+  goalStation = null;
   if (riding) {
     // 騎車時點到哪就往哪去，但不會離開那台車能去的範圍
     const area = vehicleArea(map, riding.kind);
@@ -1149,6 +1199,8 @@ function updatePlayer(dt: number): void {
         goalVehicle = null;
         if (goalLie && Math.hypot(goalLie.x - player.x, goalLie.y - player.y) < LIE_REACH) lieDown(goalLie);
         goalLie = null;
+        if (goalStation && Math.hypot(goalStation.x - player.x, goalStation.y - player.y) < STATION_REACH) takeBike();
+        goalStation = null;
       } else {
         const toX = next.x - player.x;
         const toY = next.z - player.y;
@@ -1157,9 +1209,15 @@ function updatePlayer(dt: number): void {
         const nx = dist <= step ? next.x : player.x + (toX / dist) * step;
         const ny = dist <= step ? next.z : player.y + (toY / dist) * step;
         if (riding && !canOccupy(nx, ny)) {
-          // 前面出了這台車能去的範圍：停下來
-          player.path = [];
-          player.state = 'idle';
+          // 擦到牆角：先試著順著牆滑（只動 x 或只動 y），真的過不去才停下來
+          const slideX = canOccupy(nx, player.y);
+          const slideY = canOccupy(player.x, ny);
+          if (slideX) player.x = nx;
+          else if (slideY) player.y = ny;
+          else {
+            player.path = [];
+            player.state = 'idle';
+          }
         } else {
           player.x = nx;
           player.y = ny;
@@ -1283,6 +1341,7 @@ function syncPosition(seconds: number): void {
     moving: player.moving,
     ...(riding ? { vehicle: riding.kind } : {}),
     ...(player.state === 'lying' ? { lying: true } : {}),
+    ...(player.state === 'lying' && lyingOn?.pose === 'floor' ? { pose: 'floor' as const } : {}),
     ...(hidden ? { hidden: true } : {}),
   };
   const key = hidden ? 'hidden' : JSON.stringify(pos);
@@ -1338,7 +1397,7 @@ function remoteDrawables(seconds: number): Drawable[] {
       draw: (c) => {
         if (remote.lying) {
           // 室內就是窩在懶骨頭裡，海灘上是躺著曬太陽
-          drawLying(c, colors, footX, shown.y * TILE, areaAt(map, shown.x, shown.y) === 'library');
+          drawLying(c, colors, footX, shown.y * TILE + (remote.floor ? 5 : 0), !remote.floor && areaAt(map, shown.x, shown.y) === 'library', remote.floor === true);
           return;
         }
         if (vehicle) {
@@ -1604,7 +1663,7 @@ const RIDE_ROWS: Record<VehicleKind, number> = { bike: SEATED_ROWS, cart: SEATED
 
 // 頭頂離腳下幾個世界像素（名牌和泡泡用）
 function myHeadOffset(): number {
-  if (player.state === 'lying') return -21;
+  if (player.state === 'lying') return lyingOn?.pose === 'floor' ? -14 : -21;
   return riding ? 5 - RIDE_LIFT[riding.kind] - RIDE_ROWS[riding.kind] - 1 : -16;
 }
 
@@ -1621,7 +1680,18 @@ function vehicleDrawable(v: VehicleState, seconds: number): Drawable {
 }
 
 // 躺著（沙灘，戴墨鏡）或窩在懶骨頭裡（只露上半身，往下陷一點）
-function drawLying(c: CanvasRenderingContext2D, colors: AvatarColors, footX: number, footY: number, sink: boolean): void {
+function drawLying(c: CanvasRenderingContext2D, colors: AvatarColors, footX: number, footY: number, sink: boolean, floor = false): void {
+  if (floor) {
+    // 側躺在地板上：整個人轉 90 度，頭朝左
+    c.fillStyle = 'rgba(0, 0, 0, 0.18)';
+    c.fillRect(Math.round(footX - 11), Math.round(footY - 1), 22, 3);
+    c.save();
+    c.translate(Math.round(footX), Math.round(footY - 5));
+    c.rotate(-Math.PI / 2);
+    c.drawImage(getAvatarFrame(colors, 'down', 'idle'), -AVATAR_SIZE.w / 2, -AVATAR_SIZE.h / 2);
+    c.restore();
+    return;
+  }
   if (sink) {
     drawAvatar(c, colors, 'down', 'idle', footX, footY + 1, true);
     return;
@@ -1656,10 +1726,11 @@ function playerDrawable(seconds: number): Drawable | null {
   if (player.state === 'seated') return null;
   if (player.state === 'lying') {
     const sink = lyingOn?.pose === 'sink';
+    const floor = lyingOn?.pose === 'floor';
     return {
       // 要蓋在躺椅／懶骨頭上面
-      sortY: player.y + 0.6,
-      draw: (c) => drawLying(c, myAvatar(!sink), player.x * TILE, player.y * TILE, sink),
+      sortY: player.y + (floor ? 0.35 : 0.6),
+      draw: (c) => drawLying(c, myAvatar(!sink && !floor), player.x * TILE, player.y * TILE + (floor ? 5 : 0), sink, floor),
     };
   }
   const frame = player.moving ? (Math.floor(player.walkClock / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
@@ -2153,6 +2224,17 @@ function handleClick(event: MouseEvent): void {
     walkToLie(lie);
     return;
   }
+  const station = stations().find((s) => point.x >= s.rect.x0 && point.x <= s.rect.x1 && point.y >= s.rect.y0 && point.y <= s.rect.y1);
+  if (station) {
+    walkToStation(station);
+    return;
+  }
+  // 點自己：在圖書館裡就躺下／起來（手機沒有鍵盤）
+  if (!riding && Math.abs(point.x - player.x) < 0.5 && point.y > player.y - 1.3 && point.y < player.y + 0.4) {
+    if (player.state === 'lying') getUp();
+    else if (player.state === 'idle') lieOnFloor();
+    return;
+  }
   if (player.state === 'lying') getUp();
   walkToPoint(point);
 }
@@ -2216,6 +2298,12 @@ function handleKeyDown(event: KeyboardEvent): void {
     sendEmote(emote);
     return;
   }
+  if (event.code === 'KeyL' && canInteract()) {
+    event.preventDefault();
+    if (player.state === 'lying') getUp();
+    else if (player.state === 'idle' || player.state === 'walking') lieOnFloor();
+    return;
+  }
   if (event.code === 'KeyM') {
     event.preventDefault();
     toggleMinimap();
@@ -2240,7 +2328,12 @@ function handleKeyDown(event: KeyboardEvent): void {
       if (node) options.push({ dist: Math.hypot(player.x - seatApproach(node.slot).x, player.y - seatApproach(node.slot).y), act: () => startSit(node) });
       if (vehicle) options.push({ dist: Math.hypot(vehicle.x - player.x, vehicle.y - player.y), act: () => mount(vehicle) });
       if (lie) options.push({ dist: Math.hypot(lie.x - player.x, lie.y - player.y), act: () => lieDown(lie) });
-      options.sort((a, b) => a.dist - b.dist)[0]?.act();
+      const station = nearestStation();
+      if (station) options.push({ dist: Math.hypot(station.x - player.x, station.y - player.y), act: takeBike });
+      const best = options.sort((a, b) => a.dist - b.dist)[0];
+      // 旁邊什麼都沒有：在圖書館裡就直接躺在地板上
+      if (best) best.act();
+      else lieOnFloor();
     }
   }
 }
