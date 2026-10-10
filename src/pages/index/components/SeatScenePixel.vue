@@ -279,7 +279,7 @@ interface StairInfo {
   target: number;
 }
 
-type PlayerState = 'seated' | 'idle' | 'walking' | 'sitting';
+type PlayerState = 'seated' | 'idle' | 'walking' | 'sitting' | 'lying';
 
 const POSITION_KEY = 'focus_island_player_position_v1';
 const POSITION_SAVE_INTERVAL_S = 0.5;
@@ -360,6 +360,19 @@ interface VehicleState {
   vy: number;
 }
 
+// ── 沙灘上可以躺的地方：沒有路人躺著的躺椅和海灘巾 ──
+interface LieSpot {
+  // 躺下時腳的位置（格）
+  x: number;
+  y: number;
+  // 點這個範圍算點到它
+  rect: { x0: number; x1: number; y0: number; y1: number };
+}
+const LIE_REACH = 1.6;
+let lieSpots: LieSpot[] = [];
+let goalLie: LieSpot | null = null;
+let lyingOn: LieSpot | null = null;
+
 let vehicles: VehicleState[] = [];
 let riding: VehicleState | null = null;
 let goalVehicle: VehicleState | null = null;
@@ -405,6 +418,18 @@ function buildMap(): void {
   map = createPixelMap(props.seats.length, hasEscalator(), themeForZone(currentRoom().split('-')[1] ?? ''));
   isQuietZone.value = map.theme === 'forest';
   vehicles = map.vehicles.map((spot) => ({ ...spot, vx: 0, vy: 0 }));
+  lieSpots = map.props.flatMap((prop) => {
+    if (prop.kind !== 'lounger' && prop.kind !== 'towel') return [];
+    const spot: LieSpot =
+      prop.kind === 'lounger'
+        ? { x: prop.tx + 0.5, y: prop.ty + 1.5, rect: { x0: prop.tx, x1: prop.tx + 1, y0: prop.ty, y1: prop.ty + 2 } }
+        : { x: prop.tx + 0.25, y: prop.ty + 1.4, rect: { x0: prop.tx - 0.25, x1: prop.tx + 0.75, y0: prop.ty, y1: prop.ty + 1.7 } };
+    // 已經有路人躺著的就不給躺
+    const taken = map.beachgoers.some((g) => g.pose === 'lie' && Math.hypot(g.x - spot.x, g.y - spot.y) < 0.8);
+    return taken ? [] : [spot];
+  });
+  goalLie = null;
+  lyingOn = null;
   riding = null;
   isRiding.value = false;
   goalVehicle = null;
@@ -664,6 +689,51 @@ function handleDismountClick(): void {
   dismount();
 }
 
+function nearestLieSpot(): LieSpot | undefined {
+  let best: LieSpot | undefined;
+  let bestDist = LIE_REACH;
+  for (const spot of lieSpots) {
+    const dist = Math.hypot(spot.x - player.x, spot.y - player.y);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = spot;
+    }
+  }
+  return best;
+}
+
+function lieDown(spot: LieSpot): void {
+  if (player.state === 'seated') standUp();
+  goalLie = null;
+  lyingOn = spot;
+  placePlayer(spot.x, spot.y);
+  player.facing = 'down';
+  player.state = 'lying';
+}
+
+// 起身：站到躺椅旁邊最近的空地
+function getUp(): void {
+  const spot = lyingOn;
+  lyingOn = null;
+  const free = spot && nav ? nav.nearestFree({ x: spot.x + 0.9, z: spot.y }) : null;
+  if (free) placePlayer(free.x, free.z);
+  player.state = 'idle';
+}
+
+function walkToLie(spot: LieSpot): void {
+  if (riding && !dismount()) return;
+  if (Math.hypot(spot.x - player.x, spot.y - player.y) < LIE_REACH) {
+    lieDown(spot);
+    return;
+  }
+  walkToPoint({ x: spot.x + 0.9, y: spot.y });
+  goalLie = spot;
+}
+
+function pickLieSpot(point: { x: number; y: number }): LieSpot | undefined {
+  return lieSpots.find((s) => point.x >= s.rect.x0 && point.x <= s.rect.x1 && point.y >= s.rect.y0 && point.y <= s.rect.y1);
+}
+
 function pickVehicle(point: { x: number; y: number }): VehicleState | undefined {
   return vehicles.find((v) => v !== riding && Math.abs(point.x - v.x) < 0.9 && point.y > v.y - 1.4 && point.y < v.y + 0.5);
 }
@@ -696,6 +766,7 @@ function walkToPoint(target: { x: number; y: number }): void {
   if (!nav || player.state === 'sitting') return;
   if (player.state === 'seated') standUp();
   goalVehicle = null;
+  goalLie = null;
   if (riding) {
     // 騎車時點到哪就往哪去，但不會離開那台車能去的範圍
     const area = vehicleArea(map, riding.kind);
@@ -769,6 +840,8 @@ function facingFrom(dx: number, dy: number): Facing {
 
 function updatePlayer(dt: number): void {
   const active = canInteract();
+  // 躺著時按方向鍵就起身
+  if (active && player.state === 'lying' && ['up', 'down', 'left', 'right'].some((k) => keys.has(k))) getUp();
 
   if (active && (player.state === 'idle' || player.state === 'walking' || player.state === 'seated')) {
     const dx = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
@@ -800,6 +873,8 @@ function updatePlayer(dt: number): void {
         player.goalSeatId = null;
         if (goalVehicle && Math.hypot(goalVehicle.x - player.x, goalVehicle.y - player.y) < VEHICLE_REACH) mount(goalVehicle);
         goalVehicle = null;
+        if (goalLie && Math.hypot(goalLie.x - player.x, goalLie.y - player.y) < LIE_REACH) lieDown(goalLie);
+        goalLie = null;
       } else {
         const toX = next.x - player.x;
         const toY = next.z - player.y;
@@ -834,6 +909,7 @@ function updatePlayer(dt: number): void {
     player.moving = false;
     // 開始專注（disabled）時還站著：直接回到自己的座位（車子留在原地）
     if (props.disabled && player.state !== 'seated') {
+      lyingOn = null;
       riding = null;
       isRiding.value = false;
       const mine = seatNodes.find((n) => n.seatId === props.selectedSeatId);
@@ -928,6 +1004,7 @@ function syncPosition(seconds: number): void {
     facing: player.facing,
     moving: player.moving,
     ...(riding ? { vehicle: riding.kind } : {}),
+    ...(player.state === 'lying' ? { lying: true } : {}),
     ...(hidden ? { hidden: true } : {}),
   };
   const key = hidden ? 'hidden' : JSON.stringify(pos);
@@ -965,6 +1042,7 @@ function remoteColors(remote: RemotePlayer, y: number): AvatarColors {
 }
 
 function remoteHeadOffset(remote: RemotePlayer): number {
+  if (remote.lying) return -21;
   return remote.vehicle ? 5 - RIDE_LIFT[remote.vehicle] - RIDE_ROWS[remote.vehicle] - 1 : -16;
 }
 
@@ -978,8 +1056,13 @@ function remoteDrawables(seconds: number): Drawable[] {
     const colors = remoteColors(remote, shown.y);
     const vehicle = remote.vehicle;
     list.push({
-      sortY: shown.y + 0.35,
+      sortY: shown.y + (remote.lying ? 0.6 : 0.35),
       draw: (c) => {
+        if (remote.lying) {
+          drawAvatar(c, colors, 'down', 'idle', footX, shown.y * TILE, false);
+          paintSunglasses(c, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(shown.y * TILE - AVATAR_SIZE.h));
+          return;
+        }
         if (vehicle) {
           const rows = RIDE_ROWS[vehicle];
           paintVehicle(c, vehicle, remote.facing, footX, footY, 'back', seconds, remote.moving);
@@ -1229,6 +1312,7 @@ const RIDE_ROWS: Record<VehicleKind, number> = { bike: SEATED_ROWS, cart: SEATED
 
 // 頭頂離腳下幾個世界像素（名牌和泡泡用）
 function myHeadOffset(): number {
+  if (player.state === 'lying') return -21;
   return riding ? 5 - RIDE_LIFT[riding.kind] - RIDE_ROWS[riding.kind] - 1 : -16;
 }
 
@@ -1246,6 +1330,18 @@ function vehicleDrawable(v: VehicleState, seconds: number): Drawable {
 
 function playerDrawable(seconds: number): Drawable | null {
   if (player.state === 'seated') return null;
+  if (player.state === 'lying') {
+    return {
+      // 要蓋在躺椅上面
+      sortY: player.y + 0.6,
+      draw: (c) => {
+        const footX = player.x * TILE;
+        const footY = player.y * TILE;
+        drawAvatar(c, myAvatar(true), 'down', 'idle', footX, footY, false);
+        paintSunglasses(c, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - AVATAR_SIZE.h));
+      },
+    };
+  }
   const frame = player.moving ? (Math.floor(player.walkClock / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
   const ride = riding;
   if (ride) {
@@ -1644,6 +1740,12 @@ function handleClick(event: MouseEvent): void {
     walkToVehicle(vehicle);
     return;
   }
+  const lie = pickLieSpot(point);
+  if (lie) {
+    walkToLie(lie);
+    return;
+  }
+  if (player.state === 'lying') getUp();
   walkToPoint(point);
 }
 
@@ -1716,13 +1818,20 @@ function handleKeyDown(event: KeyboardEvent): void {
       dismount();
       return;
     }
+    if (player.state === 'lying') {
+      getUp();
+      return;
+    }
     if (player.state === 'idle' || player.state === 'walking') {
-      // 旁邊有車又比座位近：先上車
+      // 座位、車子、躺椅：哪個最近就用哪個
       const vehicle = nearestVehicle();
       const node = nearestSittableSeat();
-      const seatDist = node ? Math.hypot(player.x - seatApproach(node.slot).x, player.y - seatApproach(node.slot).y) : Infinity;
-      if (vehicle && Math.hypot(vehicle.x - player.x, vehicle.y - player.y) < seatDist) mount(vehicle);
-      else if (node) startSit(node);
+      const lie = nearestLieSpot();
+      const options: { dist: number; act: () => void }[] = [];
+      if (node) options.push({ dist: Math.hypot(player.x - seatApproach(node.slot).x, player.y - seatApproach(node.slot).y), act: () => startSit(node) });
+      if (vehicle) options.push({ dist: Math.hypot(vehicle.x - player.x, vehicle.y - player.y), act: () => mount(vehicle) });
+      if (lie) options.push({ dist: Math.hypot(lie.x - player.x, lie.y - player.y), act: () => lieDown(lie) });
+      options.sort((a, b) => a.dist - b.dist)[0]?.act();
     }
   }
 }

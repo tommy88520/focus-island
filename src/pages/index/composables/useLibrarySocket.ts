@@ -116,6 +116,7 @@ export interface RemotePlayer {
   facing: 'up' | 'down' | 'left' | 'right';
   moving: boolean;
   vehicle?: RemoteVehicle;
+  lying?: boolean;
   hair?: number;
   shirt?: number;
   dnd?: boolean;
@@ -129,6 +130,7 @@ export interface MyPosition {
   facing: RemotePlayer['facing'];
   moving: boolean;
   vehicle?: RemoteVehicle;
+  lying?: boolean;
   hidden?: boolean;
 }
 
@@ -757,6 +759,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 facing: pos.facing,
                 moving: pos.moving === true,
                 ...(['bike', 'cart', 'boat'].includes(pos.vehicle) ? { vehicle: pos.vehicle as RemoteVehicle } : {}),
+                ...(pos.lying === true ? { lying: true } : {}),
                 ...(reader ? readerExtras(reader as unknown as Record<string, unknown>) : {}),
                 ...readerExtras(pos),
                 at: Date.now(),
