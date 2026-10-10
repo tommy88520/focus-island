@@ -7,6 +7,19 @@
         <p class="mt-2 text-sm text-[color:var(--px-muted)]">{{ t.progressPage.subtitle }}</p>
       </header>
 
+      <!-- 還沒登入：提醒紀錄只存在這個瀏覽器，順便放登入按鈕 -->
+      <section
+        v-if="!account.session.value"
+        class="pixel-panel !flex flex-col gap-3 border-[color:var(--px-accent)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+      >
+        <div class="min-w-0">
+          <p class="!mb-0 text-sm font-black">☁️ {{ t.progressPage.loginPromptTitle }}</p>
+          <p class="!mb-0 mt-1 text-xs text-[color:var(--px-muted)]">{{ t.progressPage.loginPromptBody }}</p>
+          <p v-if="loginError" class="!mb-0 mt-1 text-xs font-bold text-[#e25a4a]">{{ loginError }}</p>
+        </div>
+        <div ref="googleButtonRef" class="min-h-[44px] shrink-0"></div>
+      </section>
+
       <section class="!grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <article class="pixel-panel p-5">
           <p class="text-[10px] font-black uppercase tracking-[0.25em] text-[color:var(--px-muted)]">{{ t.progressPage.completedSessionsLabel }}</p>
@@ -73,16 +86,38 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { useQuasar } from 'quasar';
+import { GOOGLE_CLIENT_ID, useAccount } from 'src/composables/useAccount';
+import { renderGoogleButton } from 'src/composables/googleIdentity';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 import { useLocale } from 'src/composables/useLocale';
 
 const store = usePomodoroStore();
 const { locale, t } = useLocale();
+const $q = useQuasar();
+const account = useAccount();
+const googleButtonRef = ref<HTMLDivElement | null>(null);
+const loginError = ref('');
 
 onMounted(() => {
   store.loadProgress();
   store.ensureTodayProgress();
+  if (!account.session.value && googleButtonRef.value) {
+    renderGoogleButton(
+      googleButtonRef.value,
+      GOOGLE_CLIENT_ID,
+      (credential) => {
+        loginError.value = '';
+        void account.loginWithGoogle(credential).then((ok) => {
+          if (!ok) loginError.value = t.value.settingsPage.accountLoginFailed;
+        });
+      },
+      { dark: $q.dark.isActive, locale: locale.value },
+    ).catch(() => {
+      loginError.value = t.value.settingsPage.accountLoadFailed;
+    });
+  }
 });
 
 const todayKey = new Date().toLocaleDateString('sv-SE');

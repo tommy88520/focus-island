@@ -178,6 +178,8 @@ const translations = {
     },
     progressPage: {
       title: '今日進度',
+      loginPromptTitle: '登入才能保存紀錄',
+      loginPromptBody: '現在的紀錄只存在這個瀏覽器，清除資料或換裝置就看不到了。用 Google 登入後會存到雲端，換電腦、手機也會跟著你。',
       subtitle: '追蹤今天專注完成輪數與累積專注時間。',
       completedSessionsLabel: '完成輪數',
       completedSessionsHint: '每完成一輪 25 分鐘即 +1',
@@ -370,6 +372,8 @@ const translations = {
     },
     progressPage: {
       title: "Today's Progress",
+      loginPromptTitle: 'Sign in to keep your progress',
+      loginPromptBody: "Right now your progress lives only in this browser and is lost if you clear data or switch devices. Sign in with Google to save it to the cloud so it follows you everywhere.",
       subtitle: "Track how many sessions you've completed and how long you've focused today.",
       completedSessionsLabel: 'Completed Sessions',
       completedSessionsHint: 'Each completed 25-min round adds +1',
