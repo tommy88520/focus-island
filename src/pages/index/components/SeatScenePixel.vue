@@ -148,6 +148,11 @@
           </button>
         </div>
       </div>
+      <!-- F1 站：搭車去另一張獨立的 F1 賽車場地圖 -->
+      <div v-if="f1Open" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
+        <p class="!mb-2 !text-[11px] font-black">🏁 {{ t.seatScene.f1Prompt }}</p>
+        <button type="button" class="pixel-btn pixel-btn--primary h-9 px-4 text-xs" @click="goF1">{{ t.seatScene.f1Go }}</button>
+      </div>
       <div v-show="minimapOpen" class="absolute right-2 top-12 rounded-xl bg-slate-900/85 p-2 shadow-lg ring-1 ring-white/15">
         <p class="!mb-1.5 text-center !text-[10px] font-black tracking-wide text-amber-300">
           {{ areaTitle }}
@@ -292,6 +297,8 @@ const emit = defineEmits<{
   'change-floor': [floor: number];
   // 走出左右牆的出口，要求父層切到隔壁分區
   'change-zone': [zoneId: string];
+  // 在 F1 站搭車去 F1 賽車場
+  'go-f1': [];
   // 瀏覽器拿不到 2D canvas 時通知父層退回 2D 座位格子
   'webgl-failed': [];
   // 自己打招呼，父層轉送給同房間的人
@@ -434,6 +441,9 @@ function nextTourStep(): void {
 const elevatorOpen = ref(false);
 // 走到 101 旁的捷運站口會跳出分區選單
 const mrtOpen = ref(false);
+const f1Open = ref(false);
+// 剛從 F1 賽車場回來時站在 F1 站口：先走開再走回來才會再跳出面板
+let f1Lock = false;
 // 小地圖標題：目前在哪一區
 const areaTitle = computed(() => {
   const s = t.value.seatScene;
@@ -484,6 +494,7 @@ const MINIMAP_PROP_COLORS: Partial<Record<PropKind, string>> = {
   towel: '#f2a541',
 };
 const MINIMAP_OUTDOOR_COLORS: Partial<Record<OutdoorKind, string>> = {
+  f1station: '#d72d2d',
   tower101: '#3e6f6a',
   office: '#59606e',
   mrt: '#e25a4a',
@@ -800,6 +811,19 @@ function rideMrt(zoneId: string): void {
   emit('change-zone', zoneId);
 }
 
+function insideF1Zone(x: number, y: number): boolean {
+  const trigger = map.world.f1Trigger;
+  return Math.hypot(x - trigger.x, y - trigger.y) < 0.9;
+}
+
+// 去 F1：先把自己的位置標成「不在這裡」，同房間的人就不會看到你停在站口不動
+function goF1(): void {
+  f1Open.value = false;
+  emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
+  savePosition(performance.now() / 1000, true);
+  emit('go-f1');
+}
+
 function rideElevator(floor: number): void {
   elevatorOpen.value = false;
   containerRef.value?.focus({ preventScroll: true });
@@ -892,6 +916,7 @@ function spawnPlayer(): void {
   }
   stairLock = insideStairZone(player.x, player.y) !== undefined;
   mrtLock = insideMrtZone(player.x, player.y);
+  f1Lock = insideF1Zone(player.x, player.y);
   elevatorLock = insideElevatorZone(player.x, player.y);
   elevatorOpen.value = false;
   mrtOpen.value = false;
@@ -1295,6 +1320,10 @@ function updatePlayer(dt: number): void {
   if (!inMrtZone) mrtLock = false;
   const showMrt = active && inMrtZone && !mrtLock;
   if (showMrt !== mrtOpen.value) mrtOpen.value = showMrt;
+  const inF1Zone = !riding && player.state !== 'seated' && player.state !== 'sitting' && insideF1Zone(player.x, player.y);
+  if (!inF1Zone) f1Lock = false;
+  const showF1 = active && inF1Zone && !f1Lock;
+  if (showF1 !== f1Open.value) f1Open.value = showF1;
   // 門：有人站在門口就滑開
   const doorTarget = atElevator ? 1 : 0;
   elevatorDoor += Math.sign(doorTarget - elevatorDoor) * Math.min(Math.abs(doorTarget - elevatorDoor), dt * 3);

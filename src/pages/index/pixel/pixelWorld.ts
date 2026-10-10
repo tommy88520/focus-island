@@ -15,6 +15,7 @@ export type OutdoorKind =
   | 'tower101'
   | 'office'
   | 'mrt'
+  | 'f1station'
   | 'streetTree'
   | 'youbike'
   | 'bench'
@@ -63,6 +64,8 @@ export interface OutdoorWorld {
   signs: { x: number; y: number; text: { 'zh-TW': string; 'en-US': string } }[];
   // 捷運站入口：走到這裡會跳出選分區的面板
   mrtTrigger: { x: number; y: number };
+  // F1 站入口：走到這裡可以去 F1 賽車場
+  f1Trigger: { x: number; y: number };
   // 圖書館後牆的門（通往夜市），x 範圍
   backDoor: [number, number];
 }
@@ -102,6 +105,8 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
     prop('office', -16, -12, 5, 4, true, 0),
     prop('office', -16, -6, 4, 4, true, 1),
     prop('mrt', -6, 0, 3, 2),
+    // F1 站：搭車到另一張獨立的 F1 賽車場地圖
+    prop('f1station', -16, 13, 4, 2),
     // YouBike 站：圖書館裡、101、夜市、動物園各一個，可以借車、還車
     prop('youbike', -5, 12, 3, 1),
     prop('youbike', 19, 15, 3, 1),
@@ -164,11 +169,13 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
     signs: [
       { x: -13, y: -1.6, text: { 'zh-TW': '台北 101', 'en-US': 'Taipei 101' } },
       { x: -4.5, y: -0.4, text: { 'zh-TW': '捷運 台北101/世貿站', 'en-US': 'MRT Taipei 101' } },
+      { x: -14, y: 12.4, text: { 'zh-TW': '🏁 F1 站', 'en-US': '🏁 F1 Station' } },
       { x: 16, y: -11.4, text: { 'zh-TW': '士林夜市', 'en-US': 'Shilin Night Market' } },
       { x: R + 8, y: 8.6, text: { 'zh-TW': '台北市立動物園', 'en-US': 'Taipei Zoo' } },
       { x: R + 10.5, y: -11.4, text: { 'zh-TW': '🐼 熊貓館', 'en-US': '🐼 Panda House' } },
     ],
     mrtTrigger: { x: -4.5, y: 2.5 },
+    f1Trigger: { x: -14, y: 15.6 },
     backDoor: BACK_DOOR,
   };
 }
@@ -455,6 +462,19 @@ export function paintOutdoorProp(ctx: CanvasRenderingContext2D, prop: OutdoorPro
       px(ctx, '#ffffff', x + w / 2 - 2, y - 8, 1, 2);
       px(ctx, '#ffffff', x + w / 2 + 1, y - 8, 1, 2);
       px(ctx, '#ffffff', x + w / 2 - 1, y - 7, 2, 2);
+      break;
+    }
+    case 'f1station': {
+      // F1 站：白色站房 + 格子旗屋簷 + 紅色招牌
+      px(ctx, 'rgba(0,0,0,0.2)', x + 2, y + h - 2, w, 4);
+      px(ctx, '#e3e8f0', x, y, w, h - 4);
+      px(ctx, '#3a3d45', x + 12, y + 8, w - 24, h - 12);
+      for (let i = 0; i < w; i += 4) {
+        px(ctx, (i / 4) % 2 === 0 ? '#ffffff' : '#15171f', x + i, y - 8, 4, 4);
+        px(ctx, (i / 4) % 2 === 1 ? '#ffffff' : '#15171f', x + i, y - 4, 4, 4);
+      }
+      px(ctx, '#d72d2d', x + 4, y + 2, 14, 5);
+      px(ctx, '#ffffff', x + 6, y + 3, 10, 1);
       break;
     }
     case 'streetTree':

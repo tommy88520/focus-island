@@ -32,8 +32,9 @@
             @update:active-zone-id="activeZoneId = $event"
           />
 
+          <F1Scene v-if="useCanvasScene && sceneLocation === 'f1'" @leave="sceneLocation = 'library'" />
           <SeatScenePixel
-            v-if="useCanvasScene"
+            v-else-if="useCanvasScene"
             :seats="currentSeats"
             :selected-seat-id="selectedSeatId"
             :is-shake="isShake"
@@ -53,6 +54,7 @@
             @position="librarySocket.sendPosition"
             @change-floor="currentFloor = $event"
             @change-zone="activeZoneId = $event"
+            @go-f1="sceneLocation = 'f1'"
             @webgl-failed="useCanvasScene = false"
           />
           <SeatGrid
@@ -119,6 +121,7 @@ import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vu
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
 import SeatScenePixel from 'src/pages/index/components/SeatScenePixel.vue';
+import F1Scene from 'src/pages/index/components/F1Scene.vue';
 import SeatGrid, { type Seat } from 'src/pages/index/components/SeatGrid.vue';
 import FocusClockPanel from 'src/pages/index/components/FocusClockPanel.vue';
 import { useLibrarySocket, buildSeatId } from 'src/pages/index/composables/useLibrarySocket';
@@ -682,6 +685,16 @@ async function handleNotificationsToggle(on: boolean) {
     $q.notify({ message: t.value.focusClockPanel.notifyDenied, color: 'warning', icon: 'notifications_off', position: 'top', timeout: 3000 });
   }
 }
+
+// 場景在哪：圖書館那張大地圖，或從 F1 站過去的 F1 賽車場（獨立地圖）
+const sceneLocation = ref<'library' | 'f1'>('library');
+// 開始專注就回到圖書館的位子上
+watch(
+  () => store.isRunning,
+  (running) => {
+    if (running) sceneLocation.value = 'library';
+  },
+);
 
 // ── 一起專注：每個整點、半點開始 25 分鐘，接著休息 5 分鐘 ──
 const groupNow = ref(new Date());
