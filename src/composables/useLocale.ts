@@ -115,7 +115,7 @@ const translations = {
     },
     seatScene: {
       hintDesktop: 'WASD／方向鍵移動 · 空白鍵入座 · 點地板或座位走過去 · E 上下車／躺下（沙灘躺椅、懶骨頭） · H／1–4 打招呼（森林區靜音） · M 開小地圖',
-      hintTouch: '點地板走過去 · 點座位入座 · 點腳踏車／海灘車／小船騎上去 · 點躺椅或懶骨頭躺下 · 左下角打招呼 · 走樓梯或搭電梯換樓層 · 南邊的出口通往海灘',
+      hintTouch: '點地板走過去 · 點座位入座 · 點腳踏車／海灘車／小船騎上去 · 點躺椅或懶骨頭躺下 · 左下角打招呼 · 走樓梯或搭電梯換樓層、左右出口換分區 · 南邊的出口通往海灘',
       stairUp: (floor: number) => `↑ ${floor}F`,
       stairDown: (floor: number) => `↓ ${floor}F`,
       minimap: '小地圖',
@@ -263,7 +263,7 @@ const translations = {
     },
     seatScene: {
       hintDesktop: 'WASD / arrows to move · Space to sit · click the floor or a seat to walk there · E to ride / lie down (loungers, beanbags) · H / 1–4 to say hi (not in the forest) · M for the minimap',
-      hintTouch: 'Tap the floor to walk · tap a seat to sit · tap a bike, cart or boat to ride · tap a lounger or beanbag to lie down · say hi from the bottom-left · take the stairs or the elevator to change floor · the south exit leads to the beach',
+      hintTouch: 'Tap the floor to walk · tap a seat to sit · tap a bike, cart or boat to ride · tap a lounger or beanbag to lie down · say hi from the bottom-left · take the stairs or the elevator to change floor, the side exits to change zone · the south exit leads to the beach',
       stairUp: (floor: number) => `↑ ${floor}F`,
       stairDown: (floor: number) => `↓ ${floor}F`,
       minimap: 'Minimap',

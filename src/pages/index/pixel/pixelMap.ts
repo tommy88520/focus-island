@@ -104,8 +104,18 @@ export interface VehicleSpot {
   facing: Facing;
 }
 
+// 左右牆上通往隔壁分區的出口（以格為單位的列範圍 [y0, y1)）；沒有隔壁分區就是 null
+export interface SideExits {
+  left: { y0: number; y1: number } | null;
+  right: { y0: number; y1: number } | null;
+}
+
+const LEFT_EXIT = { y0: 15, y1: 17 };
+const RIGHT_EXIT = { y0: 10, y1: 12 };
+
 export interface PixelMap {
   theme: ThemeId;
+  sideExits: SideExits;
   width: number;
   height: number;
   // 圖書館（含前牆）的高度，以下是海灘
@@ -155,7 +165,12 @@ function table(tx: number, ty: number): MapProp {
   return { kind: 'table', tx, ty, w: 2, h: 2, blocks: true };
 }
 
-export function createPixelMap(seatCount: number, escalator = false, theme: ThemeId = 'library'): PixelMap {
+export function createPixelMap(
+  seatCount: number,
+  escalator = false,
+  theme: ThemeId = 'library',
+  exits: { left: boolean; right: boolean } = { left: false, right: false },
+): PixelMap {
   const lounge = { tx: 16, ty: 10 };
   const base: SeatSlot[] = [
     ...tableSeats(5, 6),
@@ -183,7 +198,6 @@ export function createPixelMap(seatCount: number, escalator = false, theme: Them
     { kind: 'plant', tx: 11, ty: 3, w: 1, h: 1, variant: 0, blocks: true },
     { kind: 'plant', tx: 20, ty: 3, w: 1, h: 1, variant: 1, blocks: true },
     { kind: 'plant', tx: 30, ty: 15, w: 1, h: 1, variant: 0, blocks: true },
-    { kind: 'tallPlant', tx: 1, ty: 15, w: 1, h: 1, variant: 1, blocks: true },
     { kind: 'floorLamp', tx: 19, ty: 9, w: 1, h: 1, blocks: true },
     { kind: 'floorLamp', tx: 23, ty: 4, w: 1, h: 1, blocks: true },
     { kind: 'plant', tx: 13, ty: 15, w: 1, h: 1, variant: 1, blocks: true },
@@ -240,6 +254,7 @@ export function createPixelMap(seatCount: number, escalator = false, theme: Them
 
   return {
     theme,
+    sideExits: { left: exits.left ? LEFT_EXIT : null, right: exits.right ? RIGHT_EXIT : null },
     width: MAP_WIDTH,
     height: beach.seaTop + SEA_ROWS,
     libraryHeight,
@@ -365,6 +380,21 @@ export function stairTrigger(stair: StairSpot): { x: number; y: number } {
   return { x: stair.tx + 1, y: WALL_ROWS + 0.45 };
 }
 
+// 走到出口最外面就換分區
+export function sideExitAt(map: PixelMap, x: number, y: number): 'left' | 'right' | null {
+  const inside = (exit: { y0: number; y1: number } | null) => exit !== null && y > exit.y0 && y < exit.y1;
+  if (x < 0.6 && inside(map.sideExits.left)) return 'left';
+  if (x > map.width - 0.6 && inside(map.sideExits.right)) return 'right';
+  return null;
+}
+
+// 從隔壁分區走進來時站的位置：剛好在出口內側一格
+export function sideExitArrival(map: PixelMap, side: 'left' | 'right'): { x: number; y: number } {
+  const exit = side === 'left' ? LEFT_EXIT : RIGHT_EXIT;
+  const y = (exit.y0 + exit.y1) / 2;
+  return side === 'left' ? { x: 1.8, y } : { x: map.width - 1.8, y };
+}
+
 export function elevatorTrigger(map: PixelMap): { x: number; y: number } {
   return { x: map.elevator.tx + 1, y: WALL_ROWS + 0.45 };
 }
@@ -374,8 +404,17 @@ export function mapObstacles(map: PixelMap): Rect[] {
   const rects: Rect[] = [];
   // 圖書館的左右牆，以及前牆門口以外的部分（海灘那段走得到地圖最左右兩邊）
   const wallBottom = map.libraryHeight;
-  rects.push({ x0: 0, x1: 1, z0: 0, z1: wallBottom });
-  rects.push({ x0: map.width - 1, x1: map.width, z0: 0, z1: wallBottom });
+  // 左右牆：有出口的話，出口那兩格留空
+  const sideWall = (x0: number, x1: number, exit: { y0: number; y1: number } | null) => {
+    if (!exit) {
+      rects.push({ x0, x1, z0: 0, z1: wallBottom });
+      return;
+    }
+    rects.push({ x0, x1, z0: 0, z1: exit.y0 });
+    rects.push({ x0, x1, z0: exit.y1, z1: wallBottom });
+  };
+  sideWall(0, 1, map.sideExits.left);
+  sideWall(map.width - 1, map.width, map.sideExits.right);
   rects.push({ x0: 0, x1: map.beach.door[0], z0: map.beach.wallRow, z1: wallBottom });
   rects.push({ x0: map.beach.door[1], x1: map.width, z0: map.beach.wallRow, z1: wallBottom });
   if (map.beach.escalator) {

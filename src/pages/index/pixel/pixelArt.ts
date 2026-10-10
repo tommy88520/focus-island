@@ -93,6 +93,21 @@ function paintWalls(ctx: CanvasRenderingContext2D, map: PixelMap): void {
   px(ctx, wall.capLight, TILE - 2, TILE, 1, height - TILE * 2);
   px(ctx, wall.cap, width - TILE, 0, TILE, height);
   px(ctx, wall.capLight, width - TILE + 1, TILE, 1, height - TILE * 2);
+  // 通往隔壁分區的出口：牆上開兩格，鋪一塊地墊、兩側門框
+  const sides: [number, { y0: number; y1: number } | null][] = [
+    [0, map.sideExits.left],
+    [width - TILE, map.sideExits.right],
+  ];
+  for (const [x, exit] of sides) {
+    if (!exit) continue;
+    const top = exit.y0 * TILE;
+    const h = (exit.y1 - exit.y0) * TILE;
+    px(ctx, '#6b4428', x, top, TILE, h);
+    px(ctx, '#9a6a43', x + 2, top + 2, TILE - 4, h - 4);
+    for (let y = top + 5; y < top + h - 4; y += 4) px(ctx, '#8a5e36', x + 3, y, TILE - 6, 1);
+    px(ctx, '#2a2f3a', x, top - 2, TILE, 2);
+    px(ctx, '#2a2f3a', x, top + h, TILE, 2);
+  }
   // 前牆：中間開一道雙開玻璃門通往海灘
   const doorLeft = map.beach.door[0] * TILE;
   const doorRight = map.beach.door[1] * TILE;

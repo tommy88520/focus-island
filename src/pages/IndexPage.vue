@@ -41,6 +41,7 @@
             :current-floor="currentFloor"
             :floors="floorTabItems.map((f) => f.floor)"
             :zone-name="librarySocket.currentZone.value?.name ?? ''"
+            :zones="zoneTabItems.map((z) => ({ id: z.id, name: z.name }))"
             :disabled="store.isRunning"
             :get-mate-at-seat="librarySocket.getMateAtSeat"
             :remote-emote="librarySocket.lastEmote.value"
@@ -50,6 +51,7 @@
             @emote="librarySocket.sendEmote"
             @position="librarySocket.sendPosition"
             @change-floor="currentFloor = $event"
+            @change-zone="activeZoneId = $event"
             @webgl-failed="useCanvasScene = false"
           />
           <SeatGrid

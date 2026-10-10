@@ -111,6 +111,8 @@ import {
   mapObstacles,
   seatApproach,
   seatCenter,
+  sideExitArrival,
+  sideExitAt,
   stairTrigger,
   themeForZone,
   vehicleArea,
@@ -179,6 +181,8 @@ const props = defineProps<{
   floors: number[];
   // 目前分區的名稱（靜謐森林、城市咖啡…），小地圖的標題用
   zoneName: string;
+  // 這層樓的分區（依序排）：左右牆的出口通往前一個／後一個分區
+  zones: { id: string; name: string }[];
   disabled: boolean;
   getMateAtSeat: (seatId: string) => Reader | null | undefined;
   // 同房間其他人打的招呼
@@ -193,6 +197,8 @@ const emit = defineEmits<{
   select: [seatId: string];
   // 走進樓梯觸發區，要求父層切換到相鄰樓層
   'change-floor': [floor: number];
+  // 走出左右牆的出口，要求父層切到隔壁分區
+  'change-zone': [zoneId: string];
   // 瀏覽器拿不到 2D canvas 時通知父層退回 2D 座位格子
   'webgl-failed': [];
   // 自己打招呼，父層轉送給同房間的人
@@ -337,6 +343,8 @@ let seatNodes: SeatNode[] = [];
 let stairs: StairInfo[] = [];
 let nav: Navigation | null = null;
 let stairLock = false;
+// 剛從隔壁分區走進來時站在出口旁：要先離開出口才會再觸發
+let exitLock = false;
 // 剛搭電梯抵達時人就站在電梯口：要先走開再走回來才會再跳出按鈕
 let elevatorLock = false;
 let elevatorDoor = 0;
@@ -410,6 +418,22 @@ const view = { scale: MIN_SCALE, ox: 0, oy: 0, cssW: 0, cssH: 0, dpr: 1 };
 
 // ── 地圖與座位 ──
 
+// 左右隔壁的分區
+function neighborZones(): { left?: { id: string; name: string }; right?: { id: string; name: string } } {
+  const current = currentRoom().split('-')[1] ?? '';
+  const index = props.zones.findIndex((z) => z.id === current);
+  if (index < 0) return {};
+  const left = props.zones[index - 1];
+  const right = props.zones[index + 1];
+  return { ...(left ? { left } : {}), ...(right ? { right } : {}) };
+}
+
+// 分區清單晚到時，左右出口要不要開會跟著變
+function sideExitsChanged(): boolean {
+  const n = neighborZones();
+  return !!map.sideExits.left !== !!n.left || !!map.sideExits.right !== !!n.right;
+}
+
 // 最低的樓層直接開門就是海灘；樓上的出口換成往下的手扶梯
 function hasEscalator(): boolean {
   const lowest = props.floors.length > 0 ? Math.min(...props.floors) : 1;
@@ -418,7 +442,11 @@ function hasEscalator(): boolean {
 
 function buildMap(): void {
   // 分區決定主題：A 森林、B 咖啡店、C 深海艙、D 圖書館
-  map = createPixelMap(props.seats.length, hasEscalator(), themeForZone(currentRoom().split('-')[1] ?? ''));
+  const neighbors = neighborZones();
+  map = createPixelMap(props.seats.length, hasEscalator(), themeForZone(currentRoom().split('-')[1] ?? ''), {
+    left: !!neighbors.left,
+    right: !!neighbors.right,
+  });
   isQuietZone.value = map.theme === 'forest';
   vehicles = map.vehicles.map((spot) => ({ ...spot, vx: 0, vy: 0 }));
   lieSpots = map.props.flatMap((prop) => {
@@ -604,6 +632,7 @@ function spawnPlayer(): void {
     player.seatId = null;
   }
   stairLock = insideStairZone(player.x, player.y) !== undefined;
+  exitLock = sideExitAt(map, player.x, player.y) !== null;
   elevatorLock = insideElevatorZone(player.x, player.y);
   elevatorOpen.value = false;
 }
@@ -942,6 +971,23 @@ function updatePlayer(dt: number): void {
   if (nowArea !== area.value) area.value = nowArea;
 
   nearSeatId = active && !riding && (player.state === 'idle' || player.state === 'walking') ? (nearestSittableSeat()?.seatId ?? null) : null;
+
+  // 走出左右牆的出口 → 換到隔壁分區，從對面那道出口走進來
+  if (active && !riding && (player.state === 'idle' || player.state === 'walking')) {
+    const side = sideExitAt(map, player.x, player.y);
+    const target = side ? neighborZones()[side] : undefined;
+    if (!side) {
+      exitLock = false;
+    } else if (!exitLock && target) {
+      exitLock = true;
+      player.path = [];
+      player.state = 'idle';
+      pendingSpawn = { point: sideExitArrival(map, side === 'left' ? 'right' : 'left'), floor: props.currentFloor };
+      savedPosition = null;
+      restoredStanding = false;
+      emit('change-zone', target.id);
+    }
+  }
 
   // 走進樓梯口 → 換樓層
   if (active && !riding && (player.state === 'idle' || player.state === 'walking')) {
@@ -1517,7 +1563,7 @@ function renderMinimap(seconds: number): void {
 
 function drawPill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, color: string): void {
   // 🔕／⏳ 不算在名字長度裡
-  const label = text.length > 14 ? `${text.slice(0, 14)}…` : text;
+  const label = text.length > 18 ? `${text.slice(0, 18)}…` : text;
   c.font = `700 ${LABEL_FONT_PX}px system-ui, -apple-system, "PingFang TC", sans-serif`;
   const width = Math.ceil(c.measureText(label).width) + 14;
   const height = LABEL_FONT_PX + 8;
@@ -1673,6 +1719,14 @@ function render(seconds: number): void {
   if (props.floors.length > 1) {
     const p = toScreen((map.elevator.tx + 1) * TILE, TILE + 2);
     drawPill(ctx, t.value.seatScene.elevator, p.x, p.y, '#cbd5e1');
+  }
+  const neighbors = neighborZones();
+  for (const side of ['left', 'right'] as const) {
+    const exit = map.sideExits[side];
+    const zone = neighbors[side];
+    if (!exit || !zone) continue;
+    const p = toScreen((side === 'left' ? 1.3 : map.width - 1.3) * TILE, exit.y0 * TILE - 2);
+    drawPill(ctx, side === 'left' ? `← ${zone.name}` : `${zone.name} →`, p.x, p.y, COLOR_MATE);
   }
   if (map.beach.escalator) {
     const p = toScreen(((map.beach.door[0] + map.beach.door[1]) / 2) * TILE, map.beach.wallRow * TILE - 4);
@@ -1918,11 +1972,11 @@ watch(
 
 // 樓層清單到了才知道有沒有上下樓梯
 watch(
-  () => [props.floors.join(','), props.currentFloor],
+  () => [props.floors.join(','), props.currentFloor, props.zones.map((z) => z.id).join(',')],
   () => {
     rebuildStairs();
     // 樓層清單晚到才知道這層是不是樓上：出口換了就重畫，但人留在原地
-    if (map.beach.escalator !== hasEscalator()) {
+    if (map.beach.escalator !== hasEscalator() || sideExitsChanged()) {
       buildMap();
       syncSeatStates();
     }
