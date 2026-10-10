@@ -239,6 +239,7 @@ const myAvatar = (beach = false): AvatarColors => ({
 const MINIMAP_PROP_COLORS: Partial<Record<PropKind, string>> = {
   table: '#8a5e36',
   roundTable: '#8a5e36',
+  beanbag: '#c9774f',
   counter: '#c99a63',
   plant: '#4fa35a',
   tallPlant: '#4fa35a',
@@ -365,6 +366,8 @@ interface LieSpot {
   // 躺下時腳的位置（格）
   x: number;
   y: number;
+  // lie：沙灘上平躺曬太陽；sink：窩在室內的懶骨頭裡
+  pose: 'lie' | 'sink';
   // 點這個範圍算點到它
   rect: { x0: number; x1: number; y0: number; y1: number };
 }
@@ -419,11 +422,13 @@ function buildMap(): void {
   isQuietZone.value = map.theme === 'forest';
   vehicles = map.vehicles.map((spot) => ({ ...spot, vx: 0, vy: 0 }));
   lieSpots = map.props.flatMap((prop) => {
-    if (prop.kind !== 'lounger' && prop.kind !== 'towel') return [];
+    if (prop.kind !== 'lounger' && prop.kind !== 'towel' && prop.kind !== 'beanbag') return [];
     const spot: LieSpot =
-      prop.kind === 'lounger'
-        ? { x: prop.tx + 0.5, y: prop.ty + 1.5, rect: { x0: prop.tx, x1: prop.tx + 1, y0: prop.ty, y1: prop.ty + 2 } }
-        : { x: prop.tx + 0.25, y: prop.ty + 1.4, rect: { x0: prop.tx - 0.25, x1: prop.tx + 0.75, y0: prop.ty, y1: prop.ty + 1.7 } };
+      prop.kind === 'beanbag'
+        ? { x: prop.tx + 0.5, y: prop.ty + 0.8, pose: 'sink', rect: { x0: prop.tx, x1: prop.tx + 1, y0: prop.ty - 0.5, y1: prop.ty + 1 } }
+        : prop.kind === 'lounger'
+          ? { x: prop.tx + 0.5, y: prop.ty + 1.5, pose: 'lie', rect: { x0: prop.tx, x1: prop.tx + 1, y0: prop.ty, y1: prop.ty + 2 } }
+          : { x: prop.tx + 0.25, y: prop.ty + 1.4, pose: 'lie', rect: { x0: prop.tx - 0.25, x1: prop.tx + 0.75, y0: prop.ty, y1: prop.ty + 1.7 } };
     // 已經有路人躺著的就不給躺
     const taken = map.beachgoers.some((g) => g.pose === 'lie' && Math.hypot(g.x - spot.x, g.y - spot.y) < 0.8);
     return taken ? [] : [spot];
@@ -1059,8 +1064,8 @@ function remoteDrawables(seconds: number): Drawable[] {
       sortY: shown.y + (remote.lying ? 0.6 : 0.35),
       draw: (c) => {
         if (remote.lying) {
-          drawAvatar(c, colors, 'down', 'idle', footX, shown.y * TILE, false);
-          paintSunglasses(c, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(shown.y * TILE - AVATAR_SIZE.h));
+          // 室內就是窩在懶骨頭裡，海灘上是躺著曬太陽
+          drawLying(c, colors, footX, shown.y * TILE, areaAt(map, shown.y) === 'library');
           return;
         }
         if (vehicle) {
@@ -1264,6 +1269,18 @@ function propDrawables(seconds: number): Drawable[] {
       list.push({ sortY, draw: (c) => paintSurfboard(c, x, y, prop.variant ?? 0) });
     } else if (prop.kind === 'sandcastle') {
       list.push({ sortY, draw: (c) => paintSandcastle(c, x, y) });
+    } else if (prop.kind === 'beanbag') {
+      list.push({
+        sortY,
+        draw: (c) => {
+          if (map.theme === 'forest') {
+            paintPouf(c, x, y, MUSHROOM_POUF);
+            paintMushroomDots(c, x, y);
+          } else {
+            paintPouf(c, x, y, POUF_COLORS[(prop.variant ?? 0) % POUF_COLORS.length] ?? '#c9774f');
+          }
+        },
+      });
     } else if (prop.kind === 'towel') {
       // 鋪在地上的東西永遠在人腳下
       list.push({ sortY: 0, draw: (c) => paintTowel(c, x, y, prop.variant ?? 0) });
@@ -1328,18 +1345,24 @@ function vehicleDrawable(v: VehicleState, seconds: number): Drawable {
   };
 }
 
+// 躺著（沙灘，戴墨鏡）或窩在懶骨頭裡（只露上半身，往下陷一點）
+function drawLying(c: CanvasRenderingContext2D, colors: AvatarColors, footX: number, footY: number, sink: boolean): void {
+  if (sink) {
+    drawAvatar(c, colors, 'down', 'idle', footX, footY + 1, true);
+    return;
+  }
+  drawAvatar(c, colors, 'down', 'idle', footX, footY, false);
+  paintSunglasses(c, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - AVATAR_SIZE.h));
+}
+
 function playerDrawable(seconds: number): Drawable | null {
   if (player.state === 'seated') return null;
   if (player.state === 'lying') {
+    const sink = lyingOn?.pose === 'sink';
     return {
-      // 要蓋在躺椅上面
+      // 要蓋在躺椅／懶骨頭上面
       sortY: player.y + 0.6,
-      draw: (c) => {
-        const footX = player.x * TILE;
-        const footY = player.y * TILE;
-        drawAvatar(c, myAvatar(true), 'down', 'idle', footX, footY, false);
-        paintSunglasses(c, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - AVATAR_SIZE.h));
-      },
+      draw: (c) => drawLying(c, myAvatar(!sink), player.x * TILE, player.y * TILE, sink),
     };
   }
   const frame = player.moving ? (Math.floor(player.walkClock / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';

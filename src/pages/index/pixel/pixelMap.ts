@@ -22,6 +22,8 @@ export type PropKind =
   | 'tallPlant'
   | 'floorLamp'
   | 'painting'
+  // 懶骨頭區：可以窩進去的懶骨頭（不是座位）
+  | 'beanbag'
   // 海灘
   | 'palm'
   | 'umbrella'
@@ -218,6 +220,22 @@ export function createPixelMap(seatCount: number, escalator = false, theme: Them
     sandTop: libraryHeight + DECK_ROWS,
     seaTop: libraryHeight + DECK_ROWS + SAND_ROWS,
   };
+  // 懶骨頭區：右下角空地，一塊地毯、四顆懶骨頭圍一張小圓桌。
+  // 座位多到要往右下角加桌子時那裡會被佔掉，就不擺了
+  if (extraTables === 0) {
+    const bx = 22;
+    const by = 11;
+    rugs.push({ tx: bx, ty: by, w: 7, h: 5, color: 'slate' });
+    props.push(
+      { kind: 'beanbag', tx: bx + 1, ty: by + 1, w: 1, h: 1, variant: 0, blocks: true },
+      { kind: 'beanbag', tx: bx + 5, ty: by + 1, w: 1, h: 1, variant: 1, blocks: true },
+      { kind: 'beanbag', tx: bx + 1, ty: by + 3, w: 1, h: 1, variant: 2, blocks: true },
+      { kind: 'beanbag', tx: bx + 5, ty: by + 3, w: 1, h: 1, variant: 3, blocks: true },
+      { kind: 'roundTable', tx: bx + 3, ty: by + 2, w: 1, h: 1, blocks: true },
+      { kind: 'plant', tx: bx + 6, ty: by, w: 1, h: 1, variant: 0, blocks: true },
+    );
+  }
+
   props.push(...beachProps(beach));
 
   return {
