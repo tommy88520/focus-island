@@ -46,6 +46,8 @@ export const usePomodoroStore = defineStore('pomodoro', {
     progressInitialized: false,
     history: [] as DailyHistoryEntry[],
     lifetimeSessions: 0,
+    // 這次開頁面後完成的輪數（解鎖通知用；載入舊紀錄不算）
+    sessionsThisVisit: 0,
   }),
 
   getters: {
@@ -190,6 +192,7 @@ export const usePomodoroStore = defineStore('pomodoro', {
       this.ensureTodayProgress();
       this.todayCompletedSessions += 1;
       this.lifetimeSessions += 1;
+      this.sessionsThisVisit += 1;
       localStorage.setItem(LIFETIME_SESSIONS_KEY, String(this.lifetimeSessions));
       this.saveProgress();
     },

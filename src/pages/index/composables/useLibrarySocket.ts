@@ -15,6 +15,7 @@ import { fetchSeatSnapshotAction, type SeatSnapshotItem } from 'src/pages/index/
 import { fetchWebSocketTokenAction } from 'src/pages/index/actions/webSocketTokenActions';
 
 const DEFAULT_FLOOR_CAPACITY = 60;
+const TOKEN_RETRY_DELAYS_MS = [2000, 5000, 10000];
 const DEFAULT_ZONE_CAPACITY = 15;
 const FLOOR_POLL_INTERVAL_ACTIVE_MS = 8000;
 const FLOOR_POLL_INTERVAL_BACKGROUND_MS = 30000;
@@ -843,7 +844,14 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
 
     if (version !== connectionVersion) return;
 
-    const tokenPayload = await requestWebSocketToken();
+    // 申請失敗（例如短時間內換太多次房間被限流）：等一下再試，最後還是失敗才跳通知
+    let tokenPayload = await requestWebSocketToken();
+    for (const delay of TOKEN_RETRY_DELAYS_MS) {
+      if (tokenPayload?.token || version !== connectionVersion) break;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      if (version !== connectionVersion) return;
+      tokenPayload = await requestWebSocketToken();
+    }
     if (version !== connectionVersion) return;
 
     if (!tokenPayload?.token) {
