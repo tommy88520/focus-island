@@ -72,17 +72,64 @@ export interface OutdoorWorld {
 
 export const BACK_DOOR: [number, number] = [29, 31];
 
-// 夜市北邊八個攤位的招牌與老闆的叫賣（順序跟 stall 的 variant 一樣）
-export const STALLS: { name: { 'zh-TW': string; 'en-US': string }; call: { 'zh-TW': string; 'en-US': string } }[] = [
-  { name: { 'zh-TW': '花生捲冰淇淋', 'en-US': 'Peanut ice cream roll' }, call: { 'zh-TW': '花生捲冰淇淋，加香菜嗎？', 'en-US': 'Ice cream roll! Cilantro?' } },
-  { name: { 'zh-TW': '烤香腸', 'en-US': 'Grilled sausage' }, call: { 'zh-TW': '香腸剛烤好！配大蒜！', 'en-US': 'Fresh sausages! With garlic!' } },
-  { name: { 'zh-TW': '芋圓王', 'en-US': 'Taro ball king' }, call: { 'zh-TW': '芋圓王，冰的熱的都有～', 'en-US': 'Taro balls, hot or iced~' } },
-  { name: { 'zh-TW': '豪大雞排', 'en-US': 'Fried chicken' }, call: { 'zh-TW': '雞排要切不要辣？', 'en-US': 'Chicken cutlet, sliced?' } },
-  { name: { 'zh-TW': '珍珠奶茶', 'en-US': 'Bubble tea' }, call: { 'zh-TW': '珍奶半糖少冰！', 'en-US': 'Bubble tea, half sugar!' } },
-  { name: { 'zh-TW': '臭豆腐', 'en-US': 'Stinky tofu' }, call: { 'zh-TW': '臭豆腐，泡菜加多一點！', 'en-US': 'Stinky tofu, extra kimchi!' } },
-  { name: { 'zh-TW': '射氣球', 'en-US': 'Balloon darts' }, call: { 'zh-TW': '射中三個送娃娃喔！', 'en-US': 'Pop three, win a plushie!' } },
-  { name: { 'zh-TW': '蚵仔煎', 'en-US': 'Oyster omelette' }, call: { 'zh-TW': '蚵仔煎，現煎的！', 'en-US': 'Oyster omelette, made fresh!' } },
+// 夜市北邊八個攤位：招牌、老闆的叫賣、賣的東西（價格是專注幣；順序跟 stall 的 variant 一樣）
+export type ShopItemId = 'icecreamRoll' | 'sausage' | 'taroBall' | 'chicken' | 'boba' | 'tofu' | 'plush' | 'oyster';
+
+export interface ShopItem {
+  id: ShopItemId;
+  emoji: string;
+  price: number;
+  name: { 'zh-TW': string; 'en-US': string };
+}
+
+export const STALLS: {
+  name: { 'zh-TW': string; 'en-US': string };
+  call: { 'zh-TW': string; 'en-US': string };
+  item: ShopItem;
+}[] = [
+  {
+    name: { 'zh-TW': '花生捲冰淇淋', 'en-US': 'Peanut ice cream roll' },
+    call: { 'zh-TW': '花生捲冰淇淋，加香菜嗎？', 'en-US': 'Ice cream roll! Cilantro?' },
+    item: { id: 'icecreamRoll', emoji: '🍦', price: 35, name: { 'zh-TW': '花生捲冰淇淋（加香菜）', 'en-US': 'Peanut ice cream roll' } },
+  },
+  {
+    name: { 'zh-TW': '烤香腸', 'en-US': 'Grilled sausage' },
+    call: { 'zh-TW': '香腸剛烤好！配大蒜！', 'en-US': 'Fresh sausages! With garlic!' },
+    item: { id: 'sausage', emoji: '🌭', price: 30, name: { 'zh-TW': '烤香腸配大蒜', 'en-US': 'Grilled sausage with garlic' } },
+  },
+  {
+    name: { 'zh-TW': '芋圓王', 'en-US': 'Taro ball king' },
+    call: { 'zh-TW': '芋圓王，冰的熱的都有～', 'en-US': 'Taro balls, hot or iced~' },
+    item: { id: 'taroBall', emoji: '🍡', price: 40, name: { 'zh-TW': '綜合芋圓（冰）', 'en-US': 'Mixed taro balls (iced)' } },
+  },
+  {
+    name: { 'zh-TW': '豪大雞排', 'en-US': 'Fried chicken' },
+    call: { 'zh-TW': '雞排要切不要辣？', 'en-US': 'Chicken cutlet, sliced?' },
+    item: { id: 'chicken', emoji: '🍗', price: 45, name: { 'zh-TW': '大雞排（要切）', 'en-US': 'Giant chicken cutlet' } },
+  },
+  {
+    name: { 'zh-TW': '珍珠奶茶', 'en-US': 'Bubble tea' },
+    call: { 'zh-TW': '珍奶半糖少冰！', 'en-US': 'Bubble tea, half sugar!' },
+    item: { id: 'boba', emoji: '🧋', price: 40, name: { 'zh-TW': '珍珠奶茶（半糖少冰）', 'en-US': 'Bubble tea (half sugar)' } },
+  },
+  {
+    name: { 'zh-TW': '臭豆腐', 'en-US': 'Stinky tofu' },
+    call: { 'zh-TW': '臭豆腐，泡菜加多一點！', 'en-US': 'Stinky tofu, extra kimchi!' },
+    item: { id: 'tofu', emoji: '🍢', price: 35, name: { 'zh-TW': '酥炸臭豆腐', 'en-US': 'Crispy stinky tofu' } },
+  },
+  {
+    name: { 'zh-TW': '射氣球', 'en-US': 'Balloon darts' },
+    call: { 'zh-TW': '射中三個送娃娃喔！', 'en-US': 'Pop three, win a plushie!' },
+    item: { id: 'plush', emoji: '🧸', price: 50, name: { 'zh-TW': '玩一次（保證送娃娃）', 'en-US': 'One round (plushie guaranteed)' } },
+  },
+  {
+    name: { 'zh-TW': '蚵仔煎', 'en-US': 'Oyster omelette' },
+    call: { 'zh-TW': '蚵仔煎，現煎的！', 'en-US': 'Oyster omelette, made fresh!' },
+    item: { id: 'oyster', emoji: '🍳', price: 45, name: { 'zh-TW': '蚵仔煎', 'en-US': 'Oyster omelette' } },
+  },
 ];
+
+export const SHOP_ITEM_EMOJI: Record<ShopItemId, string> = Object.fromEntries(STALLS.map((s) => [s.item.id, s.item.emoji])) as Record<ShopItemId, string>;
 
 export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, worldBottom: number): OutdoorWorld {
   const x0 = -WORLD_LEFT;

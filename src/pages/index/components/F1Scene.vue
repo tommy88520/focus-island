@@ -112,8 +112,12 @@ const BLOCKS = [
 ];
 const STATION = { x0: 2, y0: 1.5, x1: 6, y1: 4, trigger: { x: 4, y: 5 } };
 const CAR_HOME = { x: 23, y: 5.7, angle: 0 };
-// VIP 看台的座位：內場看台前面一排，面向看台後方的賽道
-const SEAT_SPOTS = Array.from({ length: 6 }, (_, i) => ({ x: 20.5 + i * 2.2, y: 17.4 }));
+// 看台座位：最前面一排 6 個 VIP，後面再兩排各 8 個（順序 = 座位編號，不要調換）
+const SEAT_SPOTS = [
+  ...Array.from({ length: 6 }, (_, i) => ({ x: 20.5 + i * 2.2, y: 17.4 })),
+  ...Array.from({ length: 8 }, (_, i) => ({ x: 19.6 + i * 1.8, y: 19.1 })),
+  ...Array.from({ length: 8 }, (_, i) => ({ x: 19.6 + i * 1.8, y: 20.8 })),
+];
 const NPC_CARS = [
   { color: '#d72d2d', accent: '#f6c945', speed: 10.5, offset: 0 },
   { color: '#2fb3a6', accent: '#2b2d33', speed: 11.2, offset: 0.25 },
@@ -553,7 +557,7 @@ function render(seconds: number): void {
   if (!driving.value) pill(ctx, t.value.f1.yourCar, cp.x, cp.y, '#fbbf24');
   const mp = driving.value ? screen(car.x, car.y - 0.8) : screen(me.x, me.y - 1);
   pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
-  const vp = screen(SEAT_SPOTS[0] ? (SEAT_SPOTS[0].x + (SEAT_SPOTS[SEAT_SPOTS.length - 1]?.x ?? 0)) / 2 : 0, 18.9);
+  const vp = screen(26, 22.4);
   pill(ctx, t.value.f1.vipSeats, vp.x, vp.y + 22, '#2dd4bf');
   SEAT_SPOTS.forEach((spot, i) => {
     const mate = props.seats[i] ? props.getMateAtSeat(props.seats[i]?.id ?? '') : null;

@@ -19,9 +19,11 @@ export interface PlayerPrefs {
   notifications: boolean;
   // 場景的光線跟著真實時間（白天、黃昏、夜晚）；關掉就跟著網站的深淺色
   sceneClock: boolean;
+  // 專注幣：每專注 1 分鐘 +1，可以在夜市買東西
+  coins: number;
 }
 
-const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, doNotDisturb: false, groupFocus: false, notifications: false, sceneClock: true };
+const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, doNotDisturb: false, groupFocus: false, notifications: false, sceneClock: true, coins: 50 };
 
 function load(): PlayerPrefs {
   try {
@@ -35,6 +37,7 @@ function load(): PlayerPrefs {
       groupFocus: parsed.groupFocus === true,
       notifications: parsed.notifications === true,
       sceneClock: parsed.sceneClock !== false,
+      coins: Number.isInteger(parsed.coins) && (parsed.coins as number) >= 0 ? (parsed.coins as number) : DEFAULTS.coins,
     };
   } catch {
     return { ...DEFAULTS };

@@ -143,10 +143,11 @@ export interface PixelMap {
 export const TILE = 16;
 export const WALL_ROWS = 3;
 const BASE_HEIGHT = 18;
-// 每個分區的座位數：圖書館 18 + 101 6 + 動物園 6 + 夜市 12 + 海灘 8 + F1 6（跟後端 seatsPerZone 一樣）
+// 每個分區的座位數：圖書館 18 + 101 6 + 動物園 6 + 夜市 12 + 海灘 8 + F1 22（跟後端 seatsPerZone 一樣）
 export const LIBRARY_SEATS = 18;
 export const F1_SEAT_START = 50;
-export const F1_SEAT_COUNT = 6;
+// F1 看台是最後一段，往後加座位就接在它後面（編號 51 起）
+export const F1_SEAT_COUNT = 22;
 export const SEATS_PER_ZONE = F1_SEAT_START + F1_SEAT_COUNT;
 const DECK_ROWS = 2;
 const SAND_ROWS = 8;

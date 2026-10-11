@@ -148,6 +148,27 @@
           </button>
         </div>
       </div>
+      <!-- 夜市攤位：跟老闆買東西（用專注幣） -->
+      <div v-if="shopStall !== null" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(20rem,calc(100%-1.5rem))] -translate-x-1/2 px-4 py-3">
+        <div class="!flex !flex-nowrap items-center justify-between gap-2">
+          <p class="!mb-0 text-sm font-black">🏮 {{ STALLS[shopStall]?.name[locale] }}</p>
+          <button type="button" class="text-[color:var(--px-muted)]" :aria-label="t.seatScene.profileClose" @click="closeShop">
+            <q-icon name="close" size="18px" />
+          </button>
+        </div>
+        <p class="!mb-2 mt-1 text-[11px] font-bold text-[color:var(--px-muted)]">🪙 {{ t.seatScene.coinsLeft(playerPrefs.coins) }}</p>
+        <button
+          v-if="STALLS[shopStall]"
+          type="button"
+          class="pixel-btn pixel-btn--primary h-10 w-full justify-between px-3 text-xs"
+          :disabled="playerPrefs.coins < (STALLS[shopStall]?.item.price ?? 0)"
+          @click="buyFromShop"
+        >
+          <span>{{ STALLS[shopStall]?.item.emoji }} {{ STALLS[shopStall]?.item.name[locale] }}</span>
+          <span>🪙 {{ STALLS[shopStall]?.item.price }}</span>
+        </button>
+        <p v-if="playerPrefs.coins < (STALLS[shopStall]?.item.price ?? 0)" class="!mb-0 mt-2 text-[11px] text-[color:var(--px-muted)]">{{ t.seatScene.notEnoughCoins }}</p>
+      </div>
       <!-- F1 站：搭車去另一張獨立的 F1 賽車場地圖 -->
       <div v-if="f1Open" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
         <p class="!mb-2 !text-[11px] font-black">🏁 {{ t.seatScene.f1Prompt }}</p>
@@ -266,6 +287,8 @@ import {
   paintStall,
   paintWalker,
   STALLS,
+  SHOP_ITEM_EMOJI,
+  type ShopItemId,
   walkerPose,
   type OutdoorKind,
 } from 'src/pages/index/pixel/pixelWorld';
@@ -1147,6 +1170,7 @@ function walkToPoint(target: { x: number; y: number }): void {
   goalVehicle = null;
   goalLie = null;
   goalStation = null;
+  goalShop = null;
   if (riding) {
     // 騎車時點到哪就往哪去，但不會離開那台車能去的範圍
     const area = vehicleArea(map, riding.kind);
@@ -1257,6 +1281,8 @@ function updatePlayer(dt: number): void {
         goalLie = null;
         if (goalStation && Math.hypot(goalStation.x - player.x, goalStation.y - player.y) < STATION_REACH) takeBike();
         goalStation = null;
+        if (goalShop !== null && nearestStall() === goalShop) openShop(goalShop);
+        goalShop = null;
       } else {
         const toX = next.x - player.x;
         const toY = next.z - player.y;
@@ -1403,6 +1429,7 @@ function syncPosition(seconds: number): void {
     ...(riding ? { vehicle: riding.kind } : {}),
     ...(player.state === 'lying' ? { lying: true } : {}),
     ...(player.state === 'lying' && lyingOn?.pose === 'floor' ? { pose: 'floor' as const } : {}),
+    ...(heldItemNow() ? { item: heldItemNow() as ShopItemId } : {}),
     ...(hidden ? { hidden: true } : {}),
   };
   const key = hidden ? 'hidden' : JSON.stringify(pos);
@@ -1773,6 +1800,53 @@ function vendorAvatar(variant: number): AvatarColors {
   return { hair: hair.hair, hairLight: hair.hairLight, shirt: '#f4eee2', shirtShade: '#d9d4c8' };
 }
 
+// ── 跟攤販買東西：買到的東西會拿在手上 3 分鐘（別人也看得到） ──
+const HOLD_ITEM_S = 180;
+const shopStall = ref<number | null>(null);
+let heldItem: { id: ShopItemId; until: number } | null = null;
+let goalShop: number | null = null;
+
+function stallFront(i: number): { x: number; y: number } | null {
+  const stall = map.world.props.find((p) => p.kind === 'stall' && (p.variant ?? 0) === i);
+  return stall ? { x: stall.tx + stall.w / 2, y: stall.ty + stall.h + 0.6 } : null;
+}
+
+function nearestStall(): number | null {
+  for (let i = 0; i < STALLS.length; i += 1) {
+    const front = stallFront(i);
+    if (front && Math.hypot(front.x - player.x, front.y - player.y) < 1.6) return i;
+  }
+  return null;
+}
+
+function openShop(i: number): void {
+  shopStall.value = i;
+  if (!playerPrefs.value.doNotDisturb) say(`vendor:${i}`, t.value.seatScene.vendorWelcome);
+}
+
+function closeShop(): void {
+  shopStall.value = null;
+  containerRef.value?.focus({ preventScroll: true });
+}
+
+function buyFromShop(): void {
+  const i = shopStall.value;
+  const stall = i === null ? undefined : STALLS[i];
+  if (i === null || !stall || playerPrefs.value.coins < stall.item.price) return;
+  playerPrefs.value.coins -= stall.item.price;
+  heldItem = { id: stall.item.id, until: performance.now() / 1000 + HOLD_ITEM_S };
+  say(`vendor:${i}`, t.value.seatScene.vendorThanks);
+  say('me', `${stall.item.emoji} ${t.value.seatScene.yummy}`, 0.6);
+  closeShop();
+  // 讓別人馬上看到你手上拿著東西
+  lastPosKey = '';
+}
+
+function heldItemNow(): ShopItemId | null {
+  if (heldItem && performance.now() / 1000 > heldItem.until) heldItem = null;
+  return heldItem?.id ?? null;
+}
+
 // 夜市老闆招呼客人：走到攤位前面會說「歡迎光臨」，人在夜市裡時偶爾有攤位吆喝
 const VENDOR_GREET_COOLDOWN_S = 25;
 const VENDOR_SHOUT_EVERY_S = 9;
@@ -1780,6 +1854,8 @@ const vendorLastGreet = new Map<number, number>();
 let lastVendorShout = 0;
 
 function updateVendors(seconds: number): void {
+  // 走離攤位就把菜單關掉
+  if (shopStall.value !== null && nearestStall() !== shopStall.value) shopStall.value = null;
   // 夜市在戶外，不受圖書館分區的靜音規則影響；勿擾和專注中照樣不吵你
   if (area.value !== 'nightmarket' || props.disabled || playerPrefs.value.doNotDisturb) return;
   const stalls = map.world.props.filter((p) => p.kind === 'stall');
@@ -2283,6 +2359,21 @@ function render(seconds: number): void {
     const p = toScreen(shown.x * TILE, shown.y * TILE + remoteHeadOffset(remote));
     drawPill(ctx, `${remote.dnd ? '🔕 ' : ''}${remote.displayName}`, p.x, p.y, COLOR_MATE);
   }
+  // 手上拿的夜市小吃（畫在螢幕座標，emoji 才清楚）
+  ctx.font = `${Math.round(view.scale * 6)}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const mine = heldItemNow();
+  if (mine && player.state !== 'seated' && !riding) {
+    const p = toScreen(player.x * TILE + 7, player.y * TILE - 4);
+    ctx.fillText(SHOP_ITEM_EMOJI[mine], p.x, p.y);
+  }
+  for (const remote of Object.values(props.remotePlayers)) {
+    const shown = remoteShown.get(remote.key);
+    if (!shown || !remote.item || remote.vehicle) continue;
+    const p = toScreen(shown.x * TILE + 7, shown.y * TILE - 4);
+    ctx.fillText(SHOP_ITEM_EMOJI[remote.item], p.x, p.y);
+  }
   drawBubbles(ctx, seconds, toScreen);
   renderMinimap(seconds);
 }
@@ -2357,6 +2448,19 @@ function handleClick(event: MouseEvent): void {
   const lie = pickLieSpot(point);
   if (lie) {
     walkToLie(lie);
+    return;
+  }
+  const clickedStall = map.world.props.find(
+    (p) => p.kind === 'stall' && point.x >= p.tx && point.x <= p.tx + p.w && point.y >= p.ty - 1.3 && point.y <= p.ty + p.h,
+  );
+  if (clickedStall && !riding) {
+    const i = clickedStall.variant ?? 0;
+    const front = stallFront(i);
+    if (front && Math.hypot(front.x - player.x, front.y - player.y) < 1.6) openShop(i);
+    else if (front) {
+      walkToPoint(front);
+      goalShop = i;
+    }
     return;
   }
   const station = stations().find((s) => point.x >= s.rect.x0 && point.x <= s.rect.x1 && point.y >= s.rect.y0 && point.y <= s.rect.y1);
@@ -2465,6 +2569,8 @@ function handleKeyDown(event: KeyboardEvent): void {
       if (lie) options.push({ dist: Math.hypot(lie.x - player.x, lie.y - player.y), act: () => lieDown(lie) });
       const station = nearestStation();
       if (station) options.push({ dist: Math.hypot(station.x - player.x, station.y - player.y), act: takeBike });
+      const shop = nearestStall();
+      if (shop !== null) options.push({ dist: 0.5, act: () => openShop(shop) });
       const best = options.sort((a, b) => a.dist - b.dist)[0];
       // 旁邊什麼都沒有：在圖書館裡就直接躺在地板上
       if (best) best.act();

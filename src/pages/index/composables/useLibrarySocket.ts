@@ -3,6 +3,7 @@ import type { QVueGlobals } from 'quasar';
 import { useLocale, type LocaleKey } from 'src/composables/useLocale';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { usePomodoroStore } from 'src/stores/pomodoro';
+import { SHOP_ITEM_EMOJI, type ShopItemId } from 'src/pages/index/pixel/pixelWorld';
 import {
   clampOccupancy,
   getFloorLoadPercent as getFloorLoadPercentHelper,
@@ -15,9 +16,9 @@ import {
 import { fetchSeatSnapshotAction, type SeatSnapshotItem } from 'src/pages/index/actions/seatSnapshotActions';
 import { fetchWebSocketTokenAction } from 'src/pages/index/actions/webSocketTokenActions';
 
-const DEFAULT_FLOOR_CAPACITY = 224;
+const DEFAULT_FLOOR_CAPACITY = 288;
 const TOKEN_RETRY_DELAYS_MS = [2000, 5000, 10000];
-const DEFAULT_ZONE_CAPACITY = 56;
+const DEFAULT_ZONE_CAPACITY = 72;
 const FLOOR_POLL_INTERVAL_ACTIVE_MS = 8000;
 const FLOOR_POLL_INTERVAL_BACKGROUND_MS = 30000;
 const WS_HEARTBEAT_INTERVAL_MS = 25000;
@@ -127,6 +128,8 @@ export interface RemotePlayer {
   lying?: boolean;
   // 躺在地板上（不是躺椅或懶骨頭）
   floor?: boolean;
+  // 手上拿著的夜市小吃
+  item?: ShopItemId;
   hair?: number;
   shirt?: number;
   dnd?: boolean;
@@ -145,6 +148,7 @@ export interface MyPosition {
   vehicle?: RemoteVehicle;
   lying?: boolean;
   pose?: 'floor';
+  item?: ShopItemId;
   hidden?: boolean;
 }
 
@@ -782,6 +786,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 ...(['bike', 'cart', 'boat'].includes(pos.vehicle) ? { vehicle: pos.vehicle as RemoteVehicle } : {}),
                 ...(pos.lying === true ? { lying: true } : {}),
                 ...(pos.pose === 'floor' ? { floor: true } : {}),
+                ...(typeof pos.item === 'string' && pos.item in SHOP_ITEM_EMOJI ? { item: pos.item as ShopItemId } : {}),
                 ...(reader ? readerExtras(reader as unknown as Record<string, unknown>) : {}),
                 ...readerExtras(pos),
                 ...(reader ? { state: reader.state } : {}),

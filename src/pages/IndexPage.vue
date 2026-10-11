@@ -771,6 +771,15 @@ watch(
   },
 );
 
+// 專注幣：每多專注 1 分鐘 +1（今天的分鐘數變多才算，換日歸零不會扣）
+watch(
+  () => store.todayFocusedMinutes,
+  (now, before) => {
+    // 只算番茄鐘跑著時多出來的那一分鐘（載入紀錄時數字跳上去不算）
+    if (store.isRunning && now > before && now - before <= 2) playerPrefs.value.coins += now - before;
+  },
+);
+
 // 今天專注的分鐘數變了：坐著的話重送一次，別人點你的名牌才看得到最新的數字
 watch(
   () => store.todayFocusedMinutes,
