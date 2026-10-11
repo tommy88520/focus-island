@@ -1,8 +1,9 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useLocale, type LocaleKey } from 'src/composables/useLocale';
-import { createSynthPlayer, type SynthKind } from 'src/pages/index/composables/synthAmbience';
+import { createSynthPlayer, type SynthKind, type SoundscapeKind } from 'src/pages/index/composables/synthAmbience';
 
-export type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain' | 'warm' | 'glow' | 'library' | 'blues' | 'classical';
+export type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain' | 'warm' | 'glow' | 'library' | 'blues' | 'classical' | 'beats' | 'chiptune';
+export type { SoundscapeKind };
 
 export interface AudioTrackMeta {
   name: Record<LocaleKey, string>;
@@ -31,6 +32,22 @@ export const audioTracks: Record<AudioTrackKey, AudioTrackMeta> = {
     url: '',
     synth: 'ocean',
     gain: 0.5,
+  },
+  beats: {
+    name: { 'zh-TW': '自習 Beats', 'en-US': 'Study Beats' },
+    description: { 'zh-TW': '即時生成的 lofi：爵士和弦、鼓組、黑膠沙沙聲', 'en-US': 'Generated lo-fi: jazz chords, drums, vinyl crackle' },
+    icon: 'headphones',
+    url: '',
+    synth: 'beats',
+    gain: 0.17,
+  },
+  chiptune: {
+    name: { 'zh-TW': '像素 8-bit', 'en-US': 'Pixel 8-bit' },
+    description: { 'zh-TW': '跟地圖同款的 8-bit 小品，每次旋律都不同', 'en-US': '8-bit tunes to match the map, never the same twice' },
+    icon: 'videogame_asset',
+    url: '',
+    synth: 'chiptune',
+    gain: 0.14,
   },
   blues: {
     name: { 'zh-TW': '藍調', 'en-US': 'Blues' },
@@ -96,6 +113,8 @@ export const audioTracks: Record<AudioTrackKey, AudioTrackMeta> = {
 
 export const audioTrackOrder: AudioTrackKey[] = [
   'library',
+  'beats',
+  'chiptune',
   'forest',
   'ocean',
   'rain',
@@ -118,10 +137,17 @@ type AudioPrefs = {
   audioLoopEnabled: boolean;
   audioAutoPlayOnLoad: boolean;
   zoneSoundEnabled: boolean;
+  sceneAmbienceEnabled: boolean;
+  sceneAmbienceVolume: number;
 };
 
 // 換分區時自動換成符合場景的環境音
-const ZONE_TRACKS: Record<string, AudioTrackKey> = { A: 'forest', B: 'warm', C: 'ocean', D: 'library' };
+const ZONE_TRACKS: Record<string, AudioTrackKey> = { A: 'forest', B: 'beats', C: 'ocean', D: 'library' };
+
+// 場景環境音各自的音量倍率（合成出來的響度不一樣）
+const SOUNDSCAPE_GAIN: Record<SoundscapeKind, number> = { beach: 0.45, city: 0.5, market: 3, zoo: 3, f1: 1 };
+// 音樂本身已經是同一種聲音時，就不再疊一層
+const SOUNDSCAPE_SAME_AS: Partial<Record<SoundscapeKind, SynthKind>> = { beach: 'ocean' };
 
 function isTrackKey(value: unknown): value is AudioTrackKey {
   return typeof value === 'string' && value in audioTracks;
@@ -141,6 +167,10 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   const { locale } = useLocale();
   let audioElement: HTMLAudioElement | null = null;
   const synthPlayer = createSynthPlayer();
+  // 場景環境音是獨立的一層：有自己的音量，不受音樂播放／暫停影響
+  const soundscapePlayer = createSynthPlayer();
+  let soundscape: SoundscapeKind | null = null;
+  let userHasInteracted = false;
   let fadeTaskId = 0;
 
   const selectedAudioTrack = ref<AudioTrackKey>('lofi');
@@ -152,6 +182,8 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   const audioLoopEnabled = ref(true);
   const audioAutoPlayOnLoad = ref(false);
   const zoneSoundEnabled = ref(true);
+  const sceneAmbienceEnabled = ref(true);
+  const sceneAmbienceVolume = ref(35);
 
   const selectedAudioTrackMeta = computed(() => audioTracks[selectedAudioTrack.value]);
   const volumeIconName = computed(() => {
@@ -180,6 +212,8 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
       audioLoopEnabled: audioLoopEnabled.value,
       audioAutoPlayOnLoad: audioAutoPlayOnLoad.value,
       zoneSoundEnabled: zoneSoundEnabled.value,
+      sceneAmbienceEnabled: sceneAmbienceEnabled.value,
+      sceneAmbienceVolume: sceneAmbienceVolume.value,
     };
     localStorage.setItem(AUDIO_PREFS_KEY, JSON.stringify(payload));
   }
@@ -205,6 +239,8 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
       audioLoopEnabled.value = parsed.audioLoopEnabled ?? true;
       audioAutoPlayOnLoad.value = parsed.audioAutoPlayOnLoad ?? false;
       zoneSoundEnabled.value = parsed.zoneSoundEnabled ?? true;
+      sceneAmbienceEnabled.value = parsed.sceneAmbienceEnabled ?? true;
+      sceneAmbienceVolume.value = parsed.sceneAmbienceVolume === undefined ? 35 : normalizeVolume(parsed.sceneAmbienceVolume);
     } catch {
       // ignore invalid stored payload
     }
@@ -423,6 +459,37 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     selectTrack(track);
   }
 
+  // 依目前所在區域決定要不要有環境音；瀏覽器要等使用者互動過才准出聲
+  function applySoundscape() {
+    const musicSynth = isAudioPlaying.value ? audioTracks[selectedAudioTrack.value].synth : undefined;
+    const wanted = sceneAmbienceEnabled.value && userHasInteracted && sceneAmbienceVolume.value > 0 ? soundscape : null;
+    const duplicate = wanted !== null && musicSynth !== undefined && SOUNDSCAPE_SAME_AS[wanted] === musicSynth;
+    const kind = duplicate ? null : wanted;
+    if (!kind) {
+      if (soundscapePlayer.isPlaying) soundscapePlayer.stop();
+      return;
+    }
+    const volume = (sceneAmbienceVolume.value / 100) * SOUNDSCAPE_GAIN[kind];
+    if (soundscapePlayer.isPlaying && soundscapePlayer.kind === kind) {
+      soundscapePlayer.setVolume(volume);
+      return;
+    }
+    void soundscapePlayer.start(kind, volume).catch(() => undefined);
+  }
+
+  function setSoundscape(kind: SoundscapeKind | null) {
+    if (kind === soundscape) return;
+    soundscape = kind;
+    applySoundscape();
+  }
+
+  function handleFirstInteraction() {
+    window.removeEventListener('pointerdown', handleFirstInteraction);
+    window.removeEventListener('keydown', handleFirstInteraction);
+    userHasInteracted = true;
+    applySoundscape();
+  }
+
   function togglePlayback() {
     if (isAudioPlaying.value) {
       stopPlayback();
@@ -458,7 +525,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   }
 
   watch(
-    [selectedAudioTrack, defaultAudioTrack, followFocusPlayback, audioLoopEnabled, audioAutoPlayOnLoad, zoneSoundEnabled],
+    [selectedAudioTrack, defaultAudioTrack, followFocusPlayback, audioLoopEnabled, audioAutoPlayOnLoad, zoneSoundEnabled, sceneAmbienceEnabled, sceneAmbienceVolume],
     () => {
       if (audioElement) {
         audioElement.loop = audioLoopEnabled.value;
@@ -472,6 +539,8 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     },
   );
 
+  watch([sceneAmbienceEnabled, sceneAmbienceVolume, isAudioPlaying, selectedAudioTrack], applySoundscape);
+
   watch(
     () => defaultAudioTrack.value,
     () => {
@@ -483,6 +552,8 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   onMounted(() => {
     loadAudioPreferences();
     setupMediaSessionActionHandlers();
+    window.addEventListener('pointerdown', handleFirstInteraction);
+    window.addEventListener('keydown', handleFirstInteraction);
     updateMediaSessionMetadata();
     if (audioAutoPlayOnLoad.value && selectedAudioTrack.value !== 'silence') {
       void startPlayback();
@@ -493,6 +564,9 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     saveAudioPreferences();
     stopPlayback();
     synthPlayer.dispose();
+    soundscapePlayer.dispose();
+    window.removeEventListener('pointerdown', handleFirstInteraction);
+    window.removeEventListener('keydown', handleFirstInteraction);
     if (audioElement) {
       audioElement.removeEventListener('error', handleAudioPlaybackError);
     }
@@ -510,6 +584,9 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     audioLoopEnabled,
     audioAutoPlayOnLoad,
     zoneSoundEnabled,
+    sceneAmbienceEnabled,
+    sceneAmbienceVolume,
+    setSoundscape,
     selectedAudioTrackMeta,
     volumeIconName,
     startPlayback,

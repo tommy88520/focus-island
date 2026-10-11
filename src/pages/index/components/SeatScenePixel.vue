@@ -325,6 +325,8 @@ const emit = defineEmits<{
   'change-zone': [zoneId: string];
   // 在 F1 站搭車去 F1 賽車場
   'go-f1': [];
+  // 走進另一個區域（圖書館／沙灘／101／動物園／夜市），父層用來切換場景環境音
+  area: [area: Area];
   // 瀏覽器拿不到 2D canvas 時通知父層退回 2D 座位格子
   'webgl-failed': [];
   // 自己打招呼，父層轉送給同房間的人
@@ -1357,7 +1359,10 @@ function updatePlayer(dt: number): void {
   const doorTarget = atElevator ? 1 : 0;
   elevatorDoor += Math.sign(doorTarget - elevatorDoor) * Math.min(Math.abs(doorTarget - elevatorDoor), dt * 3);
   const nowArea = areaAt(map, player.x, player.y);
-  if (nowArea !== area.value) area.value = nowArea;
+  if (nowArea !== area.value) {
+    area.value = nowArea;
+    emit('area', nowArea);
+  }
 
   nearSeatId = active && !riding && (player.state === 'idle' || player.state === 'walking') ? (nearestSittableSeat()?.seatId ?? null) : null;
 

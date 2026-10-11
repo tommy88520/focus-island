@@ -4,7 +4,9 @@
 // 合成的做法是「穩定的底噪 + 隨機觸發的事件（雨滴、浪、翻書…）」，每次聽都不一樣，
 // 也沒有循環點。所有隨機事件都是排程在 AudioContext 時間軸上，不依賴 setTimeout 的精度。
 
-export type SynthKind = 'rain' | 'ocean' | 'library' | 'blues' | 'classical';
+// 前五種加 beats / chiptune 是可選的音樂；beach 以後是「場景環境音」，跟著人走到哪個區域自動疊在音樂下面
+export type SynthKind = 'rain' | 'ocean' | 'library' | 'blues' | 'classical' | 'beats' | 'chiptune' | SoundscapeKind;
+export type SoundscapeKind = 'beach' | 'city' | 'market' | 'zoo' | 'f1';
 
 interface NoiseBuffers {
   pink: AudioBuffer;
@@ -743,12 +745,770 @@ const buildClassical: SessionFactory = (ctx, _noise, out, track) => {
   );
 };
 
+// ---------- 音樂：自習 Beats（生成式 lofi） ----------
+
+interface LofiChord {
+  bass: number;
+  notes: number[];
+}
+
+interface LofiProgression {
+  chords: LofiChord[];
+  scale: number[];
+}
+
+// 四小節一輪的爵士和弦（ii–V–I–vi 之類），旋律只用該調的五聲音階，怎麼走都不會難聽
+const LOFI_PROGRESSIONS: LofiProgression[] = [
+  {
+    // Gm9 – C13 – Fmaj9 – Dm9
+    chords: [
+      { bass: 43, notes: [58, 62, 65, 69] },
+      { bass: 36, notes: [52, 58, 62, 69] },
+      { bass: 41, notes: [57, 60, 64, 67] },
+      { bass: 38, notes: [53, 57, 60, 64] },
+    ],
+    scale: [65, 67, 69, 72, 74, 77, 79, 81],
+  },
+  {
+    // Ebmaj9 – Dm9 – Cm9 – F9sus
+    chords: [
+      { bass: 39, notes: [55, 58, 62, 65] },
+      { bass: 38, notes: [53, 57, 60, 64] },
+      { bass: 36, notes: [51, 55, 58, 62] },
+      { bass: 41, notes: [55, 58, 60, 63] },
+    ],
+    scale: [65, 67, 70, 72, 74, 77, 79, 82],
+  },
+  {
+    // Bbmaj9 – Am7 – Gm9 – C9sus
+    chords: [
+      { bass: 34, notes: [57, 60, 62, 65] },
+      { bass: 45, notes: [55, 60, 64, 67] },
+      { bass: 43, notes: [58, 62, 65, 69] },
+      { bass: 36, notes: [58, 60, 62, 65] },
+    ],
+    scale: [65, 67, 69, 72, 74, 77, 79, 81],
+  },
+];
+
+const BEATS_BPM = 76;
+
+function playSnare(ctx: AudioContext, bus: AudioNode, track: Tracker, noise: NoiseBuffers, when: number, peak: number): void {
+  burst(ctx, bus, track, { buffer: noise.pink, when, duration: 0.2, attack: 0.003, peak, filter: 'bandpass', frequency: 1700, q: 0.8, pan: -0.1 });
+  burst(ctx, bus, track, { buffer: noise.brown, when, duration: 0.09, attack: 0.002, peak: peak * 1.4, filter: 'lowpass', frequency: 420, q: 0.7, pan: 0 });
+}
+
+function playHat(ctx: AudioContext, bus: AudioNode, track: Tracker, noise: NoiseBuffers, when: number, peak: number, open = false): void {
+  burst(ctx, bus, track, { buffer: noise.pink, when, duration: open ? 0.16 : 0.045, attack: 0.001, peak, filter: 'highpass', frequency: 7000, q: 0.7, pan: 0.3 });
+}
+
+const buildBeats: SessionFactory = (ctx, noise, out, track) => {
+  // 整條音軌過一個低通，像錄音帶一樣溫暖、不刺耳
+  const tone = biquad(ctx, 'lowpass', 2600, 0.5);
+  tone.connect(out);
+  const bus = createReverbBus(ctx, tone, 1.6, 0.18);
+  const stepSeconds = 60 / BEATS_BPM / 4;
+  const swing = stepSeconds * 0.2;
+  let step = 0;
+  let progression = LOFI_PROGRESSIONS[0] as LofiProgression;
+  let drumsOn = false;
+
+  // 黑膠：極小的底噪 + 偶爾的爆裂聲（不進低通，才聽得到）
+  const hiss = gainNode(ctx, 0.008);
+  loopNoise(ctx, noise.pink, track).connect(biquad(ctx, 'bandpass', 4200, 0.6)).connect(hiss).connect(out);
+  scheduleEvents(ctx, track, (when) => {
+    burst(ctx, out, track, { buffer: noise.pink, when, duration: rand(0.004, 0.012), attack: 0.0008, peak: rand(0.02, 0.07), filter: 'highpass', frequency: rand(2500, 6000), q: 0.7, pan: rand(-0.5, 0.5) });
+    return rand(0.05, 0.5);
+  });
+
+  scheduleEvents(
+    ctx,
+    track,
+    (rawWhen) => {
+      const stepInBar = step % 16;
+      const bar = Math.floor(step / 16);
+      // 反拍的十六分音符往後拖一點，就是 lofi 那種慵懶的搖擺
+      const when = rawWhen + (stepInBar % 2 === 1 ? swing : 0) + rand(-0.004, 0.006);
+      const beat = stepSeconds * 4;
+
+      if (step % 64 === 0) {
+        // 每四小節可能換一組和弦；前四小節是前奏不打鼓，之後每 16 小節空一小段讓耳朵休息
+        if (bar > 0 && Math.random() < 0.4) progression = pick(LOFI_PROGRESSIONS);
+        drumsOn = bar >= 4 && bar % 16 !== 12;
+      }
+      const chord = progression.chords[bar % 4] as LofiChord;
+
+      // 和弦：小節頭彈長音，第三拍後半偶爾補一下切分
+      if (stepInBar === 0 || (stepInBar === 10 && Math.random() < 0.45)) {
+        const velocity = stepInBar === 0 ? rand(0.38, 0.5) : rand(0.25, 0.35);
+        const length = stepInBar === 0 ? beat * 2.4 : beat * 1.2;
+        chord.notes.forEach((note, index) => {
+          playRhodes(ctx, bus, track, when + index * rand(0.012, 0.024), note, length, velocity, rand(-0.35, 0.35));
+        });
+      }
+
+      // 貝斯：根音落在 1 和 3 拍附近，偶爾一個往下一個和弦的經過音
+      if (stepInBar === 0) playBass(ctx, bus, track, when, chord.bass, beat * 1.4, rand(0.6, 0.75));
+      if (stepInBar === 7 && Math.random() < 0.5) playBass(ctx, bus, track, when, chord.bass + 7, beat * 0.6, rand(0.4, 0.5));
+      if (stepInBar === 10) playBass(ctx, bus, track, when, chord.bass, beat * 1.1, rand(0.5, 0.65));
+      if (stepInBar === 14 && Math.random() < 0.3) {
+        const next = progression.chords[(bar + 1) % 4] as LofiChord;
+        playBass(ctx, bus, track, when, next.bass + (next.bass > chord.bass ? -1 : 1), beat * 0.45, 0.42);
+      }
+
+      if (drumsOn) {
+        if (stepInBar === 0 || stepInBar === 10 || (stepInBar === 7 && Math.random() < 0.35)) playKick(ctx, bus, track, when, rand(0.6, 0.75));
+        if (stepInBar === 4 || stepInBar === 12) playSnare(ctx, bus, track, noise, when, rand(0.07, 0.09));
+        if (stepInBar % 2 === 0) playHat(ctx, bus, track, noise, when, rand(0.025, 0.04), stepInBar === 14 && Math.random() < 0.3);
+        else if (Math.random() < 0.2) playHat(ctx, bus, track, noise, when, rand(0.01, 0.018));
+      }
+
+      // 旋律：兩小節一句，有一半機率出現，三到六個音，用高音域的電鋼琴輕輕彈
+      if (stepInBar === 0 && bar % 2 === 0 && bar >= 2 && Math.random() < 0.55) {
+        const scale = progression.scale;
+        let index = Math.floor(rand(2, scale.length - 2));
+        let offset = pick([0, 2, 4]);
+        const count = Math.floor(rand(3, 7));
+        for (let i = 0; i < count && offset < 28; i += 1) {
+          const last = i === count - 1;
+          const length = last ? pick([4, 6, 8]) : pick([1, 2, 2, 3]);
+          const swingShift = offset % 2 === 1 ? swing : 0;
+          playRhodes(ctx, bus, track, when + offset * stepSeconds + swingShift, (scale[index] as number) + 12, length * stepSeconds * 1.6, rand(0.22, 0.34), 0.2);
+          offset += length;
+          index = Math.max(0, Math.min(scale.length - 1, index + pick([-2, -1, -1, 1, 1, 2])));
+        }
+      }
+
+      step += 1;
+      return stepSeconds;
+    },
+    0.4,
+  );
+};
+
+// ---------- 音樂：像素 8-bit ----------
+
+// 脈衝波（方波的佔空比可調）：紅白機那種「嗶」的音色
+const pulseWaveCache = new WeakMap<AudioContext, Map<number, PeriodicWave>>();
+function pulseWave(ctx: AudioContext, duty: number): PeriodicWave {
+  let byDuty = pulseWaveCache.get(ctx);
+  if (!byDuty) {
+    byDuty = new Map();
+    pulseWaveCache.set(ctx, byDuty);
+  }
+  const cached = byDuty.get(duty);
+  if (cached) return cached;
+  const harmonics = 48;
+  const real = new Float32Array(harmonics);
+  const imag = new Float32Array(harmonics);
+  for (let n = 1; n < harmonics; n += 1) {
+    real[n] = (2 / (n * Math.PI)) * Math.sin(n * Math.PI * duty);
+  }
+  const wave = ctx.createPeriodicWave(real, imag);
+  byDuty.set(duty, wave);
+  return wave;
+}
+
+function playChip(ctx: AudioContext, bus: AudioNode, track: Tracker, when: number, midi: number, duration: number, level: number, duty: number, pan: number): void {
+  const oscillator = ctx.createOscillator();
+  oscillator.setPeriodicWave(pulseWave(ctx, duty));
+  oscillator.frequency.value = midiToHz(midi);
+  const sources: AudioScheduledSourceNode[] = [oscillator];
+  const nodes: AudioNode[] = [];
+  // 長音才加延遲顫音，短音保持乾淨
+  if (duration > 0.35) {
+    const vibrato = ctx.createOscillator();
+    vibrato.frequency.value = 5.5;
+    const depth = gainNode(ctx, 0);
+    depth.gain.setValueAtTime(0, when + 0.18);
+    depth.gain.linearRampToValueAtTime(14, when + 0.4);
+    vibrato.connect(depth).connect(oscillator.detune);
+    sources.push(vibrato);
+    nodes.push(depth);
+  }
+  const envelope = ctx.createGain();
+  envelope.gain.setValueAtTime(0.0001, when);
+  envelope.gain.linearRampToValueAtTime(level, when + 0.006);
+  envelope.gain.setTargetAtTime(level * 0.65, when + 0.03, 0.12);
+  envelope.gain.setTargetAtTime(0, when + duration, 0.025);
+  const panner = ctx.createStereoPanner();
+  panner.pan.value = pan;
+  oscillator.connect(envelope).connect(panner).connect(bus);
+  voiceEnd(track, sources, [...nodes, envelope, panner], when, when + duration + 0.15);
+}
+
+function playTriangle(ctx: AudioContext, bus: AudioNode, track: Tracker, when: number, midi: number, duration: number, level: number): void {
+  const oscillator = ctx.createOscillator();
+  oscillator.type = 'triangle';
+  oscillator.frequency.value = midiToHz(midi);
+  const envelope = ctx.createGain();
+  envelope.gain.setValueAtTime(0.0001, when);
+  envelope.gain.linearRampToValueAtTime(level, when + 0.005);
+  envelope.gain.setTargetAtTime(0, when + duration, 0.02);
+  oscillator.connect(envelope).connect(bus);
+  voiceEnd(track, [oscillator], [envelope], when, when + duration + 0.12);
+}
+
+function playChipKick(ctx: AudioContext, bus: AudioNode, track: Tracker, when: number, level: number): void {
+  const oscillator = ctx.createOscillator();
+  oscillator.type = 'triangle';
+  oscillator.frequency.setValueAtTime(180, when);
+  oscillator.frequency.exponentialRampToValueAtTime(45, when + 0.1);
+  const envelope = ctx.createGain();
+  envelope.gain.setValueAtTime(level, when);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, when + 0.16);
+  oscillator.connect(envelope).connect(bus);
+  voiceEnd(track, [oscillator], [envelope], when, when + 0.2);
+}
+
+type ChipChord = [root: number, minor: boolean];
+
+// 一個和弦一小節、四小節一輪（C 大調：I–vi–IV–V 之類）
+const CHIP_PROGRESSIONS: ChipChord[][] = [
+  [[0, false], [9, true], [5, false], [7, false]],
+  [[5, false], [7, false], [4, true], [9, true]],
+  [[0, false], [7, false], [9, true], [5, false]],
+  [[9, true], [5, false], [0, false], [7, false]],
+];
+// C 大調五聲音階，主旋律音域
+const CHIP_SCALE = [67, 69, 72, 74, 76, 79, 81, 84, 86, 88];
+const CHIPTUNE_BPM = 92;
+
+interface MotifNote {
+  at: number; // 八分音符位置，兩小節共 16 格
+  length: number;
+  degree: number; // CHIP_SCALE 的索引
+}
+
+function makeMotif(): MotifNote[] {
+  const notes: MotifNote[] = [];
+  let at = 0;
+  let degree = Math.floor(rand(2, 6));
+  while (at < 14) {
+    if (at > 0 && Math.random() < 0.22) {
+      at += 1;
+      continue;
+    }
+    const length = pick([1, 1, 2, 2, 3]);
+    notes.push({ at, length: Math.min(length, 16 - at), degree });
+    at += length;
+    degree = Math.max(0, Math.min(CHIP_SCALE.length - 1, degree + pick([-2, -1, -1, 0, 1, 1, 2])));
+  }
+  return notes;
+}
+
+// 同一句稍微改尾巴：重複帶來旋律感，變化讓它不會無聊
+function varyMotif(motif: MotifNote[]): MotifNote[] {
+  return motif.map((note, index) =>
+    index >= motif.length - 2 ? { ...note, degree: Math.max(0, Math.min(CHIP_SCALE.length - 1, note.degree + pick([-2, -1, 1, 2]))) } : note,
+  );
+}
+
+// 強拍上的音貼到和弦內音，聽起來才「對」
+function snapToChord(midi: number, chord: ChipChord): number {
+  const tones = [0, chord[1] ? 3 : 4, 7].map((interval) => (chord[0] + interval) % 12);
+  for (const shift of [0, -1, 1, -2, 2]) {
+    if (tones.includes((((midi + shift) % 12) + 12) % 12)) return midi + shift;
+  }
+  return midi;
+}
+
+const buildChiptune: SessionFactory = (ctx, noise, out, track) => {
+  const bus = createReverbBus(ctx, out, 1.2, 0.12);
+  const stepSeconds = 60 / CHIPTUNE_BPM / 4;
+  let step = 0;
+  let progression = CHIP_PROGRESSIONS[0] as ChipChord[];
+  let phrases: MotifNote[][] = [];
+  let arpMode = false;
+  let drumsOn = false;
+
+  scheduleEvents(
+    ctx,
+    track,
+    (when) => {
+      const stepInBar = step % 16;
+      const bar = Math.floor(step / 16);
+      const barInSection = bar % 8;
+
+      // 八小節一段：A、A'、A、B。每段換主題，偶爾換和弦、伴奏方式
+      if (step % 128 === 0) {
+        const section = bar / 8;
+        if (section > 0 && Math.random() < 0.5) progression = pick(CHIP_PROGRESSIONS);
+        const motif = makeMotif();
+        phrases = [motif, varyMotif(motif), motif, makeMotif()];
+        arpMode = section % 2 === 1;
+        drumsOn = section > 0 && section % 4 !== 3;
+      }
+      const chord = progression[barInSection % 4] as ChipChord;
+      const rootMidi = 48 + chord[0];
+      const triad = [0, chord[1] ? 3 : 4, 7, 12].map((interval) => rootMidi + 12 + interval);
+
+      // 低音：三角波，八分音符根音／高八度交替
+      if (stepInBar % 2 === 0) {
+        const octave = stepInBar % 4 === 2 ? 12 : 0;
+        const fifth = stepInBar === 14 ? 7 : 0;
+        playTriangle(ctx, bus, track, when, rootMidi - 12 + octave + fifth, stepSeconds * 1.6, 0.22);
+      }
+
+      // 伴奏：琶音段每個十六分音符跳一個和弦內音；其他段在反拍輕輕點和弦
+      if (arpMode) {
+        const note = triad[[0, 1, 2, 3, 2, 1][step % 6] as number] as number;
+        playChip(ctx, bus, track, when, note, stepSeconds * 0.8, 0.018, 0.125, -0.35);
+      } else if (stepInBar % 4 === 2) {
+        triad.slice(0, 3).forEach((note) => playChip(ctx, bus, track, when, note, stepSeconds * 1.2, 0.012, 0.25, -0.3));
+      }
+
+      // 主旋律：前兩小節是前奏，只有伴奏
+      const phrase = phrases[Math.floor(barInSection / 2)];
+      if (phrase && bar >= 2 && stepInBar % 2 === 0) {
+        const eighth = ((barInSection % 2) * 16 + stepInBar) / 2;
+        const note = phrase.find((n) => n.at === eighth);
+        if (note) {
+          let midi = CHIP_SCALE[note.degree] as number;
+          if (eighth % 2 === 0) midi = snapToChord(midi, chord);
+          // B 句最後一個音收在主音上
+          const isEnding = barInSection === 7 && note === phrase[phrase.length - 1];
+          if (isEnding) midi = 72;
+          playChip(ctx, bus, track, when, midi, note.length * stepSeconds * 2 * 0.9, 0.05, 0.5, 0.12);
+        }
+      }
+
+      if (drumsOn) {
+        if (stepInBar === 0 || stepInBar === 8 || (stepInBar === 10 && Math.random() < 0.3)) playChipKick(ctx, bus, track, when, 0.32);
+        if (stepInBar === 4 || stepInBar === 12) {
+          burst(ctx, bus, track, { buffer: noise.pink, when, duration: 0.1, attack: 0.001, peak: 0.07, filter: 'bandpass', frequency: 2400, q: 0.6, pan: 0 });
+        }
+        if (stepInBar % 2 === 1) {
+          burst(ctx, bus, track, { buffer: noise.pink, when, duration: 0.03, attack: 0.001, peak: 0.025, filter: 'highpass', frequency: 8000, q: 0.7, pan: 0.25 });
+        }
+      }
+
+      step += 1;
+      return stepSeconds;
+    },
+    0.4,
+  );
+};
+
+// ---------- 場景環境音：跟著人在哪個區域，疊在音樂下面 ----------
+
+// 從遠處靠近再遠去的鐘形曲線（車子、機車、歡呼）
+function passCurve(base: number, peak: number, points = 64): Float32Array<ArrayBuffer> {
+  const curve = new Float32Array(points);
+  for (let i = 0; i < points; i += 1) {
+    const x = (i / (points - 1)) * 2 - 1;
+    curve[i] = base + (peak - base) * Math.exp(-x * x * 5);
+  }
+  return curve;
+}
+
+function lineCurve(from: number, to: number, points = 32): Float32Array<ArrayBuffer> {
+  const curve = new Float32Array(points);
+  for (let i = 0; i < points; i += 1) curve[i] = from + ((to - from) * i) / (points - 1);
+  return curve;
+}
+
+// 一團噪音從一側經過到另一側：汽車胎噪、人群的歡呼
+function noisePass(
+  ctx: AudioContext,
+  out: AudioNode,
+  track: Tracker,
+  buffer: AudioBuffer,
+  when: number,
+  duration: number,
+  peak: number,
+  lowHz: number,
+  highHz: number,
+  panFrom: number,
+  panTo: number,
+): void {
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  const filter = biquad(ctx, 'lowpass', lowHz, 0.7);
+  filter.frequency.setValueCurveAtTime(passCurve(lowHz, highHz), when, duration);
+  const envelope = gainNode(ctx, 0);
+  envelope.gain.setValueCurveAtTime(passCurve(0.0001, peak), when, duration);
+  const panner = ctx.createStereoPanner();
+  panner.pan.setValueCurveAtTime(lineCurve(panFrom, panTo), when, duration);
+  source.connect(filter).connect(envelope).connect(panner).connect(out);
+  track.addSource(source);
+  source.start(when, rand(0, Math.max(0, buffer.duration - duration - 0.2)));
+  source.stop(when + duration);
+  source.onended = () => {
+    panner.disconnect();
+    track.sources = track.sources.filter((s) => s !== source);
+  };
+}
+
+// 引擎經過：鋸齒波 + 低八度方波，經過面前時音高掉下來（都卜勒效應）
+function enginePass(ctx: AudioContext, out: AudioNode, track: Tracker, when: number, duration: number, baseHz: number, peak: number, brightness: number, panFrom: number, panTo: number): void {
+  const middle = when + duration / 2;
+  const sources: OscillatorNode[] = [];
+  const mix = gainNode(ctx, 1);
+  for (const [type, multiple, level] of [
+    ['sawtooth', 1, 1],
+    ['square', 0.5, 0.6],
+  ] as const) {
+    const oscillator = ctx.createOscillator();
+    oscillator.type = type;
+    const hz = baseHz * multiple;
+    oscillator.frequency.setValueAtTime(hz * 1.16, when);
+    oscillator.frequency.linearRampToValueAtTime(hz * 1.12, middle - duration * 0.05);
+    oscillator.frequency.exponentialRampToValueAtTime(hz * 0.84, middle + duration * 0.07);
+    oscillator.frequency.linearRampToValueAtTime(hz * 0.8, when + duration);
+    const oscGain = gainNode(ctx, level);
+    oscillator.connect(oscGain).connect(mix);
+    sources.push(oscillator);
+  }
+  const filter = biquad(ctx, 'lowpass', 300, 1.2);
+  filter.frequency.setValueCurveAtTime(passCurve(300, brightness), when, duration);
+  const envelope = gainNode(ctx, 0);
+  envelope.gain.setValueCurveAtTime(passCurve(0.0001, peak), when, duration);
+  const panner = ctx.createStereoPanner();
+  panner.pan.setValueCurveAtTime(lineCurve(panFrom, panTo), when, duration);
+  mix.connect(filter).connect(envelope).connect(panner).connect(out);
+  voiceEnd(track, sources, [mix, filter, envelope, panner], when, when + duration);
+}
+
+// 短促的正弦滑音：鳥叫、蟲鳴、海鷗都是它的變形
+function chirp(ctx: AudioContext, out: AudioNode, track: Tracker, when: number, fromHz: number, toHz: number, duration: number, peak: number, pan: number, type: OscillatorType = 'sine'): void {
+  const oscillator = ctx.createOscillator();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(fromHz, when);
+  oscillator.frequency.exponentialRampToValueAtTime(toHz, when + duration);
+  const envelope = ctx.createGain();
+  envelope.gain.setValueAtTime(0.0001, when);
+  envelope.gain.linearRampToValueAtTime(peak, when + Math.min(0.012, duration * 0.3));
+  envelope.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+  const panner = ctx.createStereoPanner();
+  panner.pan.value = pan;
+  oscillator.connect(envelope).connect(panner).connect(out);
+  voiceEnd(track, [oscillator], [envelope, panner], when, when + duration + 0.02);
+}
+
+function isNightNow(): boolean {
+  const hour = new Date().getHours();
+  return hour >= 19 || hour < 5;
+}
+
+// 沙灘：海浪 + 偶爾幾聲海鷗
+const buildBeach: SessionFactory = (ctx, noise, out, track) => {
+  buildOcean(ctx, noise, out, track);
+  scheduleEvents(
+    ctx,
+    track,
+    (when) => {
+      const cries = Math.floor(rand(1, 4));
+      const pan = rand(-0.8, 0.8);
+      const base = rand(1250, 1500);
+      for (let i = 0; i < cries; i += 1) {
+        const at = when + i * rand(0.42, 0.6);
+        const voice = ctx.createOscillator();
+        voice.type = 'triangle';
+        voice.frequency.setValueAtTime(base, at);
+        voice.frequency.linearRampToValueAtTime(base * 1.3, at + 0.06);
+        voice.frequency.exponentialRampToValueAtTime(base * 0.78, at + 0.38);
+        const nasal = biquad(ctx, 'bandpass', 1700, 1.6);
+        const envelope = ctx.createGain();
+        envelope.gain.setValueAtTime(0.0001, at);
+        envelope.gain.linearRampToValueAtTime(0.05, at + 0.04);
+        envelope.gain.exponentialRampToValueAtTime(0.0001, at + 0.4);
+        const panner = ctx.createStereoPanner();
+        panner.pan.value = pan;
+        voice.connect(nasal).connect(envelope).connect(panner).connect(out);
+        voiceEnd(track, [voice], [nasal, envelope, panner], at, at + 0.42);
+      }
+      return rand(9, 22);
+    },
+    rand(3, 8),
+  );
+};
+
+// 101 一帶：車流的低鳴、一台台經過的車和機車、偶爾的喇叭與行人號誌
+const buildCity: SessionFactory = (ctx, noise, out, track) => {
+  const rumble = gainNode(ctx, 0.3);
+  loopNoise(ctx, noise.brown, track).connect(biquad(ctx, 'lowpass', 260)).connect(rumble).connect(out);
+  const hum = gainNode(ctx, 0.03);
+  loopNoise(ctx, noise.pink, track).connect(biquad(ctx, 'bandpass', 700, 0.5)).connect(hum).connect(out);
+  const lfo = track.addSource(ctx.createOscillator());
+  lfo.frequency.value = 0.05;
+  const lfoDepth = gainNode(ctx, 0.08);
+  lfo.connect(lfoDepth).connect(rumble.gain);
+  lfo.start();
+
+  // 汽車
+  scheduleEvents(ctx, track, (when) => {
+    const leftToRight = Math.random() < 0.5;
+    noisePass(ctx, out, track, noise.pink, when, rand(3, 5.5), rand(0.12, 0.24), 220, rand(900, 1500), leftToRight ? -0.9 : 0.9, leftToRight ? 0.9 : -0.9);
+    return rand(1.6, 5);
+  });
+  // 機車：台北的靈魂
+  scheduleEvents(
+    ctx,
+    track,
+    (when) => {
+      const leftToRight = Math.random() < 0.5;
+      enginePass(ctx, out, track, when, rand(2.4, 3.6), rand(58, 82), rand(0.025, 0.045), 1300, leftToRight ? -0.9 : 0.9, leftToRight ? 0.9 : -0.9);
+      return rand(4, 11);
+    },
+    rand(1, 4),
+  );
+  // 遠處的喇叭
+  scheduleEvents(
+    ctx,
+    track,
+    (when) => {
+      const double = Math.random() < 0.4;
+      const pan = rand(-0.7, 0.7);
+      for (let i = 0; i < (double ? 2 : 1); i += 1) {
+        const at = when + i * 0.26;
+        for (const hz of [415, 520]) chirp(ctx, out, track, at, hz, hz * 0.99, 0.2, 0.008, pan, 'square');
+      }
+      return rand(18, 40);
+    },
+    rand(8, 20),
+  );
+  // 行人號誌綠燈的「嗶嗶嗶」
+  scheduleEvents(
+    ctx,
+    track,
+    (when) => {
+      const beeps = Math.floor(rand(30, 50));
+      for (let i = 0; i < beeps; i += 1) chirp(ctx, out, track, when + i * 0.16, 2100, 2050, 0.05, 0.006, 0.55, 'square');
+      return rand(40, 75);
+    },
+    rand(6, 15),
+  );
+};
+
+// 一句「人聲」：三角波 + 共振峰濾波，聽不出字，但聽得出是有人在講話
+function voicePhrase(ctx: AudioContext, out: AudioNode, track: Tracker, when: number, syllables: number, pitch: number, peak: number, pan: number): number {
+  let at = when;
+  for (let i = 0; i < syllables; i += 1) {
+    const length = rand(0.09, 0.22);
+    const voice = ctx.createOscillator();
+    voice.type = 'sawtooth';
+    voice.frequency.setValueAtTime(pitch * rand(0.95, 1.12), at);
+    voice.frequency.linearRampToValueAtTime(pitch * rand(0.85, 1.05), at + length);
+    const formant = biquad(ctx, 'bandpass', rand(500, 1300), rand(3, 6));
+    const envelope = ctx.createGain();
+    envelope.gain.setValueAtTime(0.0001, at);
+    envelope.gain.linearRampToValueAtTime(peak, at + 0.025);
+    envelope.gain.setTargetAtTime(0, at + length - 0.03, 0.025);
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = pan;
+    voice.connect(formant).connect(envelope).connect(panner).connect(out);
+    voiceEnd(track, [voice], [formant, envelope, panner], at, at + length + 0.12);
+    at += length + rand(0.02, 0.09);
+  }
+  return at - when;
+}
+
+// 士林夜市：人聲鼎沸、烤架滋滋響、碗筷鏗鏘
+const buildMarket: SessionFactory = (ctx, noise, out, track) => {
+  // 人群的底：兩層不同頻帶的噪音，各自緩慢起伏
+  const murmur = gainNode(ctx, 0.12);
+  loopNoise(ctx, noise.pink, track).connect(biquad(ctx, 'bandpass', 550, 0.8)).connect(murmur).connect(out);
+  const chatter = gainNode(ctx, 0.045);
+  loopNoise(ctx, noise.pink, track).connect(biquad(ctx, 'bandpass', 1500, 1.2)).connect(chatter).connect(out);
+  const lfo = track.addSource(ctx.createOscillator());
+  lfo.frequency.value = 0.09;
+  const lfoDepth = gainNode(ctx, 0.02);
+  lfo.connect(lfoDepth).connect(chatter.gain);
+  lfo.start();
+
+  // 碎碎的音節：很多人同時在講話
+  scheduleEvents(ctx, track, (when) => {
+    burst(ctx, out, track, {
+      buffer: noise.pink,
+      when,
+      duration: rand(0.05, 0.16),
+      attack: 0.015,
+      peak: rand(0.015, 0.045),
+      filter: 'bandpass',
+      frequency: rand(350, 1800),
+      q: rand(2, 5),
+      pan: rand(-0.9, 0.9),
+    });
+    return rand(0.015, 0.05);
+  });
+  // 比較近的一句話（客人、老闆在喊）
+  scheduleEvents(
+    ctx,
+    track,
+    (when) => {
+      const pitch = Math.random() < 0.5 ? rand(110, 160) : rand(190, 260);
+      const length = voicePhrase(ctx, out, track, when, Math.floor(rand(3, 8)), pitch, rand(0.04, 0.08), rand(-0.7, 0.7));
+      return length + rand(0.8, 3.5);
+    },
+    rand(0.5, 2),
+  );
+  // 烤香腸的滋滋聲
+  const sizzle = gainNode(ctx, 0.018);
+  loopNoise(ctx, noise.pink, track).connect(biquad(ctx, 'highpass', 3500)).connect(sizzle).connect(out);
+  scheduleEvents(ctx, track, (when) => {
+    burst(ctx, out, track, { buffer: noise.pink, when, duration: rand(0.004, 0.02), attack: 0.001, peak: rand(0.03, 0.1), filter: 'highpass', frequency: rand(3500, 7000), q: 0.7, pan: rand(0.2, 0.6) });
+    return rand(0.02, 0.18);
+  });
+  // 碗、湯匙、鐵板
+  scheduleEvents(
+    ctx,
+    track,
+    (when) => {
+      const hz = rand(2200, 3800);
+      const pan = rand(-0.8, 0.8);
+      chirp(ctx, out, track, when, hz, hz * 0.995, rand(0.25, 0.5), rand(0.01, 0.02), pan);
+      chirp(ctx, out, track, when, hz * 2.76, hz * 2.75, 0.15, 0.006, pan);
+      return rand(1.5, 6);
+    },
+    1,
+  );
+};
+
+// 動物園：樹葉、各種鳥、斑鳩、遠處的蟬；晚上換成蟋蟀
+const buildZoo: SessionFactory = (ctx, noise, out, track) => {
+  const leaves = gainNode(ctx, 0.07);
+  loopNoise(ctx, noise.pink, track).connect(biquad(ctx, 'lowpass', 1400)).connect(biquad(ctx, 'highpass', 250)).connect(leaves).connect(out);
+  const lfo = track.addSource(ctx.createOscillator());
+  lfo.frequency.value = 0.07;
+  const lfoDepth = gainNode(ctx, 0.05);
+  lfo.connect(lfoDepth).connect(leaves.gain);
+  lfo.start();
+
+  if (isNightNow()) {
+    // 兩隻蟋蟀，各自的節奏
+    for (const [pan, hz] of [
+      [-0.5, 4300],
+      [0.6, 4700],
+    ] as const) {
+      scheduleEvents(
+        ctx,
+        track,
+        (when) => {
+          for (let i = 0; i < 3; i += 1) chirp(ctx, out, track, when + i * 0.045, hz, hz * 0.98, 0.03, 0.012, pan);
+          return rand(0.55, 0.9);
+        },
+        rand(0, 1),
+      );
+    }
+    return;
+  }
+
+  // 鳥：三種叫法隨機
+  scheduleEvents(
+    ctx,
+    track,
+    (when) => {
+      const pan = rand(-0.9, 0.9);
+      const kind = Math.floor(rand(0, 3));
+      if (kind === 0) {
+        // 麻雀：一串往下掉的短啾
+        const base = rand(3800, 5200);
+        const count = Math.floor(rand(3, 7));
+        for (let i = 0; i < count; i += 1) chirp(ctx, out, track, when + i * rand(0.08, 0.12), base, base * 0.7, 0.06, 0.03, pan);
+        return rand(1.2, 4);
+      }
+      if (kind === 1) {
+        // 白頭翁：兩三個比較長的口哨
+        const base = rand(1900, 2500);
+        chirp(ctx, out, track, when, base, base * 1.3, 0.22, 0.03, pan);
+        chirp(ctx, out, track, when + 0.28, base * 1.3, base * 0.9, 0.26, 0.03, pan);
+        if (Math.random() < 0.5) chirp(ctx, out, track, when + 0.6, base * 1.1, base * 1.25, 0.18, 0.025, pan);
+        return rand(2, 5);
+      }
+      // 很快的顫音
+      const hz = rand(4200, 5600);
+      const count = Math.floor(rand(8, 15));
+      for (let i = 0; i < count; i += 1) chirp(ctx, out, track, when + i * 0.045, hz, hz * 0.92, 0.03, 0.02, pan);
+      return rand(2, 6);
+    },
+    0.5,
+  );
+  // 斑鳩：「咕咕——咕」
+  scheduleEvents(
+    ctx,
+    track,
+    (when) => {
+      const pan = rand(-0.6, 0.6);
+      [0, 0.5, 1.1].forEach((offset, i) => chirp(ctx, out, track, when + offset, i === 2 ? 540 : 600, i === 2 ? 470 : 560, i === 2 ? 0.55 : 0.35, 0.04, pan));
+      return rand(10, 22);
+    },
+    rand(4, 9),
+  );
+  // 蟬：調幅的窄頻噪音，一陣陣湧上來
+  scheduleEvents(
+    ctx,
+    track,
+    (when) => {
+      const duration = rand(6, 11);
+      const source = ctx.createBufferSource();
+      source.buffer = noise.pink;
+      source.loop = true;
+      const band = biquad(ctx, 'bandpass', rand(4500, 5500), 7);
+      const pulse = gainNode(ctx, 0.5);
+      const pulser = ctx.createOscillator();
+      pulser.frequency.value = rand(38, 52);
+      const pulseDepth = gainNode(ctx, 0.5);
+      pulser.connect(pulseDepth).connect(pulse.gain);
+      const envelope = gainNode(ctx, 0);
+      envelope.gain.setValueCurveAtTime(waveCurve(0.0001, rand(0.08, 0.14)), when, duration);
+      const panner = ctx.createStereoPanner();
+      panner.pan.value = rand(-0.6, 0.6);
+      source.connect(band).connect(pulse).connect(envelope).connect(panner).connect(out);
+      voiceEnd(track, [source, pulser], [band, pulse, pulseDepth, envelope, panner], when, when + duration);
+      return duration + rand(10, 25);
+    },
+    rand(2, 6),
+  );
+};
+
+// F1：看台的人聲 + 一台台呼嘯而過的賽車
+const buildF1: SessionFactory = (ctx, noise, out, track) => {
+  const crowd = gainNode(ctx, 0.06);
+  loopNoise(ctx, noise.pink, track).connect(biquad(ctx, 'bandpass', 900, 0.5)).connect(crowd).connect(out);
+  const rumble = gainNode(ctx, 0.14);
+  loopNoise(ctx, noise.brown, track).connect(biquad(ctx, 'lowpass', 200)).connect(rumble).connect(out);
+
+  // 車隊：一到三台接著經過，然後安靜一陣
+  scheduleEvents(
+    ctx,
+    track,
+    (when) => {
+      const cars = Math.floor(rand(1, 4));
+      let at = when;
+      for (let i = 0; i < cars; i += 1) {
+        enginePass(ctx, out, track, at, rand(1.6, 2.4), rand(150, 210), rand(0.06, 0.1), 3200, -0.95, 0.95);
+        at += rand(0.35, 1.1);
+      }
+      return at - when + rand(4, 10);
+    },
+    1,
+  );
+  // 看台偶爾一陣歡呼
+  scheduleEvents(
+    ctx,
+    track,
+    (when) => {
+      noisePass(ctx, out, track, noise.pink, when, rand(3, 5), rand(0.1, 0.16), 600, 2000, rand(-0.3, 0), rand(0, 0.3));
+      return rand(25, 55);
+    },
+    rand(10, 20),
+  );
+};
+
 const factories: Record<SynthKind, SessionFactory> = {
   rain: buildRain,
   ocean: buildOcean,
   library: buildLibrary,
   blues: buildBlues,
   classical: buildClassical,
+  beats: buildBeats,
+  chiptune: buildChiptune,
+  beach: buildBeach,
+  city: buildCity,
+  market: buildMarket,
+  zoo: buildZoo,
+  f1: buildF1,
 };
 
 // ---------- 播放器 ----------

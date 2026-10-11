@@ -66,6 +66,21 @@
         </div>
 
         <div class="mt-4 space-y-2 pt-1">
+          <div class="pixel-field px-3 py-2 text-[11px]">
+            <label class="flex items-center justify-between">
+              {{ t.ambientAudioPlayer.sceneAmbienceLabel }}
+              <input v-model="sceneAmbienceEnabled" type="checkbox" class="accent-amber-400" />
+            </label>
+            <input
+              v-if="sceneAmbienceEnabled"
+              v-model.number="sceneAmbienceVolume"
+              type="range"
+              min="0"
+              max="100"
+              class="mt-2 h-1.5 w-full cursor-pointer accent-amber-400"
+              :aria-label="t.ambientAudioPlayer.sceneAmbienceLabel"
+            />
+          </div>
           <label
             class="pixel-field flex items-center justify-between px-3 py-2 text-[11px]"
           >
@@ -148,6 +163,18 @@ const audioAutoPlayOnLoad = computed({
   get: () => props.audio.audioAutoPlayOnLoad.value,
   set: (value: boolean) => {
     props.audio.audioAutoPlayOnLoad.value = value;
+  },
+});
+const sceneAmbienceEnabled = computed({
+  get: () => props.audio.sceneAmbienceEnabled.value,
+  set: (value: boolean) => {
+    props.audio.sceneAmbienceEnabled.value = value;
+  },
+});
+const sceneAmbienceVolume = computed({
+  get: () => props.audio.sceneAmbienceVolume.value,
+  set: (value: number) => {
+    props.audio.sceneAmbienceVolume.value = value;
   },
 });
 const zoneSoundEnabled = computed({

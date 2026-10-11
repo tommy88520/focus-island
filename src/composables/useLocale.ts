@@ -126,6 +126,7 @@ const translations = {
       loopLabel: '循環播放',
       autoplayOnLoadLabel: '進頁自動播放',
       zoneSoundLabel: '換分區時換成該區的環境音',
+      sceneAmbienceLabel: '場景環境音（走到哪聽到哪）',
       defaultTrackLabel: '預設音源',
     },
     seatGrid: {
@@ -351,6 +352,7 @@ const translations = {
       loopLabel: 'Loop playback',
       autoplayOnLoadLabel: 'Autoplay on page load',
       zoneSoundLabel: 'Switch to the zone’s ambience when changing zones',
+      sceneAmbienceLabel: 'Scene ambience (hear where you are)',
       defaultTrackLabel: 'Default track',
     },
     seatGrid: {

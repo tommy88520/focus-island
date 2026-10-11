@@ -63,6 +63,7 @@
             @change-floor="currentFloor = $event"
             @change-zone="activeZoneId = $event"
             @go-f1="sceneLocation = 'f1'"
+            @area="sceneArea = $event"
             @webgl-failed="useCanvasScene = false"
           />
           <SeatGrid
@@ -124,13 +125,13 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 import { useQuasar } from 'quasar';
-import { useAmbientAudio } from 'src/pages/index/composables/useAmbientAudio';
+import { useAmbientAudio, type SoundscapeKind } from 'src/pages/index/composables/useAmbientAudio';
 import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vue';
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
 import SeatScenePixel from 'src/pages/index/components/SeatScenePixel.vue';
 import F1Scene from 'src/pages/index/components/F1Scene.vue';
-import { F1_SEAT_COUNT, F1_SEAT_START, LIBRARY_SEATS, SEATS_PER_ZONE } from 'src/pages/index/pixel/pixelMap';
+import { F1_SEAT_COUNT, F1_SEAT_START, LIBRARY_SEATS, SEATS_PER_ZONE, type Area } from 'src/pages/index/pixel/pixelMap';
 import SeatGrid, { type Seat } from 'src/pages/index/components/SeatGrid.vue';
 import FocusClockPanel from 'src/pages/index/components/FocusClockPanel.vue';
 import { useLibrarySocket, buildSeatId } from 'src/pages/index/composables/useLibrarySocket';
@@ -697,6 +698,17 @@ async function handleNotificationsToggle(on: boolean) {
 
 // 場景在哪：圖書館那張大地圖，或從 F1 站過去的 F1 賽車場（獨立地圖）
 const sceneLocation = ref<'library' | 'f1'>('library');
+// 人在大地圖的哪一區，決定場景環境音（海浪、車流、夜市人聲…）
+const sceneArea = ref<Area>('library');
+const SOUNDSCAPES: Record<Area, SoundscapeKind | null> = { library: null, beach: 'beach', taipei101: 'city', zoo: 'zoo', nightmarket: 'market' };
+watch(
+  [sceneLocation, sceneArea, () => useCanvasScene.value],
+  ([location, , canvas], [previousLocation]) => {
+    // 從 F1 回來時場景會重建，它只在區域跟預設不同時才回報，所以先歸零
+    if (location === 'library' && previousLocation === 'f1') sceneArea.value = 'library';
+    audio.setSoundscape(!canvas ? null : location === 'f1' ? 'f1' : SOUNDSCAPES[sceneArea.value]);
+  },
+);
 // 開始專注就回到圖書館的位子上
 watch(
   () => store.isRunning,
