@@ -1,4 +1,4 @@
-# 交接（最後更新 2026-10-12 02:05，家機寫——在期貨專案的 session 裡整理文件，這次沒有改程式）
+# 交接（最後更新 2026-10-12 02:20，家機寫——這次只整理文件，沒有改程式）
 
 > **固定 7 段、整份改寫、全長 ≤100 行**。過期內容搬到 `docs/HANDOFF_ARCHIVE.md`（接在最上面）。
 > 交接／接手的步驟見 `.claude/skills/handoff/`、`.claude/skills/takeover/`；規則在 `CLAUDE.md`，各功能細節在 `docs/ARCHITECTURE.md`。
@@ -22,7 +22,7 @@
 - 下次改程式前：`git pull`、`npm install`、`npx vue-tsc --noEmit` 先過一次，確認這台跑得起來。
 
 ## 5. 使用者最近講的新規則／偏好（原話；穩定後搬進 CLAUDE.md）
-- 「focus-island, 一樣pull 優化，寫交接skill」→ 這個專案也用同一套交接公式（跟期貨、PTT 一樣）。
+- 「focus-island, 一樣pull 優化，寫交接skill」→ 這個專案用固定格式的交接公式；每個專案的事只寫在自己的交接裡。
 - 跨專案的規則（中文、回覆短、交代的事直接做、畫面醜他會在意）已寫進 CLAUDE.md。
 
 ## 6. 最近做完
