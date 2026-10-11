@@ -3,7 +3,7 @@
 // 這裡放資料（家具、會動的人車動物）和畫法；碰撞照樣交給 mapObstacles。
 
 import { TILE } from './pixelMap';
-import { disc, px, seeded } from './pixelUtil';
+import { px, seeded } from './pixelUtil';
 
 export const WORLD_LEFT = 16;
 export const WORLD_RIGHT = 16;
@@ -146,7 +146,7 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
     { kind: 'person', from: { x: 12, y: -5 }, to: { x: 26, y: -5 }, speed: 0.9, phase: 0.2, look: 4 },
     // 動物園裡的動物
     { kind: 'panda', from: { x: R + 8, y: -7 }, to: { x: R + 12, y: -7.5 }, speed: 0.35, phase: 0, look: 0 },
-    { kind: 'panda', from: { x: R + 11, y: -9 }, to: { x: R + 9, y: -6 }, speed: 0.25, phase: 0.5, look: 1 },
+    { kind: 'panda', from: { x: R + 7.5, y: -9.6 }, to: { x: R + 10.2, y: -9.6 }, speed: 0.3, phase: 0.5, look: 1 },
     // 坐著啃竹子的熊貓，和跟在旁邊跑的小熊貓（圓仔）
     { kind: 'pandaEat', from: { x: R + 12, y: -8.6 }, to: { x: R + 12, y: -8.6 }, speed: 1, phase: 0, look: 0 },
     { kind: 'pandaCub', from: { x: R + 8, y: -5.4 }, to: { x: R + 11.5, y: -5.2 }, speed: 0.7, phase: 0.3, look: 0 },
@@ -595,6 +595,71 @@ export function paintOutdoorProp(ctx: CanvasRenderingContext2D, prop: OutdoorPro
   }
 }
 
+// ── 熊貓：手畫的像素圖（正面、大頭、八字眼圈、腮紅），小熊貓是縮小版 ──
+
+const PANDA_ROWS = [
+  '....kk........kk....',
+  '...kkkk......kkkk...',
+  '...kkkkwwwwwwkkkk...',
+  '....kwwwwwwwwwwk....',
+  '...wwwwwwwwwwwwww...',
+  '..wwwwwwwwwwwwwwww..',
+  '..wwkkkwwwwwwkkkww..',
+  '..wkkekkwwwwkkekkw..',
+  '..wkkkkkwwwwkkkkkw..',
+  '..wwkkkwwkkwwkkkww..',
+  '..wpwwwwwwwwwwwwpw..',
+  '...wwwwwwkkwwwwww...',
+  '....wwwwwwwwwwww....',
+  '...kkkwwwwwwwwkkk...',
+  '..kkkkkwwwwwwkkkkk..',
+  '..kkkkwwwwwwwwkkkk..',
+  '...kkwwwwwwwwwwkk...',
+  '...wwwwwwwwwwwwww...',
+  '...gwwwwwwwwwwwwg...',
+  '..kkkkwwwwwwwwkkkk..',
+  '..kkpkkwwwwwwkkpkk..',
+  '...kkk........kkk...',
+];
+
+const CUB_ROWS = [
+  '.kk.....kk.',
+  'kkkwwwwwkkk',
+  '.wwwwwwwww.',
+  'wwkkwwwkkww',
+  'wkekwwwkekw',
+  'wwkkwkwkkww',
+  'wpwwwwwwwpw',
+  '.wwwwwwwww.',
+  '.kkwwwwwkk.',
+  'kkkwwwwwkkk',
+  '.wwwwwwwww.',
+  '.kk.....kk.',
+];
+
+const PANDA_PALETTE: Record<string, string> = { k: '#2b2d33', w: '#f8f6f0', g: '#dcd8cf', p: '#f4a3a3', e: '#ffffff' };
+const pandaCache = new Map<string, HTMLCanvasElement>();
+
+function pandaSprite(kind: 'adult' | 'cub'): HTMLCanvasElement {
+  const cached = pandaCache.get(kind);
+  if (cached) return cached;
+  const rows = kind === 'cub' ? CUB_ROWS : PANDA_ROWS;
+  const canvas = document.createElement('canvas');
+  canvas.width = rows[0]?.length ?? 0;
+  canvas.height = rows.length;
+  const c = canvas.getContext('2d');
+  if (c) {
+    rows.forEach((row, y) => {
+      for (let x = 0; x < row.length; x += 1) {
+        const color = PANDA_PALETTE[row[x] ?? '.'];
+        if (color) px(c, color, x, y);
+      }
+    });
+  }
+  pandaCache.set(kind, canvas);
+  return canvas;
+}
+
 // ── 會動的：路人、計程車、動物 ──
 
 export function paintWalker(
@@ -629,60 +694,29 @@ export function paintWalker(
     }
     case 'panda':
     case 'pandaCub': {
-      // 圓滾滾的熊貓：大頭、圓耳朵、八字形黑眼圈、黑手腳；小熊貓整隻縮小
-      const k = walker.kind === 'pandaCub' ? 0.6 : 1;
-      const flip = dx < 0 ? -1 : 1;
-      const r = (v: number) => Math.round(v * k);
-      px(ctx, 'rgba(0,0,0,0.15)', fx - r(10), fy - 2, r(20), 3);
-      // 身體（白）+ 黑色的手腳和肩帶
-      disc(ctx, '#2b2d33', fx, fy - r(8), r(8));
-      disc(ctx, '#f6f4ee', fx - flip * r(1), fy - r(8), r(7));
-      px(ctx, '#2b2d33', fx - r(7), fy - r(11), r(14), r(4));
-      px(ctx, '#2b2d33', fx - r(8), fy - r(3), r(5), r(3) + step);
-      px(ctx, '#2b2d33', fx + r(3), fy - r(3), r(5), r(4) - step);
-      // 頭
-      const hx = fx + flip * r(7);
-      const hy = fy - r(15);
-      disc(ctx, '#2b2d33', hx - r(5), hy - r(5), r(3));
-      disc(ctx, '#2b2d33', hx + r(5), hy - r(5), r(3));
-      disc(ctx, '#2b2d33', hx, hy, r(7));
-      disc(ctx, '#ffffff', hx, hy, r(6));
-      px(ctx, '#2b2d33', hx - r(4), hy - r(1), r(3), r(3));
-      px(ctx, '#2b2d33', hx + r(1), hy - r(1), r(3), r(3));
-      px(ctx, '#ffffff', hx - r(3), hy - r(1), 1, 1);
-      px(ctx, '#ffffff', hx + r(2), hy - r(1), 1, 1);
-      px(ctx, '#2b2d33', hx - 1, hy + r(3), 2, 1);
-      px(ctx, '#f4a3a3', hx - r(5), hy + r(2), r(2), 1);
-      px(ctx, '#f4a3a3', hx + r(4), hy + r(2), r(2), 1);
+      // 一步一搖地走：左右晃一格、上下跳一格
+      const sprite = pandaSprite(walker.kind === 'pandaCub' ? 'cub' : 'adult');
+      const waddle = step === 0 ? -1 : 1;
+      const hop = Math.floor(seconds * 4) % 2;
+      px(ctx, 'rgba(0,0,0,0.15)', fx - sprite.width / 2 + 1, fy - 2, sprite.width - 2, 3);
+      ctx.drawImage(sprite, Math.round(fx - sprite.width / 2 + waddle * (Math.abs(dx) > 0.01 ? 1 : 0)), Math.round(fy - sprite.height - hop));
       break;
     }
     case 'pandaEat': {
-      // 坐著抱竹子啃：圓身體、腳往前伸，竹子一上一下
+      // 坐著抱竹子啃：竹子一上一下，嘴巴跟著動
+      const sprite = pandaSprite('adult');
       const chew = Math.floor(seconds * 3) % 2;
-      px(ctx, 'rgba(0,0,0,0.15)', fx - 12, fy - 2, 24, 3);
-      disc(ctx, '#2b2d33', fx, fy - 9, 10);
-      disc(ctx, '#f6f4ee', fx, fy - 9, 9);
-      disc(ctx, '#2b2d33', fx - 7, fy - 2, 3);
-      disc(ctx, '#2b2d33', fx + 7, fy - 2, 3);
-      disc(ctx, '#f4a3a3', fx - 7, fy - 2, 1);
-      disc(ctx, '#f4a3a3', fx + 7, fy - 2, 1);
-      const hy = fy - 23;
-      disc(ctx, '#2b2d33', fx - 6, hy - 6, 3);
-      disc(ctx, '#2b2d33', fx + 6, hy - 6, 3);
-      disc(ctx, '#2b2d33', fx, hy, 8);
-      disc(ctx, '#ffffff', fx, hy, 7);
-      px(ctx, '#2b2d33', fx - 5, hy - 1, 3, 4);
-      px(ctx, '#2b2d33', fx + 2, hy - 1, 3, 4);
-      px(ctx, '#ffffff', fx - 4, hy, 1, 1);
-      px(ctx, '#ffffff', fx + 3, hy, 1, 1);
-      px(ctx, '#2b2d33', fx - 1, hy + 3, 2, 1 + chew);
-      px(ctx, '#f4a3a3', fx - 6, hy + 3, 2, 1);
-      px(ctx, '#f4a3a3', fx + 5, hy + 3, 2, 1);
-      // 竹子 + 抱著竹子的兩隻黑手
-      px(ctx, '#57a862', fx + 4, hy + 1 - chew * 2, 3, 20);
-      px(ctx, '#2f6b3a', fx + 4, hy + 8 - chew * 2, 3, 1);
-      px(ctx, '#6fbf72', fx + 7, hy - 1 - chew * 2, 5, 3);
-      px(ctx, '#2b2d33', fx - 2, fy - 16, 10, 5);
+      const left = Math.round(fx - sprite.width / 2);
+      const top = Math.round(fy - sprite.height);
+      px(ctx, 'rgba(0,0,0,0.15)', left + 1, fy - 2, sprite.width - 2, 3);
+      ctx.drawImage(sprite, left, top);
+      px(ctx, '#57a862', left + 14, top + 6 - chew, 2, 15);
+      px(ctx, '#2f6b3a', left + 14, top + 11 - chew, 2, 1);
+      px(ctx, '#6fbf72', left + 16, top + 4 - chew, 3, 2);
+      px(ctx, '#6fbf72', left + 11, top + 5 - chew, 3, 1);
+      // 抱著竹子的黑手掌
+      px(ctx, '#2b2d33', left + 12, top + 14, 5, 3);
+      if (chew) px(ctx, '#2b2d33', left + 9, top + 11, 2, 1);
       break;
     }
     case 'penguin': {
