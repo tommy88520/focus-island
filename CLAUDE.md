@@ -1,61 +1,84 @@
-# CLAUDE.md
+# Focus Island（像素風線上自習室）——前端
 
-Quasar (Vue 3 + TS, `<script setup>`) SPA on Vercel. Pinia, Tailwind v4 alongside Quasar. Backend is the sibling repo `COMEANC13-backend` (Go, on Koyeb).
+> 這份每個 session 都會整份載入，**只放每次都用得到的東西**。各功能怎麼串起來的細節在 `docs/ARCHITECTURE.md`（要動哪一塊再 grep）；
+> 現在的狀態在 `HANDOFF.md`——**接手先讀它**；要交接／接手照下面「交接公式」。
 
-## Commands
+Quasar（Vue 3 + TS、`<script setup>`）SPA，部署在 Vercel（https://focus-island.huangyanming.com）。Pinia，Tailwind v4 跟 Quasar 並用。
+後端是另一個 repo `COMEANC13-backend`（Go，跑在 Koyeb）。
+
+## 文件地圖
+
+| 檔案 | 內容 | 什麼時候讀 |
+|---|---|---|
+| `HANDOFF.md` | 現在的狀態（固定 7 段、≤100 行） | **每次接手先讀** |
+| `docs/ARCHITECTURE.md` | 各功能怎麼串起來（選位連線、身分、像素場景、戶外地圖、F1、載具、音效、一起專注、專注幣、Google 登入、計時…） | **動某一塊之前 grep 那一段** |
+| `WS_SECURITY_FLOW.md` | 連線流程：REST 快照 → 短效 token → WebSocket | 動連線／WS 訊息前 |
+| `README.md` | 對外的專案介紹（功能、架構圖、截圖） | 使用者要改介紹時；加了大功能要提醒他更新 |
+| `docs/HANDOFF_ARCHIVE.md` | 過期的交接段落 | 要查某天發生什麼時 grep |
+
+## 交接公式
+
+- **接手**：說「接手」或 `/takeover`（`.claude/skills/takeover/`）——只讀 `HANDOFF.md`、對版本、看網站狀態，回報一段摘要。
+- **交接**：說「交接」或 `/handoff`（`.claude/skills/handoff/`）——`HANDOFF.md` 照固定格式**整份改寫**、細節接到
+  `docs/HANDOFF_ARCHIVE.md` 最上面、commit＋push。
+- Claude 的記憶是每台機器各自的；要跨機器生效的規則寫進這份。
+
+## 指令
 
 ```bash
-npm run dev     # quasar dev
-npm run build   # -> dist/spa
+npm run dev            # quasar dev（網址印在終端機）
+npm run build          # 輸出到 dist/spa
 npm run lint
-npx vue-tsc --noEmit   # type-check (no test suite)
+npx vue-tsc --noEmit   # 型別檢查（沒有測試）
 ```
 
-Env (in `.env.local` / Vercel): `VITE_BACKEND_API_URL`, `VITE_BACKEND_WS_URL` (falls back to `ws://localhost:8080`; REST derives `http://` from it).
+需要 Node 22.12 以上。環境變數（`.env.local`／Vercel）：`VITE_BACKEND_API_URL`、`VITE_BACKEND_WS_URL`
+（沒設時 WebSocket 連 `ws://localhost:8080`，REST 從它推出 `http://`）。
 
-## Gotchas
+**部署**：push 到 `master` → Vercel 自動部署（GitHub 整合；本機沒有 `.vercel` 連結，沒辦法用指令看部署狀態）。
+push 完過一兩分鐘**到網站實際看一次**才算部署好。後端改動要去 `COMEANC13-backend` 那個 repo 做（它有自己的文件）。
 
-- Quasar's `.flex` also sets `flex-wrap: wrap` — add `!flex-nowrap` on rows that must stay on one line.
-- **Quasar's global CSS beats Tailwind utilities** (Tailwind v4 is layered, Quasar isn't). `hidden`, `flex`, and heading sizes on `h1`–`h6`/`p` get overridden — use the `!` modifier (`md:!hidden`, `!text-sm`, `dark:!text-white`) or the `hide-below-sm` utility. `dark:` follows Quasar's `body--dark` class.
-- No backend locally? Seats still render with defaults. Stairs only appear when `GET /api/v1/library/floors` answers, so mock that on :8080 to see them.
+## 鐵律（改壞了別人馬上看得到）
 
-- **Pixel UI**: `src/css/app.scss` has `pixel-panel` / `pixel-btn` / `pixel-field` / `pixel-track` and the `--px-*` colour tokens (redefined under `body.body--dark`); `font-pixel` is Silkscreen (Latin + digits only) from Google Fonts. These are unlayered, so don't stack Tailwind `bg-`/`border-`/`shadow-` utilities on the same element.
+1. **座位順序不能動**：座位編號 NN ↔ 地圖上的 slot 順序。只能在**最後面加**，而且要同時把後端的 `seatsPerZone` 加大
+   （現在每個分區 72 個：圖書館 18、101 6、動物園 6、夜市 12、海灘 8、F1 看台 22；F1 是最後一塊，要加座位加在它後面）。
+2. **同一個人開兩個分頁可以各坐一個位子**（座位是「分頁」擁有的），不要加單一分頁的鎖。
+3. **座位只有換位子或斷線才會放掉**（沒有「離開」訊息）。站起來只是座位變成保留中。
+4. **WebSocket 訊息種類、表情清單都是跟後端對好的**（後端只收固定幾種、表情是 `EMOTE_IDS` ↔ 後端 `allowedEmotes`）。
+   要加新的訊息種類或表情，後端要先改，不然會被斷線。
+5. `WidgetPage.vue`（給別的網站用 iframe 嵌入）共用 `FocusClockPanel`＋`AmbientAudioPlayer`——這兩個元件**不能用固定定位**。
+6. 戶外的路人／動物／計程車、沙灘上曬太陽的人、`demo_` 機器人**都不是真的使用者**，是用時間算出來的裝飾；載具是每個瀏覽器自己的、不共享。
+   不要為這些加伺服器狀態或網路訊息。
+7. **這個 GitHub repo 是公開的**：文件、commit 訊息不要寫機密，也不要寫其他專案或機器的內部細節。機密不印出來（`.env.local`）。`useAccount.ts` 裡的 Google OAuth Client ID 是公開的值，可以進 repo。
 
-## How it fits together
+## 使用者的規則（跟他其他專案一樣）
 
-- **`pages/IndexPage.vue`**: seat selection, the connection flow, and a fixed bottom dock holding the timer (`FocusClockPanel`, settings in a dialog) and `AmbientAudioPlayer`, so the map gets the full width. Room = `{floor}-{zone}` (`2-A`), seat = `{room}-{NN}`. On mount and on floor/zone change: seat snapshot (REST) → WS token (REST) → WebSocket; `connectionVersion` drops callbacks from superseded attempts. Networking lives in `pages/index/composables/useLibrarySocket.ts` + `pages/index/actions/`.
-- **Identity**: `userId` is per browser (`localStorage['lib_uid']`); the per-tab id (`sessionStorage`) is sent as `sessionId` and is what owns a seat server-side. Two tabs of one user may hold different seats on purpose — don't add a single-tab lock.
-- **Seats are only released by moving or disconnecting** (no "leave" message). Standing up keeps `selectedSeatId`; the seat just glows as reserved.
-- **Remembered across visits** (`localStorage`): last seat, last floor/zone (`focus_island_last_location_v1`), and the avatar's standing position (`focus_island_player_position_v1`, written by the scene). On load: seated → sit back; standing → stand at the same spot while the seat is still auto-reserved.
-- **Seat scene (`pages/index/components/SeatScenePixel.vue`)**: Gather-style top-down pixel library on a 2D canvas. Emits `select`, `change-floor`, and `webgl-failed` (→ `IndexPage` falls back to `SeatGrid`).
-  - `pixel/pixelMap.ts` (pure): tile coords, 1 tile = 16px; seat slots with a `facing`, props, rugs. **Every map is a place to sit and focus**: a zone has `SEATS_PER_ZONE` = 72 seats in a fixed order — library 18, then 101 (6), zoo (6), night market (12), beach (8), and the F1 stand (22, drawn by `F1Scene`, indices from `F1_SEAT_START`; it is the last block, so new F1 seats can simply extend it). Seat NN ↔ slot index, so never reorder; append new seats at the end and bump the backend's `seatsPerZone`. Auto-seat on load only picks library seats.
-  - `pixel/pixelArt.ts`: Kenney Roguelike Indoors (CC0, `public/pixel/`) for chairs/tables/plants; floor, walls, shelves, stairs, TV, rugs, beanbags, armchairs and avatars are painted in code. Avatars use a swappable palette (`AvatarColors`).
-  - `pixel/pixelThemes.ts`: the zone picks the look (`themeForZone`: A forest, B café, C deep-sea cabin, D/unknown library). Themes only re-skin floor, walls, back-wall decor, the TV spot, plants and small props plus per-frame ambience — seat slots and collision are shared, so a new theme never touches navigation. Zone ids/names come from the backend's `zoneDefs`; `zoneLocaleMap` in `useLibrarySocket.ts` translates them.
-  - Collision + A* in `composables/seatNavigation.ts` (pure, tile units; its `z` is the map's `y`).
-  - Static layer painted once per map build; props/seats/player Y-sorted each frame; integer scale (3× ≥900px wide, else 2×) with a follow camera; name pills drawn in screen space.
-  - Every room has the same beach below the library's front wall — through a glass door on the lowest floor, down an escalator on the floors above (`map.beach.escalator`) (`map.libraryHeight` is where it starts; `map.height` includes it). The minimap (button / `M`) redraws the static layer scaled down each frame while open; clicking it walks there.
-  - Floor changes: stairs (adjacent floor) or the elevator on the back wall (any floor, picked from a panel). Both set `pendingSpawn` and emit `change-floor`.
-  - **Outdoor world** (`pixel/pixelWorld.ts`, `map.world`): the library sits at (0,0)–(32, libraryHeight); around it are Taipei 101 (x < 0), the zoo (x ≥ 32), Shilin night market (y < 0, through the back-wall door `BACK_DOOR`) and the beach below, all one seamless map with **negative coordinates**. The static layer covers `world.x0..x1 × y0..y1` and is painted with a translated origin; camera, minimap and lighting use the world rect. Walkers (people, taxis, animals) are deterministic functions of time (`walkerPose`), so they need no state or network.
-  - YouBike stations (`youbike` props in `map.world`): E or click at a station rents a bike (a new `VehicleState`), dismounting next to any station returns it (removed from `vehicles`). Bikes may ride anywhere on land. At most 10 rented bikes exist at once (`MAX_RENTED_BIKES`); a vehicle left unridden for 3 minutes is reclaimed (`returnIdleVehicles`: rented bikes vanish, the cart and boat go back to `home`). Vehicles are per-browser, not shared. Floor lying (`lieOnFloor`, L / E with nothing nearby / tap yourself) is library-only and shared via `POS` `pose: 'floor'`.
-  - **F1 circuit** (`components/F1Scene.vue`): a separate, local-only map reached from the F1 station in the 101 area (`world.f1Trigger` → `go-f1`). `IndexPage` swaps scenes via `sceneLocation`; starting focus sends you back. Going there sends a `hidden` POS so others don't see you frozen at the station. One drivable car (heads where you point, slow off-track), NPC cars on the centreline, lap/best times (best in `focus_island_f1_best_v1`).
-  - Zone changes in the scene happen at the MRT station in the 101 area (`world.mrtTrigger` → panel → `change-zone`; you arrive at the station). The left/right wall doors now lead outdoors.
-  - Emotes (bottom-left buttons, `H` / `1`–`4`): a fixed set (`EMOTE_IDS`, mirrored by the backend's `allowedEmotes`) sent as an `EMOTE` WS message. Others only see a bubble over the sender's **seat**, since standing positions aren't shared. Beachgoers and `demo_` bots within a few tiles reply locally.
-  - Vehicles (`map.vehicles`, art in `paintVehicle`): bike indoors, cart on deck/sand, boat at sea. `vehicleArea` limits where each can go; `canOccupy` swaps in for `nav.isBlocked` while riding. The boat has inertia (`updateBoat`) and you can only get off near the shore. Riding is local only, like walking; the scene drops you off when focus starts or the map rebuilds.
-  - Lighting follows local time when pref `sceneClock` is on (`lightingNow`: day / dusk 5–7 & 17–19 / night), otherwise the site theme. Rain (`drawRain`) shows while the `rain` track is playing.
-  - Clicking another person opens a profile card (`pickPerson`); `todayMin`/`streak` ride along in `MOVE`/`JOIN`/`POS` like the look fields.
-  - Touch devices get a joystick (`stick`, merged with the arrow keys in `updatePlayer`). First visit shows a 4-step tour (`focus_island_tour_done_v1`).
-  - Standing/riding positions are shared via `POS` (throttled to ~7/s while moving, a 20s keepalive, `hidden` when you sit). Not stored server-side: a new peer's `JOIN` bumps `peerJoinedAt` so everyone re-sends. Remote players are eased toward their last position (`remoteShown`) and dropped after 45s of silence. The seat itself still goes through `MOVE`.
-- **Audio** (`composables/useAmbientAudio.ts`, `synthAmbience.ts`): tracks with a `synth` field are generated with Web Audio; the rest are mp3s in `public/music/`. `beats` (lo-fi) and `chiptune` are generative music. A second synth player is the **scene ambience** layer (`SoundscapeKind`: beach / city / market / zoo / f1): `SeatScenePixel` emits `area`, `IndexPage` maps it (F1 scene → `f1`, library → none) to `audio.setSoundscape`. It has its own toggle + volume, starts only after the first user gesture, and is independent of music play/pause.
-- **Focus together** (`composables/groupFocus.ts`, pref `groupFocus`): clock-aligned rounds, 25 min from every :00/:30 then a 5 min break. No server state; `IndexPage` checks each second, joins mid-round via `store.alignTimer`, and won't re-start a round the user stopped. Auto-restart is ignored in this mode.
-- `WidgetPage.vue` (iframe embed) reuses `FocusClockPanel` + `AmbientAudioPlayer` inside one panel — keep both components layout-neutral (no fixed positioning).
-- **Focus coins** (pref `coins`, starts at 50): +1 per focused minute while the timer runs (`IndexPage` watches `todayFocusedMinutes`). Spent at night-market stalls (`STALLS[i].item` in `pixelWorld.ts`); the bought snack is held for 3 min and shared via `POS` `item`.
-- Browser notifications (`composables/focusNotify.ts`, pref `notifications`) fire only while the tab is hidden; permission is requested from the toggle's click.
-- **Google login** (`composables/useAccount.ts`, button in `SettingsPage`): optional. On login the cloud copy is merged in (prefs: cloud wins; progress: max per day / max totals), uploaded, `lib_uid` becomes `g_<id>` and the page reloads so the socket identity matches. `MainLayout` calls `startSync()`; changes upload debounced 15s plus a `keepalive` PUT on `pagehide`. Logout keeps local data and switches back to a random `lib_uid`.
-- **Timer** (`stores/pomodoro.ts` + `workers/timer.worker.ts`): countdown runs in a Web Worker so background tabs aren't throttled; today's stats reset by local date.
-- **Player prefs** (`composables/usePlayerPrefs.ts`, one shared ref in `localStorage`): daily goal (header progress), avatar palette indices (`LOOK_HAIRS`/`LOOK_SHIRTS` in `pixelArt.ts`) and do-not-disturb. Look + DND ride along in every `MOVE`/`JOIN` payload (`readerExtras` parses them); changing them while seated re-sends `MOVE`. DND hides others' emote bubbles locally and shows 🔕 on the name pill.
-- Reader `state` is normalised from the backend's `FOCUS`/`READY`/`BREAK` by `toReaderState`.
-- `MainLayout.vue` learns the current room via the `focus-room-updated` event + `localStorage`, not a shared store.
+- **一律用中文（繁體）**，包括做事中間的進度回報。
+- **回覆要短**：先講結論跟要他做什麼，細節放後面。
+- **他交代的事，做得到的就直接做**，不要列步驟叫他做、不要一項一項問；只有要他的帳號才做得到的（Vercel／Koyeb／Google 後台）才請他動手。
+- 畫面醜他會在意；這個專案本來就是做給人看的，美術跟手感優先。
 
-## Direction
+## 一定會踩的坑
 
-Visual reference is Gather (2D pixel art, not 3D). Prefer CC0 art; otherwise paint it in code in the Kenney palette. The beach south of the library is purely local decoration: no seats, nothing sent to the backend, and its sunbathers (`map.beachgoers`) are not real users.
+- Quasar 的 `.flex` 會順便設 `flex-wrap: wrap`——要維持一行的列加 `!flex-nowrap`。
+- **Quasar 的全域 CSS 會蓋過 Tailwind**（Tailwind v4 有分層、Quasar 沒有）。`hidden`、`flex`、`h1`～`h6`／`p` 上的字級都會被蓋掉——
+  用 `!`（`md:!hidden`、`!text-sm`、`dark:!text-white`）或 `hide-below-sm`。`dark:` 跟的是 Quasar 的 `body--dark`。
+- **像素風 UI**：`src/css/app.scss` 有 `pixel-panel`／`pixel-btn`／`pixel-field`／`pixel-track` 跟 `--px-*` 顏色（`body.body--dark` 下會重新定義）；
+  `font-pixel` 是 Silkscreen（只有英數）。這些沒有分層，同一個元素上不要再疊 Tailwind 的 `bg-`／`border-`／`shadow-`。
+- 本機沒開後端：座位照樣用預設值畫出來；樓梯要 `GET /api/v1/library/floors` 有回應才會出現（要看樓梯就在 :8080 mock 那支）。
+- 地圖有**負座標**（圖書館在 (0,0) 起，101 在 x<0、夜市在 y<0）；靜態底圖是平移原點畫的，動鏡頭／小地圖／光影要用 world 的範圍。
+
+## 程式在哪（細節 grep `docs/ARCHITECTURE.md`）
+
+- `src/pages/IndexPage.vue`：主頁（選位、連線流程、底部工具列）。連線在 `pages/index/composables/useLibrarySocket.ts`＋`pages/index/actions/`。
+- `src/pages/index/components/SeatScenePixel.vue`：像素場景（畫圖、移動、入座、載具、打招呼、小地圖）；`F1Scene.vue`：F1 賽車場。
+- `src/pages/index/pixel/`：`pixelMap.ts`（座位、家具）、`pixelWorld.ts`（戶外：101、動物園、夜市、攤位）、`pixelArt.ts`（美術）、`pixelThemes.ts`（分區主題）。
+- `src/pages/index/composables/seatNavigation.ts`：碰撞＋A* 尋路（純邏輯）。
+- `src/composables/`：`useAmbientAudio.ts`＋`synthAmbience.ts`（音樂、環境音）、`groupFocus.ts`（一起專注）、`usePlayerPrefs.ts`（偏好、外觀、專注幣）、
+  `useAccount.ts`（Google 登入、跨裝置同步）、`focusNotify.ts`（瀏覽器通知）。
+- `src/stores/pomodoro.ts`＋`src/workers/timer.worker.ts`：番茄鐘（計時跑在 Web Worker）。
+- `src/pages/ProgressPage.vue`、`SettingsPage.vue`、`WidgetPage.vue`；`src/layouts/MainLayout.vue`。
+
+## 方向
+
+美術參考 Gather（2D 像素，不是 3D）。優先用 CC0 素材；沒有就照 Kenney 的色盤用程式畫。
