@@ -1025,9 +1025,10 @@ function formatTime(seconds: number): string {
   return formatTimeHelper(seconds);
 }
 
-watch([currentFloor, activeZoneId], () => {
+watch([currentFloor, activeZoneId], ([, zone], [, previousZone]) => {
   saveLastLocation(currentFloor.value, activeZoneId.value);
-  audio.playZoneTrack(activeZoneId.value);
+  // 只有真的換到別的分區才換成那一區的音樂；開站、換樓層都保留你自己選的
+  if (zone !== previousZone) audio.playZoneTrack(zone);
   isLoading.value = true;
   void reconnectRoomSession();
 });
@@ -1059,7 +1060,6 @@ watch(
 
 onMounted(() => {
   groupTimer = window.setInterval(tickGroupFocus, 1000);
-  audio.playZoneTrack(activeZoneId.value);
   loadFocusPreferences();
   loadResumeCandidate();
   // 等第一次 reconnectRoomSession 把座位快照抓回來（seatSnapshotMap 才會有

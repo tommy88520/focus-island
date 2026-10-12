@@ -31,7 +31,7 @@ export const audioTracks: Record<AudioTrackKey, AudioTrackMeta> = {
     icon: 'waves',
     url: '',
     synth: 'ocean',
-    gain: 0.5,
+    gain: 0.3,
   },
   beats: {
     name: { 'zh-TW': '自習 Beats', 'en-US': 'Study Beats' },
@@ -145,7 +145,7 @@ type AudioPrefs = {
 const ZONE_TRACKS: Record<string, AudioTrackKey> = { A: 'forest', B: 'beats', C: 'ocean', D: 'library' };
 
 // 場景環境音各自的音量倍率（合成出來的響度不一樣）
-const SOUNDSCAPE_GAIN: Record<SoundscapeKind, number> = { beach: 0.45, city: 0.5, market: 3, zoo: 3, f1: 1 };
+const SOUNDSCAPE_GAIN: Record<SoundscapeKind, number> = { beach: 0.28, city: 0.5, market: 3, zoo: 3, f1: 1 };
 // 音樂本身已經是同一種聲音時，就不再疊一層
 const SOUNDSCAPE_SAME_AS: Partial<Record<SoundscapeKind, SynthKind>> = { beach: 'ocean' };
 
