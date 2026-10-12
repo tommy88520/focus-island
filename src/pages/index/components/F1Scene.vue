@@ -52,6 +52,8 @@
     <p class="mt-1.5 px-2 text-center text-[10px] font-bold leading-snug tracking-wide text-slate-500 dark:!text-white/55">
       {{ isTouch ? t.f1.hintTouch : t.f1.hintDesktop }}
     </p>
+
+    <LeaveFocusDialog v-model="leaveConfirmOpen" @confirm="confirmLeave" @hide="afterFocusEnds = null" />
   </div>
 </template>
 
@@ -60,6 +62,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { Reader } from 'src/pages/index/composables/useLibrarySocket';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
+import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, SEATED_ROWS } from 'src/pages/index/pixel/pixelArt';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
@@ -71,7 +74,7 @@ const props = defineProps<{
   disabled: boolean;
   getMateAtSeat: (seatId: string) => Reader | null | undefined;
 }>();
-const emit = defineEmits<{ leave: []; select: [seatId: string] }>();
+const emit = defineEmits<{ leave: []; select: [seatId: string]; 'end-focus': [] }>();
 const { t } = useLocale();
 const prefs = usePlayerPrefs();
 
@@ -613,8 +616,48 @@ function ignoreKey(event: KeyboardEvent): boolean {
   return !!target?.closest('input, textarea, select, [role="dialog"]');
 }
 
+// ── 專注中想走動：先問要不要結束專注，確定的話專注結束後把剛剛的動作做完 ──
+const leaveConfirmOpen = ref(false);
+let afterFocusEnds: (() => void) | null = null;
+let leaveAction: (() => void) | null = null;
+
+function askToLeave(action: (() => void) | null): boolean {
+  if (!props.disabled) return false;
+  if (!leaveConfirmOpen.value) {
+    afterFocusEnds = action;
+    leaveConfirmOpen.value = true;
+  }
+  keys.clear();
+  return true;
+}
+
+function confirmLeave(): void {
+  leaveAction = afterFocusEnds;
+  afterFocusEnds = null;
+  leaveConfirmOpen.value = false;
+  emit('end-focus');
+}
+
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) return;
+    leaveConfirmOpen.value = false;
+    const action = leaveAction;
+    leaveAction = null;
+    afterFocusEnds = null;
+    containerRef.value?.focus({ preventScroll: true });
+    action?.();
+  },
+);
+
 function onKeyDown(event: KeyboardEvent): void {
   if (ignoreKey(event) || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (props.disabled && (KEY_MAP[event.code] || ['KeyE', 'Space'].includes(event.code))) {
+    event.preventDefault();
+    if (!event.repeat) askToLeave(null);
+    return;
+  }
   const dir = KEY_MAP[event.code];
   if (dir) {
     event.preventDefault();
@@ -645,6 +688,12 @@ function handleClick(event: MouseEvent): void {
   if (!rect || driving.value) return;
   const x = (event.clientX - rect.left - view.ox) / view.scale / T;
   const y = (event.clientY - rect.top - view.oy) / view.scale / T;
+  if (props.disabled) {
+    // 點自己的座位不算要離開
+    const clicked = SEAT_SPOTS.findIndex((s) => Math.abs(x - s.x) < 0.6 && y > s.y - 1.4 && y < s.y + 0.6);
+    if (clicked < 0 || clicked !== seatedIndex) askToLeave(() => handleClick(event));
+    return;
+  }
   if (Math.hypot(x - car.x, y - car.y) < 1.5 && nearCar()) {
     getIn();
     return;
@@ -673,6 +722,7 @@ function updateStick(event: PointerEvent): void {
 }
 
 function stickDown(event: PointerEvent): void {
+  if (askToLeave(null)) return;
   stickPointer = event.pointerId;
   updateStick(event);
 }

@@ -41,6 +41,7 @@
             :get-mate-at-seat="librarySocket.getMateAtSeat"
             @select="selectSeat"
             @leave="sceneLocation = 'library'"
+            @end-focus="endFocusToLeave"
           />
           <SeatScenePixel
             v-else-if="useCanvasScene"
@@ -65,6 +66,7 @@
             @change-floor="currentFloor = $event"
             @change-zone="activeZoneId = $event"
             @go-f1="sceneLocation = 'f1'"
+            @end-focus="endFocusToLeave"
             @area="sceneArea = $event"
             @webgl-failed="useCanvasScene = false"
           />
@@ -928,6 +930,11 @@ function toggleFocus() {
       void audio.startPlayback();
     }
   }
+}
+
+// 專注中離開座位：使用者在場景裡確認過了，結束這次專注
+function endFocusToLeave() {
+  if (store.isRunning) toggleFocus();
 }
 
 function resetFocusTimer() {

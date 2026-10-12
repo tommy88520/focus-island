@@ -132,6 +132,12 @@ const translations = {
     seatGrid: {
       syncingFloor: (floor: number) => `同步樓層 ${floor}...`,
     },
+    leaveFocus: {
+      title: '要離開座位嗎？',
+      body: '專注中離開座位會結束這次專注（已經專注的時間會照樣記錄）。',
+      stay: '繼續專注',
+      leave: '結束並離開',
+    },
     seatScene: {
       hintDesktop: 'WASD／方向鍵移動 · 空白鍵入座 · 點地板或座位走過去 · E 上下車、借還 YouBike、躺下、跟老闆買東西 · L 躺在地板上 · H／1–4 打招呼（森林區靜音） · M 開小地圖',
       hintTouch: '點地板走過去 · 點座位入座 · 點 YouBike 站借車 · 點夜市老闆買東西 · 點躺椅或懶骨頭躺下 · 點自己躺在地板上 · 左下角打招呼 · 走樓梯或搭電梯換樓層、左右出口換分區 · 南邊的出口通往海灘',
@@ -357,6 +363,12 @@ const translations = {
     },
     seatGrid: {
       syncingFloor: (floor: number) => `Syncing floor ${floor}...`,
+    },
+    leaveFocus: {
+      title: 'Leave your seat?',
+      body: 'Leaving your seat ends this focus session (the time you have already focused is still counted).',
+      stay: 'Keep focusing',
+      leave: 'End and leave',
     },
     seatScene: {
       hintDesktop: 'WASD / arrows to move · Space to sit · click the floor or a seat to walk there · E to ride, rent/return a YouBike, lie down or buy food · L to lie on the floor · H / 1–4 to say hi (not in the forest) · M for the minimap',

@@ -194,6 +194,8 @@
         </p>
       </div>
     </div>
+
+    <LeaveFocusDialog v-model="leaveConfirmOpen" @confirm="confirmLeave" @hide="afterFocusEnds = null" />
   </div>
 </template>
 
@@ -209,6 +211,7 @@ import {
 } from 'src/pages/index/composables/useLibrarySocket';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
+import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { createNavigation, type Navigation, type Point } from 'src/pages/index/composables/seatNavigation';
 import {
@@ -333,6 +336,8 @@ const emit = defineEmits<{
   emote: [emote: EmoteId];
   // 自己站著（或騎車）的位置，父層轉送給同房間的人
   position: [position: MyPosition];
+  // 專注中想離開座位，使用者確認後請父層結束專注
+  'end-focus': [];
 }>();
 
 const { t, locale } = useLocale();
@@ -372,6 +377,7 @@ function updateStick(event: PointerEvent): void {
 let stickPointer: number | null = null;
 
 function handleStickDown(event: PointerEvent): void {
+  if (askToLeave(null)) return;
   stickPointer = event.pointerId;
   try {
     // 手指滑出搖桿範圍也繼續算
@@ -963,6 +969,42 @@ function standUp(): void {
   player.seatId = null;
   syncSeatStates();
 }
+
+// ── 專注中想走動：先問要不要結束專注，確定的話專注結束後把剛剛的動作做完 ──
+const leaveConfirmOpen = ref(false);
+let afterFocusEnds: (() => void) | null = null;
+// 按了「結束並離開」才會留著，等專注真的結束再執行；取消就丟掉
+let leaveAction: (() => void) | null = null;
+
+function askToLeave(action: (() => void) | null): boolean {
+  if (!props.disabled || props.isLoading || !nav) return false;
+  if (!leaveConfirmOpen.value) {
+    afterFocusEnds = action;
+    leaveConfirmOpen.value = true;
+  }
+  keys.clear();
+  return true;
+}
+
+function confirmLeave(): void {
+  leaveAction = afterFocusEnds;
+  afterFocusEnds = null;
+  leaveConfirmOpen.value = false;
+  emit('end-focus');
+}
+
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (disabled) return;
+    leaveConfirmOpen.value = false;
+    const action = leaveAction;
+    leaveAction = null;
+    afterFocusEnds = null;
+    containerRef.value?.focus({ preventScroll: true });
+    if (action) void nextTick(action);
+  },
+);
 
 function canInteract(): boolean {
   return !props.disabled && !props.isLoading && nav !== null;
@@ -2465,6 +2507,15 @@ function handlePointerLeave(): void {
 
 function handleClick(event: MouseEvent): void {
   containerRef.value?.focus({ preventScroll: true });
+  if (props.disabled) {
+    const point = toWorld(event);
+    // 專注中還是可以點別人看名牌；點其他地方就是想走開
+    if (point && !props.isLoading && pickPerson(point)) return;
+    // 點自己的座位不算要離開
+    if (point && pickSeat(point)?.state === 'me') return;
+    askToLeave(() => handleClick(event));
+    return;
+  }
   if (!canInteract()) return;
   const point = toWorld(event);
   if (!point) return;
@@ -2523,6 +2574,7 @@ function toggleMinimap(): void {
 function handleMinimapClick(event: MouseEvent): void {
   containerRef.value?.focus({ preventScroll: true });
   const canvas = minimapRef.value;
+  if (canvas && askToLeave(() => handleMinimapClick(event))) return;
   if (!canvas || !canInteract()) return;
   const rect = canvas.getBoundingClientRect();
   const { world } = map;
@@ -2562,7 +2614,16 @@ function handleKeyDown(event: KeyboardEvent): void {
   const direction = KEY_MAP[event.code];
   if (direction) {
     event.preventDefault();
+    if (props.disabled) {
+      if (!event.repeat) askToLeave(null);
+      return;
+    }
     keys.add(direction);
+    return;
+  }
+  if (props.disabled && ['Space', 'KeyE', 'Enter', 'KeyL'].includes(event.code) && !event.repeat) {
+    event.preventDefault();
+    askToLeave(null);
     return;
   }
   const emoteKey = event.code === 'KeyH' ? 0 : ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(event.code);
