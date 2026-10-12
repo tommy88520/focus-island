@@ -613,16 +613,17 @@ const KEY_MAP: Record<string, 'up' | 'down' | 'left' | 'right'> = {
 
 function ignoreKey(event: KeyboardEvent): boolean {
   const target = event.target instanceof HTMLElement ? event.target : null;
-  if (target?.closest('input, textarea, select, [role="dialog"]')) return true;
-  const control = target?.closest('button, a');
-  if (!control || !['Space', 'Enter'].includes(event.code)) return false;
-  // 點過底下的播放／音量等按鈕後焦點會留在按鈕上：空白鍵還給賽車場，Enter 照樣按按鈕
-  if (event.code === 'Space' && !containerRef.value?.contains(control)) {
-    (control as HTMLElement).blur();
+  if (!target || target === containerRef.value) return false;
+  if (target.closest('textarea, select, [contenteditable="true"], [role="dialog"]')) return true;
+  if (target instanceof HTMLInputElement && target.type !== 'range' && target.type !== 'checkbox') return true;
+  // 點過場景外的按鈕、分頁、音量滑桿後焦點會留在那裡：空白鍵和移動鍵還給賽車場，Enter 照樣按那個按鈕
+  if (!containerRef.value?.contains(target)) {
+    if (event.code !== 'Space' && !KEY_MAP[event.code]) return event.code === 'Enter';
+    target.blur();
     containerRef.value?.focus({ preventScroll: true });
     return false;
   }
-  return true;
+  return target.closest('button, a') !== null && ['Space', 'Enter'].includes(event.code);
 }
 
 // ── 專注中想走動：先問要不要結束專注，確定的話專注結束後把剛剛的動作做完 ──
