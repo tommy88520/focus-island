@@ -613,7 +613,16 @@ const KEY_MAP: Record<string, 'up' | 'down' | 'left' | 'right'> = {
 
 function ignoreKey(event: KeyboardEvent): boolean {
   const target = event.target instanceof HTMLElement ? event.target : null;
-  return !!target?.closest('input, textarea, select, [role="dialog"]');
+  if (target?.closest('input, textarea, select, [role="dialog"]')) return true;
+  const control = target?.closest('button, a');
+  if (!control || !['Space', 'Enter'].includes(event.code)) return false;
+  // 點過底下的播放／音量等按鈕後焦點會留在按鈕上：空白鍵還給賽車場，Enter 照樣按按鈕
+  if (event.code === 'Space' && !containerRef.value?.contains(control)) {
+    (control as HTMLElement).blur();
+    containerRef.value?.focus({ preventScroll: true });
+    return false;
+  }
+  return true;
 }
 
 // ── 專注中想走動：先問要不要結束專注，確定的話專注結束後把剛剛的動作做完 ──
