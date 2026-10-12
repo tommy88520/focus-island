@@ -285,6 +285,23 @@ function sitAt(i: number): void {
   if (props.selectedSeatId !== seat.id) emit('select', seat.id);
 }
 
+// 按下專注前父層來問：坐著、正走向、或就站在旁邊的看台座位 → 在那個座位專注
+function seatForFocus(): string | null {
+  if (driving.value) return null;
+  const i = seatedIndex ?? walkTarget ?? nearestSeat();
+  const seat = i === null ? undefined : props.seats[i];
+  const spot = i === null ? undefined : SEAT_SPOTS[i];
+  if (i === null || !seat || !spot || (seatState(i) !== 'empty' && seatState(i) !== 'me')) return null;
+  seatedIndex = i;
+  walkTarget = null;
+  me.x = spot.x;
+  me.y = spot.y;
+  me.facing = 'up';
+  return seat.id;
+}
+
+defineExpose({ seatForFocus });
+
 function standUp(): void {
   const spot = seatedIndex === null ? null : SEAT_SPOTS[seatedIndex];
   seatedIndex = null;

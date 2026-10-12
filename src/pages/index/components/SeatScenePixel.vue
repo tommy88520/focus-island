@@ -1224,6 +1224,36 @@ async function finishSit(): Promise<void> {
   }
 }
 
+// 按下專注前父層來問：要在哪個座位專注。坐著、正要坐下、正走向座位、或就站在空位旁 → 那個座位（人直接坐好）；
+// 躺在懶骨頭／躺椅／地板上 → null，人留在原地，座位還是原本保留的那個
+function seatForFocus(): string | null {
+  if (player.state === 'seated') return player.seatId;
+  if (player.state === 'lying') return null;
+  const id = player.state === 'sitting' ? player.sitSeatId : (player.goalSeatId ?? (riding ? null : (nearestSittableSeat() ?? seatBeside())?.seatId ?? null));
+  const node = seatNodes.find((n) => n.seatId === id);
+  if (!node || (node.state !== 'empty' && node.state !== 'me')) return null;
+  snapToSeat(node);
+  return node.seatId;
+}
+
+// 不管從哪一側靠近：人跟空椅子貼在一起就算
+function seatBeside(): SeatNode | undefined {
+  let best: SeatNode | undefined;
+  let bestDist = 1.3;
+  for (const node of seatNodes) {
+    if (!sitCandidate(node)) continue;
+    const c = seatCenter(node.slot);
+    const dist = Math.hypot(player.x - c.x, player.y - c.y);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = node;
+    }
+  }
+  return best;
+}
+
+defineExpose({ seatForFocus });
+
 function nearestSittableSeat(): SeatNode | undefined {
   let best: SeatNode | undefined;
   let bestDist = SIT_REACH;
@@ -1323,8 +1353,8 @@ function updatePlayer(dt: number): void {
     if (t01 >= 1) void finishSit();
   } else {
     player.moving = false;
-    // 開始專注（disabled）時還站著：直接回到自己的座位（車子留在原地）
-    if (props.disabled && player.state !== 'seated') {
+    // 開始專注（disabled）時還站著：直接回到自己的座位（車子留在原地）；躺著的就讓他躺著專注
+    if (props.disabled && player.state !== 'seated' && player.state !== 'lying') {
       lyingOn = null;
       if (riding) riding.idleSince = performance.now() / 1000;
       riding = null;

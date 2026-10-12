@@ -34,6 +34,7 @@
 
           <F1Scene
             v-if="useCanvasScene && sceneLocation === 'f1'"
+            ref="f1SceneRef"
             :seats="currentSeats.slice(F1_SEAT_START, F1_SEAT_START + F1_SEAT_COUNT)"
             :selected-seat-id="selectedSeatId"
             :disabled="store.isRunning"
@@ -43,6 +44,7 @@
           />
           <SeatScenePixel
             v-else-if="useCanvasScene"
+            ref="pixelSceneRef"
             :seats="currentSeats"
             :selected-seat-id="selectedSeatId"
             :is-shake="isShake"
@@ -844,14 +846,7 @@ function selectSeat(id: string) {
 
   // 標記切換中
   isSwitching.value = true;
-  selectedSeatId.value = id;
-  saveLastSeat(id, currentFloor.value, activeZoneId.value);
-
-  if (store.isRunning) {
-    void audio.startPlayback();
-  }
-
-  librarySocket.sendMove(id, 'READY');
+  claimSeat(id);
 
   // 設定 500ms 後有下一次點擊
   setTimeout(() => {
@@ -885,8 +880,24 @@ function autoAssignSeatOnLoad() {
   selectSeat(randomSeat.id);
 }
 
+function claimSeat(id: string) {
+  selectedSeatId.value = id;
+  saveLastSeat(id, currentFloor.value, activeZoneId.value);
+  librarySocket.sendMove(id, 'READY');
+}
+
+// 在人現在所在的座位開始專注（場景決定是哪個；躺著就沿用原本保留的座位）
+const pixelSceneRef = ref<{ seatForFocus: () => string | null } | null>(null);
+const f1SceneRef = ref<{ seatForFocus: () => string | null } | null>(null);
+function claimSeatWhereIAm() {
+  const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : pixelSceneRef.value;
+  const id = scene?.seatForFocus() ?? null;
+  if (id && id !== selectedSeatId.value && !librarySocket.getMateAtSeat(id)) claimSeat(id);
+}
+
 // --- 操作方法 ---
 function toggleFocus() {
+  if (!store.isRunning) claimSeatWhereIAm();
   if (!selectedSeatId.value && !store.isRunning) {
     $q.notify({
       message: t.value.indexPage.notifyPickSeatFirst,
@@ -927,6 +938,7 @@ function resetFocusTimer() {
 }
 
 function restartFocusTimer() {
+  if (!store.isRunning) claimSeatWhereIAm();
   if (!selectedSeatId.value && !store.isRunning) {
     $q.notify({
       message: t.value.indexPage.notifyPickSeatToRestart,
