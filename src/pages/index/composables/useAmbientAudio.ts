@@ -452,6 +452,13 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     switchTrack();
   }
 
+  // 使用者在設定裡改預設音源：順便換成那首。載入偏好時也會改到 defaultAudioTrack，
+  // 所以不能用 watch，否則每次重新整理都會把你選的那首蓋成預設的
+  function setDefaultTrack(trackKey: AudioTrackKey) {
+    defaultAudioTrack.value = trackKey;
+    selectTrack(trackKey);
+  }
+
   // 有在播才換過去；沒在播就不動選項，不然之後按專注會播出不是自己選的那首
   function playZoneTrack(zoneId: string) {
     const track = ZONE_TRACKS[zoneId.toUpperCase()];
@@ -541,13 +548,6 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
 
   watch([sceneAmbienceEnabled, sceneAmbienceVolume, isAudioPlaying, selectedAudioTrack], applySoundscape);
 
-  watch(
-    () => defaultAudioTrack.value,
-    () => {
-      selectedAudioTrack.value = defaultAudioTrack.value;
-      switchTrack();
-    },
-  );
 
   onMounted(() => {
     loadAudioPreferences();
@@ -596,6 +596,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     toggleMute,
     selectTrack,
     playZoneTrack,
+    setDefaultTrack,
   };
 }
 

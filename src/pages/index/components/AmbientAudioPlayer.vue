@@ -186,7 +186,7 @@ const zoneSoundEnabled = computed({
 const defaultAudioTrack = computed({
   get: () => props.audio.defaultAudioTrack.value,
   set: (value: AudioTrackKey) => {
-    props.audio.defaultAudioTrack.value = value;
+    props.audio.setDefaultTrack(value);
   },
 });
 /* eslint-enable vue/no-mutating-props */
