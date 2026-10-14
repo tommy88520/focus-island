@@ -1,8 +1,9 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useLocale, type LocaleKey } from 'src/composables/useLocale';
 import { createSynthPlayer, type SynthKind, type SoundscapeKind } from 'src/pages/index/composables/synthAmbience';
+import { useYouTubeTv } from 'src/pages/index/composables/useYouTubeTv';
 
-export type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain' | 'warm' | 'glow' | 'library' | 'blues' | 'classical' | 'beats' | 'chiptune';
+export type AudioTrackKey = 'forest' | 'ocean' | 'silence' | 'lofi' | 'rain' | 'warm' | 'glow' | 'library' | 'blues' | 'classical' | 'beats' | 'chiptune' | 'youtube';
 export type { SoundscapeKind };
 
 export interface AudioTrackMeta {
@@ -102,6 +103,14 @@ export const audioTracks: Record<AudioTrackKey, AudioTrackMeta> = {
     url: '/music/absolutesound-background-music-560443.mp3',
     gain: 0.11,
   },
+  // 不是音檔：在圖書館牆上的電視播自己貼的 YouTube（useYouTubeTv.ts）；gain 換算成 YouTube 的 0–100 音量
+  youtube: {
+    name: { 'zh-TW': 'YouTube', 'en-US': 'YouTube' },
+    description: { 'zh-TW': '貼網址，在牆上的電視播', 'en-US': 'Paste a link, plays on the wall TV' },
+    icon: 'smart_display',
+    url: '',
+    gain: 0.6,
+  },
   glow: {
     name: { 'zh-TW': '浮光', 'en-US': 'Glow' },
     description: { 'zh-TW': '空靈飄浮感', 'en-US': 'Airy, weightless feel' },
@@ -123,6 +132,7 @@ export const audioTrackOrder: AudioTrackKey[] = [
   'classical',
   'warm',
   'glow',
+  'youtube',
   'silence',
 ];
 
@@ -169,6 +179,13 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   const synthPlayer = createSynthPlayer();
   // 場景環境音是獨立的一層：有自己的音量，不受音樂播放／暫停影響
   const soundscapePlayer = createSynthPlayer();
+  const youtube = useYouTubeTv();
+  // 使用者在 YouTube 播放器裡自己按暫停／播放，也要反映到工具列
+  youtube.onPlayingChange((playing) => {
+    if (selectedAudioTrack.value !== 'youtube') return;
+    isAudioPlaying.value = playing;
+    updateMediaSessionPlaybackState();
+  });
   let soundscape: SoundscapeKind | null = null;
   let userHasInteracted = false;
   let fadeTaskId = 0;
@@ -186,6 +203,10 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   const sceneAmbienceVolume = ref(35);
 
   const selectedAudioTrackMeta = computed(() => audioTracks[selectedAudioTrack.value]);
+  // 工具列上顯示的名字：YouTube 播過之後顯示影片標題
+  const selectedTrackLabel = computed(() =>
+    selectedAudioTrack.value === 'youtube' && youtube.title.value ? youtube.title.value : audioTracks[selectedAudioTrack.value].name[locale.value],
+  );
   const volumeIconName = computed(() => {
     if (audioVolume.value <= 0) return 'volume_off';
     if (audioVolume.value < 50) return 'volume_down';
@@ -308,6 +329,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   function stopPlayback() {
     fadeTaskId += 1;
     synthPlayer.stop();
+    youtube.pause();
     if (audioElement) {
       try {
         audioElement.pause();
@@ -335,7 +357,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     }
 
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: track.name[locale.value],
+      title: selectedAudioTrack.value === 'youtube' && youtube.title.value ? youtube.title.value : track.name[locale.value],
       artist: 'Focus Island',
       album: track.description[locale.value],
     });
@@ -365,6 +387,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   }
 
   async function startSynthPlayback(kind: SynthKind) {
+    youtube.pause();
     // 從 mp3 切過來：先淡出並停掉 <audio>，避免兩邊同時出聲
     if (audioElement && !audioElement.paused) {
       await fadeAudioVolume(0);
@@ -381,8 +404,25 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     }
   }
 
+  // 實際有沒有在播由 YouTube 的狀態事件回報（onPlayingChange），這裡只負責開始
+  function startYouTubePlayback() {
+    synthPlayer.stop();
+    if (audioElement && !audioElement.paused) audioElement.pause();
+    youtube.setVolume(getTrackVolume() * 100);
+    youtube.setLoop(audioLoopEnabled.value);
+    if (!youtube.play()) {
+      isAudioPlaying.value = false;
+      return;
+    }
+    updateMediaSessionMetadata();
+  }
+
   async function startPlayback() {
     const track = audioTracks[selectedAudioTrack.value];
+    if (selectedAudioTrack.value === 'youtube') {
+      startYouTubePlayback();
+      return;
+    }
     if (!track || selectedAudioTrack.value === 'silence' || (!track.url && !track.synth)) {
       stopPlayback();
       return;
@@ -394,6 +434,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     }
 
     if (synthPlayer.isPlaying) synthPlayer.stop();
+    youtube.pause();
     const player = ensureAudioElement();
     player.loop = audioLoopEnabled.value;
 
@@ -462,7 +503,9 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   // 有在播才換過去；沒在播就不動選項，不然之後按專注會播出不是自己選的那首
   function playZoneTrack(zoneId: string) {
     const track = ZONE_TRACKS[zoneId.toUpperCase()];
+    // 自己貼的 YouTube 不會被分區音樂換掉
     if (!zoneSoundEnabled.value || !isAudioPlaying.value || !track || track === selectedAudioTrack.value) return;
+    if (selectedAudioTrack.value === 'youtube') return;
     selectTrack(track);
   }
 
@@ -516,6 +559,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
       audioElement.volume = getTrackVolume();
     }
     synthPlayer.setVolume(getTrackVolume());
+    if (selectedAudioTrack.value === 'youtube') youtube.setVolume(getTrackVolume() * 100);
 
     saveAudioPreferences();
   }
@@ -537,6 +581,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
       if (audioElement) {
         audioElement.loop = audioLoopEnabled.value;
       }
+      youtube.setLoop(audioLoopEnabled.value);
 
       if (selectedAudioTrack.value === 'silence' && defaultAudioTrack.value !== 'silence') {
         selectedAudioTrack.value = defaultAudioTrack.value;
@@ -547,6 +592,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
   );
 
   watch([sceneAmbienceEnabled, sceneAmbienceVolume, isAudioPlaying, selectedAudioTrack], applySoundscape);
+  watch(youtube.title, updateMediaSessionMetadata);
 
 
   onMounted(() => {
@@ -588,6 +634,8 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     sceneAmbienceVolume,
     setSoundscape,
     selectedAudioTrackMeta,
+    selectedTrackLabel,
+    youtube,
     volumeIconName,
     startPlayback,
     stopPlayback,

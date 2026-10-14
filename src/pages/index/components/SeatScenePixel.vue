@@ -295,6 +295,9 @@ import {
   walkerPose,
   type OutdoorKind,
 } from 'src/pages/index/pixel/pixelWorld';
+import { useYouTubeTv } from 'src/pages/index/composables/useYouTubeTv';
+
+const { tvScreen } = useYouTubeTv();
 
 const props = defineProps<{
   seats: Seat[];
@@ -2453,10 +2456,27 @@ function render(seconds: number): void {
   }
   drawBubbles(ctx, seconds, toScreen);
   renderMinimap(seconds);
+  reportTvScreen(canvas);
+}
+
+// 牆上電視的螢幕（16:9，比畫出來的電視高一點，蓋到上面的磚牆，像掛在牆上的大螢幕）在視窗上的位置，
+// 給 YouTubeTv 把影片疊上去。整個螢幕都在畫面裡、小地圖沒開才算看得到，不然它會退到角落。
+function reportTvScreen(canvas: HTMLCanvasElement): void {
+  const width = map.tv.w * TILE - 4;
+  const height = (width * 9) / 16;
+  const rect = canvas.getBoundingClientRect();
+  const x = rect.left + view.ox + (map.tv.tx * TILE + 2) * view.scale;
+  const y = rect.top + view.oy + (TILE * 3 - 1 - height) * view.scale;
+  const w = width * view.scale;
+  const h = height * view.scale;
+  const visible =
+    !minimapOpen.value && x >= rect.left && y >= rect.top && x + w <= rect.right && y + h <= rect.bottom;
+  Object.assign(tvScreen, { visible, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
 }
 
 function animate(time: number): void {
   rafId = requestAnimationFrame(animate);
+  if (!isVisible) tvScreen.visible = false;
   if (!ctx || !isVisible || document.hidden) return;
   const seconds = time / 1000;
   const dt = lastFrameTime ? Math.min(0.05, seconds - lastFrameTime) : 0;
@@ -2828,6 +2848,7 @@ watchEffect(() => {
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(rafId);
+  tvScreen.visible = false;
   window.removeEventListener('pagehide', handlePageHide);
   window.removeEventListener('keydown', handleKeyDown);
   window.removeEventListener('keyup', handleKeyUp);

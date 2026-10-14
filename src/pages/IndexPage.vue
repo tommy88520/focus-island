@@ -121,6 +121,7 @@
       <div class="hide-below-sm h-10 w-[2px] bg-[color:var(--px-ink)] opacity-30"></div>
       <AmbientAudioPlayer :audio="audio" />
     </div>
+    <YouTubeTv :audio="audio" />
   </div>
 </template>
 
@@ -131,6 +132,7 @@ import { usePomodoroStore } from 'src/stores/pomodoro';
 import { useQuasar } from 'quasar';
 import { useAmbientAudio, type SoundscapeKind } from 'src/pages/index/composables/useAmbientAudio';
 import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vue';
+import YouTubeTv from 'src/pages/index/components/YouTubeTv.vue';
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
 import SeatScenePixel from 'src/pages/index/components/SeatScenePixel.vue';
