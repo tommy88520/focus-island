@@ -186,6 +186,14 @@ function playYouTube(url: string) {
   showSettings.value = false;
 }
 
+// 點了牆上的電視：換到 YouTube、打開設定讓他貼網址（已經在播 YouTube 就只打開設定）
+function openYouTube() {
+  if (props.audio.selectedAudioTrack.value !== 'youtube') props.audio.selectTrack('youtube');
+  youtubeInput.value = props.audio.youtube.url.value;
+  showSettings.value = true;
+}
+defineExpose({ openYouTube });
+
 // 選了 YouTube 但還沒貼網址：按播放直接打開設定讓他貼
 function togglePlayback() {
   if (props.audio.selectedAudioTrack.value === 'youtube' && !props.audio.youtube.url.value && !props.audio.isAudioPlaying.value) {

@@ -66,6 +66,7 @@
             @change-floor="currentFloor = $event"
             @change-zone="activeZoneId = $event"
             @go-f1="sceneLocation = 'f1'"
+            @open-tv="audioPlayerRef?.openYouTube()"
             @end-focus="endFocusToLeave"
             @area="sceneArea = $event"
             @webgl-failed="useCanvasScene = false"
@@ -119,7 +120,7 @@
         @update:notifications="handleNotificationsToggle"
       />
       <div class="hide-below-sm h-10 w-[2px] bg-[color:var(--px-ink)] opacity-30"></div>
-      <AmbientAudioPlayer :audio="audio" />
+      <AmbientAudioPlayer ref="audioPlayerRef" :audio="audio" />
     </div>
     <YouTubeTv :audio="audio" />
   </div>
@@ -893,6 +894,8 @@ function claimSeat(id: string) {
 // 在人現在所在的座位開始專注（場景決定是哪個；躺著就沿用原本保留的座位）
 const pixelSceneRef = ref<{ seatForFocus: () => string | null } | null>(null);
 const f1SceneRef = ref<{ seatForFocus: () => string | null } | null>(null);
+// 點牆上的電視時打開音樂設定裡的 YouTube 網址欄
+const audioPlayerRef = ref<{ openYouTube: () => void } | null>(null);
 function claimSeatWhereIAm() {
   const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : pixelSceneRef.value;
   const id = scene?.seatForFocus() ?? null;

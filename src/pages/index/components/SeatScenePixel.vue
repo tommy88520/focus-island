@@ -271,6 +271,7 @@ import {
   paintUmbrella,
   paintWaves,
   type AvatarColors,
+  tvScreenRect,
 } from 'src/pages/index/pixel/pixelArt';
 import {
   MUSHROOM_POUF,
@@ -341,6 +342,8 @@ const emit = defineEmits<{
   position: [position: MyPosition];
   // 專注中想離開座位，使用者確認後請父層結束專注
   'end-focus': [];
+  // 點了牆上的電視：父層打開 YouTube 網址設定
+  'open-tv': [];
 }>();
 
 const { t, locale } = useLocale();
@@ -2459,16 +2462,15 @@ function render(seconds: number): void {
   reportTvScreen(canvas);
 }
 
-// 牆上電視的螢幕（16:9，比畫出來的電視高一點，蓋到上面的磚牆，像掛在牆上的大螢幕）在視窗上的位置，
+// 牆上電視的螢幕（tvScreenRect）在視窗上的位置，
 // 給 YouTubeTv 把影片疊上去。整個螢幕都在畫面裡、小地圖沒開才算看得到，不然它會退到角落。
 function reportTvScreen(canvas: HTMLCanvasElement): void {
-  const width = map.tv.w * TILE - 4;
-  const height = (width * 9) / 16;
+  const screen = tvScreenRect(map);
   const rect = canvas.getBoundingClientRect();
-  const x = rect.left + view.ox + (map.tv.tx * TILE + 2) * view.scale;
-  const y = rect.top + view.oy + (TILE * 3 - 1 - height) * view.scale;
-  const w = width * view.scale;
-  const h = height * view.scale;
+  const x = rect.left + view.ox + screen.x * view.scale;
+  const y = rect.top + view.oy + screen.y * view.scale;
+  const w = screen.w * view.scale;
+  const h = screen.h * view.scale;
   const visible =
     !minimapOpen.value && x >= rect.left && y >= rect.top && x + w <= rect.right && y + h <= rect.bottom;
   Object.assign(tvScreen, { visible, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
@@ -2518,15 +2520,30 @@ function handlePointerMove(event: PointerEvent): void {
   const node = point ? pickSeat(point) : undefined;
   hoveredSeatId = node?.seatId ?? null;
   const canvas = canvasRef.value;
-  if (canvas) canvas.style.cursor = node && node.state === 'empty' && !props.disabled ? 'pointer' : 'default';
+  const clickable = (node && node.state === 'empty' && !props.disabled) || (point !== null && pickTv(point));
+  if (canvas) canvas.style.cursor = clickable ? 'pointer' : 'default';
 }
 
 function handlePointerLeave(): void {
   hoveredSeatId = null;
 }
 
+// 點到牆上的電視（point 是 tile 座標）
+function pickTv(point: { x: number; y: number }): boolean {
+  const screen = tvScreenRect(map);
+  const x = point.x * TILE;
+  const y = point.y * TILE;
+  return x >= screen.x && x <= screen.x + screen.w && y >= screen.y && y <= screen.y + screen.h;
+}
+
 function handleClick(event: MouseEvent): void {
   containerRef.value?.focus({ preventScroll: true });
+  // 點電視就是想看電視：專注中也不用起身
+  const tvPoint = toWorld(event);
+  if (tvPoint && pickTv(tvPoint)) {
+    emit('open-tv');
+    return;
+  }
   if (props.disabled) {
     const point = toWorld(event);
     // 專注中還是可以點別人看名牌；點其他地方就是想走開

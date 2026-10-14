@@ -252,61 +252,6 @@ export function paintBackWall(ctx: CanvasRenderingContext2D, map: PixelMap): boo
   return true;
 }
 
-// ── 影音牆的位置：森林是小瀑布、咖啡店是黑板菜單、深海艙是控制台 ──
-
-export function paintThemedTv(ctx: CanvasRenderingContext2D, map: PixelMap): boolean {
-  const left = map.tv.tx * TILE;
-  const width = map.tv.w * TILE;
-  if (map.theme === 'forest') {
-    px(ctx, '#55595f', left + 3, TILE + 1, width - 6, TILE * 2 - 3);
-    px(ctx, '#7c8088', left + 3, TILE + 1, width - 6, 3);
-    px(ctx, '#3f9fc4', left + 8, TILE + 4, width - 16, TILE * 2 - 6);
-    px(ctx, '#58b8d8', left + 10, TILE + 4, width - 22, TILE * 2 - 6);
-    // 兩側的石頭與青苔
-    for (const x of [left + 3, left + width - 9]) {
-      px(ctx, '#6b6f76', x, TILE + 8, 6, 8);
-      px(ctx, '#868b93', x + 1, TILE + 8, 3, 2);
-      px(ctx, '#4fa35a', x, TILE + 18, 6, 3);
-    }
-    return true;
-  }
-  if (map.theme === 'cafe') {
-    px(ctx, '#5c3d22', left + 4, TILE + 2, width - 8, 27);
-    px(ctx, '#2b3a34', left + 6, TILE + 4, width - 12, 23);
-    px(ctx, '#f4eee2', left + 10, TILE + 7, 22, 2);
-    for (let i = 0; i < 4; i += 1) {
-      const y = TILE + 12 + i * 4;
-      px(ctx, '#cfd8cf', left + 10, y, 14 + ((i * 7) % 13), 1);
-      px(ctx, '#fbbf24', left + width - 20, y, 6, 1);
-    }
-    // 粉筆畫的咖啡杯
-    px(ctx, '#f4eee2', left + width - 22, TILE + 6, 8, 1);
-    px(ctx, '#f4eee2', left + width - 21, TILE + 7, 6, 3);
-    px(ctx, '#2b3a34', left + width - 20, TILE + 7, 4, 2);
-    return true;
-  }
-  if (map.theme === 'deepsea') {
-    px(ctx, '#1c2a3a', left + 2, TILE + 1, width - 4, TILE * 2 - 3);
-    px(ctx, '#0e1a24', left + 5, TILE + 3, width - 10, 19);
-    const cx = left + 17;
-    const cy = TILE + 12;
-    for (let i = 0; i < 28; i += 1) {
-      const a = (i / 28) * Math.PI * 2;
-      px(ctx, '#2a9d6e', Math.round(cx + Math.cos(a) * 7), Math.round(cy + Math.sin(a) * 7), 1, 1);
-      if (i % 2 === 0) px(ctx, '#1f7552', Math.round(cx + Math.cos(a) * 4), Math.round(cy + Math.sin(a) * 4), 1, 1);
-    }
-    px(ctx, '#1f7552', cx - 7, cy, 15, 1);
-    px(ctx, '#1f7552', cx, cy - 7, 1, 15);
-    // 右側的數值長條
-    [9, 5, 12, 7, 10].forEach((h, i) => px(ctx, i % 2 === 0 ? '#4fc3d9' : '#3ddc97', left + 34 + i * 6, TILE + 19 - h, 4, h));
-    // 下面一排按鈕
-    ['#e25a4a', '#fbbf24', '#3ddc97', '#4fc3d9', '#e3e8f0', '#fbbf24', '#e25a4a'].forEach((color, i) =>
-      px(ctx, color, left + 8 + i * 9, TILE + 25, 3, 2),
-    );
-    return true;
-  }
-  return false;
-}
 
 // ── 會跟人物排前後的小東西 ──
 
@@ -402,16 +347,7 @@ export function paintCounterTop(ctx: CanvasRenderingContext2D, theme: ThemeId, x
 // under：畫在家具與人物底下（牆上的東西）；over：畫在最上面、夜間打光之後
 export function paintAmbient(ctx: CanvasRenderingContext2D, map: PixelMap, seconds: number, dark: boolean, layer: 'under' | 'over'): void {
   if (map.theme === 'forest') {
-    if (layer === 'under') {
-      // 瀑布的水流
-      const left = map.tv.tx * TILE + 10;
-      const span = map.tv.w * TILE - 22;
-      for (let i = 0; i < 9; i += 1) {
-        const y = TILE + 4 + ((seconds * 22 + i * 7) % (TILE * 2 - 9));
-        px(ctx, 'rgba(255,255,255,0.6)', left + ((i * 11) % span), Math.floor(y), 1, 3);
-      }
-      px(ctx, '#e9fbff', map.tv.tx * TILE + 8, TILE * 3 - 4, map.tv.w * TILE - 16, 2);
-    } else if (dark) {
+    if (layer === 'over' && dark) {
       // 螢火蟲：慢慢飄、一閃一閃
       const { top, bottom, width } = indoor(map);
       ctx.save();
@@ -439,8 +375,6 @@ export function paintAmbient(ctx: CanvasRenderingContext2D, map: PixelMap, secon
       const rise = (seconds * 5 + i * 3) % 12;
       px(ctx, 'rgba(255,255,255,0.7)', cx - 3 + (i % 3) * 3, Math.round(cy + 6 - rise), 1, 1);
     });
-    // 雷達上閃爍的光點
-    if (Math.floor(seconds * 2) % 2 === 0) px(ctx, '#b6ffd9', map.tv.tx * TILE + 20, TILE + 9, 2, 2);
   } else if (map.theme === 'cafe' && layer === 'over') {
     // 咖啡機冒出來的蒸氣
     const counter = map.props.find((prop) => prop.kind === 'counter');
