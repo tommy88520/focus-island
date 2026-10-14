@@ -452,10 +452,10 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     switchTrack();
   }
 
-  // 有在播就直接換過去；沒在播只換選項，不會自己出聲
+  // 有在播才換過去；沒在播就不動選項，不然之後按專注會播出不是自己選的那首
   function playZoneTrack(zoneId: string) {
     const track = ZONE_TRACKS[zoneId.toUpperCase()];
-    if (!zoneSoundEnabled.value || !track || track === selectedAudioTrack.value) return;
+    if (!zoneSoundEnabled.value || !isAudioPlaying.value || !track || track === selectedAudioTrack.value) return;
     selectTrack(track);
   }
 
