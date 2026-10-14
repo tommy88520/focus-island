@@ -3,7 +3,7 @@
 // 所有座標都是「世界像素」（1 格 = 16px），呼叫端負責整數倍放大。
 
 import { px, seeded } from './pixelUtil';
-import { RUGS, WALLS, WINDOW_GLASS, paintBackWall, paintThemedFloor, paintWallFace } from './pixelThemes';
+import { RUGS, WALLS, WINDOW_GLASS, paintBackWall, paintThemedFloor, paintThemedTv, paintWallFace } from './pixelThemes';
 import { TILE, WALL_ROWS, type Facing, type MapRug, type Outfit, type PixelMap, type ThemeId, type VehicleKind } from './pixelMap';
 
 export const KENNEY_SHEET_URL = '/pixel/kenney-roguelike-indoor.png';
@@ -233,7 +233,7 @@ export function paintElevatorDoors(ctx: CanvasRenderingContext2D, map: PixelMap,
   if (open < 0.05) px(ctx, '#5d6676', left + half - 1, top, 2, height);
 }
 
-// 每一區後牆都掛一台大電視（16:9）：平常是待機畫面＋播放鍵，播 YouTube 時影片疊在螢幕上（YouTubeTv.vue）
+// YouTube 疊在後牆影音牆位置上的大小（16:9，比畫出來的電視高一點，蓋到上面的磚牆）；也是點了會打開 YouTube 的範圍
 export function tvScreenRect(map: PixelMap): { x: number; y: number; w: number; h: number } {
   const w = map.tv.w * TILE - 4;
   const h = (w * 9) / 16;
@@ -241,31 +241,16 @@ export function tvScreenRect(map: PixelMap): { x: number; y: number; w: number; 
 }
 
 function paintTv(ctx: CanvasRenderingContext2D, map: PixelMap): void {
-  const s = tvScreenRect(map);
-  const x = s.x;
-  const y = Math.floor(s.y);
-  const w = s.w;
-  const h = Math.ceil(s.h);
-  // 機身：黑框＋底下一條陰影
-  px(ctx, 'rgba(0,0,0,0.25)', x - 1, y + h + 1, w + 2, 2);
-  px(ctx, '#15171f', x - 2, y - 2, w + 4, h + 3);
-  px(ctx, '#2a2e3a', x - 2, y - 2, w + 4, 1);
-  // 待機畫面：深藍漸層＋掃描線
-  px(ctx, '#18233a', x, y, w, h);
-  px(ctx, '#1f3150', x, y, w, Math.floor(h / 2));
-  for (let row = y + 1; row < y + h; row += 3) px(ctx, 'rgba(255,255,255,0.04)', x, row, w, 1);
-  px(ctx, 'rgba(255,255,255,0.12)', x + 2, y + 2, 12, 1);
-  // 中間紅色圓角播放鍵
-  const bw = 16;
-  const bh = 11;
-  const bx = Math.round(x + w / 2 - bw / 2);
-  const by = Math.round(y + h / 2 - bh / 2);
-  px(ctx, '#e53935', bx + 1, by, bw - 2, bh);
-  px(ctx, '#e53935', bx, by + 1, bw, bh - 2);
-  // 白色三角形：一欄一欄往右變短
-  for (let i = 0; i < 4; i += 1) px(ctx, '#ffffff', bx + 6 + i, by + 2 + i, 1, 7 - i * 2);
-  // 右下角的電源燈
-  px(ctx, '#4ade80', x + w - 3, y + h + 0, 2, 1);
+  if (paintThemedTv(ctx, map)) return;
+  const left = map.tv.tx * TILE;
+  const width = map.tv.w * TILE;
+  // 牆面木格柵 + 大螢幕
+  for (let x = left; x < left + width; x += 3) px(ctx, '#7a5236', x, TILE, 2, TILE * 2 - 2);
+  px(ctx, '#15171f', left + 6, TILE + 3, width - 12, 24);
+  px(ctx, '#2f5f96', left + 8, TILE + 5, width - 16, 20);
+  px(ctx, '#3f7dbf', left + 8, TILE + 5, width - 16, 9);
+  px(ctx, '#7fb4e6', left + 10, TILE + 7, 10, 2);
+  px(ctx, '#15171f', left + width / 2 - 6, TILE + 27, 12, 2);
 }
 
 function paintRug(ctx: CanvasRenderingContext2D, rug: MapRug, theme: ThemeId): void {

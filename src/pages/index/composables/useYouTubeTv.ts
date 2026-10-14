@@ -103,6 +103,8 @@ const expanded = ref(false);
 const hostMounted = ref(false);
 // 按過播放之後才建播放器、才在畫面上出現
 const started = ref(false);
+// YouTubeTv 現在有沒有顯示出來（顯示時牆上就不用再提示「可以放 YouTube」）
+const showing = ref(false);
 // 電視螢幕在視窗上的位置（CSS px，viewport 座標）；visible=false 時播放器退到角落
 const tvScreen = reactive({ visible: false, x: 0, y: 0, w: 0, h: 0 });
 
@@ -277,6 +279,7 @@ export function useYouTubeTv() {
     expanded,
     hostMounted,
     started,
+    showing,
     tvScreen,
     attachHost,
     play,

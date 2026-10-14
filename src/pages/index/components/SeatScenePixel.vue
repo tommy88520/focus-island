@@ -298,7 +298,7 @@ import {
 } from 'src/pages/index/pixel/pixelWorld';
 import { useYouTubeTv } from 'src/pages/index/composables/useYouTubeTv';
 
-const { tvScreen } = useYouTubeTv();
+const { tvScreen, showing: youtubeShowing } = useYouTubeTv();
 
 const props = defineProps<{
   seats: Seat[];
@@ -2393,6 +2393,11 @@ function render(seconds: number): void {
     const p = toScreen((stair.spot.tx + 1) * TILE, TILE + 2);
     const up = stair.spot.direction === 1;
     drawPill(ctx, up ? t.value.seatScene.stairUp(stair.target) : t.value.seatScene.stairDown(stair.target), p.x, p.y, up ? COLOR_ME : COLOR_MATE);
+  }
+  // 影音牆上掛個牌子：提醒可以點它放 YouTube（正在播就不用）
+  if (!youtubeShowing.value) {
+    const p = toScreen((map.tv.tx + map.tv.w / 2) * TILE, TILE + 2);
+    drawPill(ctx, t.value.seatScene.youtubeTv, p.x, p.y, '#f87171');
   }
   if (props.floors.length > 1) {
     const p = toScreen((map.elevator.tx + 1) * TILE, TILE + 2);

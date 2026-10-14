@@ -127,7 +127,7 @@ const translations = {
       youtubePlay: '播放',
       youtubeInvalid: '看不懂這個網址，請貼 YouTube 影片或播放清單的連結',
       youtubeRecent: '最近播過',
-      youtubeHint: '會在圖書館牆上的電視播，離開圖書館時縮到角落。只有你看得到；有登入 YouTube Premium 就沒有廣告。',
+      youtubeHint: '會在後牆的影音牆上播（掛著「▶ 點這裡放 YouTube」牌子的地方），離開時縮到角落。只有你看得到；有登入 YouTube Premium 就沒有廣告。',
       followFocusLabel: '跟隨專注自動播放',
       loopLabel: '循環播放',
       autoplayOnLoadLabel: '進頁自動播放',
@@ -201,6 +201,7 @@ const translations = {
       emotes: { wave: '哈囉', cheer: '加油', coffee: '休息一下', thumbs: '讚' },
       emoteReplies: { wave: '嗨～', cheer: '你也加油！', coffee: '好啊 ☕', thumbs: '😄' },
       elevator: '電梯',
+      youtubeTv: '▶ 點這裡放 YouTube',
       elevatorPrompt: '電梯 · 要去幾樓？',
     },
     f1: {
@@ -365,7 +366,7 @@ const translations = {
       youtubePlay: 'Play',
       youtubeInvalid: "That doesn't look like a YouTube video or playlist link",
       youtubeRecent: 'Recently played',
-      youtubeHint: "Plays on the library's wall TV and shrinks to a corner when you leave. Only you can see it; no ads if you're signed in to YouTube Premium.",
+      youtubeHint: "Plays on the back wall (where the “▶ Play YouTube” sign is) and shrinks to a corner when you leave. Only you can see it; no ads if you're signed in to YouTube Premium.",
       followFocusLabel: 'Auto-play with focus session',
       loopLabel: 'Loop playback',
       autoplayOnLoadLabel: 'Autoplay on page load',
@@ -439,6 +440,7 @@ const translations = {
       emotes: { wave: 'Hello', cheer: 'You got this', coffee: 'Break time', thumbs: 'Nice' },
       emoteReplies: { wave: 'Hi there!', cheer: 'You too!', coffee: 'Sure ☕', thumbs: '😄' },
       elevator: 'Elevator',
+      youtubeTv: '▶ Play YouTube',
       elevatorPrompt: 'Elevator · which floor?',
     },
     f1: {

@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue';
 import type { AmbientAudio } from '../composables/useAmbientAudio';
 
 const props = defineProps<{
@@ -49,6 +49,9 @@ const hostRef = ref<HTMLDivElement | null>(null);
 const active = computed(
   () => props.audio.selectedAudioTrack.value === 'youtube' && youtube.started.value,
 );
+watchEffect(() => {
+  youtube.showing.value = active.value;
+});
 const mode = computed<'tv' | 'mini' | 'expanded'>(() => {
   if (youtube.expanded.value) return 'expanded';
   return youtube.tvScreen.visible ? 'tv' : 'mini';
