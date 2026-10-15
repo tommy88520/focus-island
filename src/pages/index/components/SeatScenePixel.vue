@@ -2159,11 +2159,14 @@ function drawNightLighting(c: CanvasRenderingContext2D, seconds: number, tint = 
 }
 
 // 場景的光線：跟著瀏覽器的當地時間，或（關掉「跟著真實時間」時）跟著網站的深淺色。
-// 當地時間：早上 8 點到下午 6 點是白天，其他時間是晚上（路燈、燈籠會亮）
-function lightingNow(): 'day' | 'night' {
+// 當地時間：早上 8 點到下午 3 點是白天，3 點到 6 點是黃昏，其他時間是晚上（路燈、燈籠會亮）
+const DUSK_TINT = '#f0c9a8';
+function lightingNow(): 'day' | 'dusk' | 'night' {
   if (!playerPrefs.value.sceneClock) return dark ? 'night' : 'day';
   const hour = new Date().getHours();
-  return hour >= 8 && hour < 18 ? 'day' : 'night';
+  if (hour >= 8 && hour < 15) return 'day';
+  if (hour >= 15 && hour < 18) return 'dusk';
+  return 'night';
 }
 
 // 下雨：海灘上整片斜斜的雨絲、海面和沙上的小水花；室內只看得到窗戶上的雨痕
@@ -2460,8 +2463,12 @@ function render(seconds: number): void {
   if (me) drawables.push(me);
   drawables.sort((a, b) => a.sortY - b.sortY);
   for (const item of drawables) item.draw(ctx);
-  if (lightingNow() === 'night') drawNightLighting(ctx, seconds);
-  else drawSunlight(ctx);
+  const light = lightingNow();
+  if (light === 'night') drawNightLighting(ctx, seconds);
+  else if (light === 'dusk') {
+    drawSunlight(ctx);
+    drawNightLighting(ctx, seconds, DUSK_TINT, 0.55);
+  } else drawSunlight(ctx);
   if (props.raining) drawRain(ctx, seconds);
   paintAmbient(ctx, map, seconds, lightingNow() === 'night', 'over');
 
