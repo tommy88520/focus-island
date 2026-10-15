@@ -508,7 +508,7 @@ async function resumePreviousFocus() {
   store.timeLeft = Math.min(store.baseDuration, Math.max(1, Math.floor(candidate.timeLeft)));
 
   clearResumeCandidate();
-  toggleFocus();
+  toggleFocus('auto');
 }
 
 // When other tabs update resume candidate, reload it locally.
@@ -766,7 +766,7 @@ function tickGroupFocus() {
   // 剩不到一分鐘就不加入了，等下一輪
   if (phase.phase !== 'focus' || phase.secondsLeft < 60 || groupSkippedRound === round) return;
   store.alignTimer(GROUP_FOCUS_S, phase.secondsLeft);
-  toggleFocus();
+  toggleFocus('auto');
   if (playerPrefs.value.notifications) {
     sendFocusNotification(t.value.focusClockPanel.notifyGroupStartTitle, t.value.focusClockPanel.notifyGroupStartBody);
   }
@@ -892,19 +892,33 @@ function claimSeat(id: string) {
 }
 
 // 在人現在所在的座位開始專注（場景決定是哪個；躺著就沿用原本保留的座位）
+// seatForFocus 回傳座位 id、'lying'（躺著）或 null（不在座位上）
 const pixelSceneRef = ref<{ seatForFocus: () => string | null } | null>(null);
 const f1SceneRef = ref<{ seatForFocus: () => string | null } | null>(null);
 // 點牆上的電視時打開音樂設定裡的 YouTube 網址欄
 const audioPlayerRef = ref<{ openYouTube: () => void } | null>(null);
-function claimSeatWhereIAm() {
+// 回傳 false＝人不在座位上（走在路上、騎車、游泳），不該開始專注；2D 座位格子沒有「人在哪」，照舊用選好的座位
+function claimSeatWhereIAm(): boolean {
   const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : pixelSceneRef.value;
-  const id = scene?.seatForFocus() ?? null;
-  if (id && id !== selectedSeatId.value && !librarySocket.getMateAtSeat(id)) claimSeat(id);
+  if (!scene) return true;
+  const spot = scene.seatForFocus();
+  if (spot === 'lying') return true;
+  if (!spot) return false;
+  if (spot !== selectedSeatId.value && !librarySocket.getMateAtSeat(spot)) claimSeat(spot);
+  return true;
+}
+
+function notifyNotSeated() {
+  $q.notify({ message: t.value.indexPage.notifyNotSeated, color: 'warning', icon: 'event_seat', timeout: 2200, position: 'top' });
 }
 
 // --- 操作方法 ---
-function toggleFocus() {
-  if (!store.isRunning) claimSeatWhereIAm();
+// how：'user' 是自己按的，人不在座位上就提示；'auto'（一起專注到點自動開始、接續上次的專注）照舊回到保留的座位
+function toggleFocus(how: 'user' | 'auto' = 'user') {
+  if (!store.isRunning && !claimSeatWhereIAm() && how === 'user') {
+    notifyNotSeated();
+    return;
+  }
   if (!selectedSeatId.value && !store.isRunning) {
     $q.notify({
       message: t.value.indexPage.notifyPickSeatFirst,
@@ -950,7 +964,10 @@ function resetFocusTimer() {
 }
 
 function restartFocusTimer() {
-  if (!store.isRunning) claimSeatWhereIAm();
+  if (!store.isRunning && !claimSeatWhereIAm()) {
+    notifyNotSeated();
+    return;
+  }
   if (!selectedSeatId.value && !store.isRunning) {
     $q.notify({
       message: t.value.indexPage.notifyPickSeatToRestart,

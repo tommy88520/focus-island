@@ -1300,9 +1300,11 @@ async function finishSit(): Promise<void> {
 
 // 按下專注前父層來問：要在哪個座位專注。坐著、正要坐下、正走向座位、或就站在空位旁 → 那個座位（人直接坐好）；
 // 躺在懶骨頭／躺椅／地板上 → null，人留在原地，座位還是原本保留的那個
+// 開始專注用哪個座位：坐著／正要坐／走去坐／站在空位旁 → 那個座位；躺著 → 'lying'（躺著專注，保留原本的座位）；
+// 其他（走在路上、騎車、游泳）→ null，父層會提示「還沒坐下」
 function seatForFocus(): string | null {
   if (player.state === 'seated') return player.seatId;
-  if (player.state === 'lying') return null;
+  if (player.state === 'lying') return 'lying';
   const id = player.state === 'sitting' ? player.sitSeatId : (player.goalSeatId ?? (riding ? null : (nearestSittableSeat() ?? seatBeside())?.seatId ?? null));
   const node = seatNodes.find((n) => n.seatId === id);
   if (!node || (node.state !== 'empty' && node.state !== 'me')) return null;
