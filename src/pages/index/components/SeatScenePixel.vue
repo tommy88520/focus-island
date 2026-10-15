@@ -708,7 +708,10 @@ const POS_KEEPALIVE_S = 20;
 // 這麼久沒收到位置就當作人走了
 const REMOTE_STALE_MS = 45_000;
 // 畫面上的位置慢慢追上收到的位置，看起來才不會一格一格跳
-const remoteShown = new Map<string, { x: number; y: number }>();
+const remoteShown = new Map<string, { x: number; y: number; moving: boolean; facing: Facing }>();
+// 別人的位置大約每 0.15 秒收到一次，網路一快一慢：收到的點排成一條路線，畫面固定晚 REMOTE_DELAY_MS 沿著路線內插，走起來才會等速、不會一頓一頓
+const REMOTE_DELAY_MS = 260;
+const remoteTracks = new Map<string, { lastAt: number; samples: { t: number; x: number; y: number }[] }>();
 let lastPosSentAt = -Infinity;
 let lastPosKey = '';
 
@@ -1580,8 +1583,8 @@ function syncPosition(seconds: number): void {
     ...(hidden ? { hidden: true } : {}),
   };
   const key = hidden ? 'hidden' : JSON.stringify(pos);
-  // 坐著的話 key 固定是 hidden，只會送一次
-  const due = key !== lastPosKey && (!player.moving || seconds - lastPosSentAt >= POS_SEND_INTERVAL_S);
+  // 坐著的話 key 固定是 hidden，只會送一次。停下來那一則也照間隔送（晚一點點沒關係），太密會被後端丟掉，別人就看到人停在半路還在走
+  const due = key !== lastPosKey && seconds - lastPosSentAt >= POS_SEND_INTERVAL_S;
   const keepalive = !hidden && seconds - lastPosSentAt > POS_KEEPALIVE_S;
   if (!due && !keepalive) return;
   lastPosSentAt = seconds;
@@ -1589,22 +1592,63 @@ function syncPosition(seconds: number): void {
   emit('position', pos);
 }
 
-function updateRemotePlayers(dt: number): void {
+function updateRemotePlayers(): void {
   const now = Date.now();
   for (const key of remoteShown.keys()) {
     const remote = props.remotePlayers[key];
-    if (!remote || now - remote.at > REMOTE_STALE_MS) remoteShown.delete(key);
+    if (!remote || now - remote.at > REMOTE_STALE_MS) {
+      remoteShown.delete(key);
+      remoteTracks.delete(key);
+    }
   }
   for (const remote of Object.values(props.remotePlayers)) {
     if (now - remote.at > REMOTE_STALE_MS) continue;
-    const shown = remoteShown.get(remote.key);
-    if (!shown || Math.hypot(remote.x - shown.x, remote.y - shown.y) > 4) {
-      remoteShown.set(remote.key, { x: remote.x, y: remote.y });
-      continue;
+    let track = remoteTracks.get(remote.key);
+    if (!track) {
+      track = { lastAt: remote.at, samples: [{ t: remote.at, x: remote.x, y: remote.y }] };
+      remoteTracks.set(remote.key, track);
+    } else if (remote.at !== track.lastAt) {
+      track.lastAt = remote.at;
+      const prev = track.samples[track.samples.length - 1];
+      if (!prev || Math.hypot(remote.x - prev.x, remote.y - prev.y) > 6) {
+        // 搭電梯、走樓梯、重新連線：直接跳過去
+        track.samples = [{ t: remote.at, x: remote.x, y: remote.y }];
+      } else if (remote.at - prev.t > 400) {
+        // 停了一陣子才又動：當作剛剛才從原地出發
+        track.samples = [{ t: remote.at - POS_SEND_INTERVAL_S * 1000, x: prev.x, y: prev.y }, { t: remote.at, x: remote.x, y: remote.y }];
+      } else {
+        // 兩則擠在一起到的話往後推一點，速度才不會忽快忽慢
+        track.samples.push({ t: Math.max(remote.at, prev.t + 100), x: remote.x, y: remote.y });
+      }
     }
-    const ease = Math.min(1, dt * 10);
-    shown.x += (remote.x - shown.x) * ease;
-    shown.y += (remote.y - shown.y) * ease;
+    const at = now - REMOTE_DELAY_MS;
+    const samples = track.samples;
+    while (samples.length > 2 && (samples[1]?.t ?? Infinity) <= at) samples.shift();
+    const a = samples[0];
+    const b = samples[1];
+    if (!a) continue;
+    let x = a.x;
+    let y = a.y;
+    let moving = false;
+    let facing = remote.facing;
+    if (b && at > a.t) {
+      const k = Math.min(1, (at - a.t) / Math.max(1, b.t - a.t));
+      x = a.x + (b.x - a.x) * k;
+      y = a.y + (b.y - a.y) * k;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      moving = k < 1 && Math.hypot(dx, dy) > 0.02;
+      if (moving) facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
+    }
+    // 最後一個點走完了就停下來（腳不要還在動）
+    if (!b || at >= b.t) {
+      const last = b ?? a;
+      x = last.x;
+      y = last.y;
+      moving = false;
+      facing = remote.facing;
+    }
+    remoteShown.set(remote.key, { x, y, moving, facing });
   }
 }
 
@@ -1638,19 +1682,19 @@ function remoteDrawables(seconds: number): Drawable[] {
         }
         if (vehicle) {
           const rows = RIDE_ROWS[vehicle];
-          paintVehicle(c, vehicle, remote.facing, footX, footY, 'back', seconds, remote.moving);
-          c.drawImage(getAvatarFrame(colors, remote.facing, 'idle'), 0, 0, AVATAR_SIZE.w, rows, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - RIDE_LIFT[vehicle] - rows), AVATAR_SIZE.w, rows);
-          paintVehicle(c, vehicle, remote.facing, footX, footY, 'front', seconds, remote.moving);
+          paintVehicle(c, vehicle, shown.facing, footX, footY, 'back', seconds, shown.moving);
+          c.drawImage(getAvatarFrame(colors, shown.facing, 'idle'), 0, 0, AVATAR_SIZE.w, rows, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - RIDE_LIFT[vehicle] - rows), AVATAR_SIZE.w, rows);
+          paintVehicle(c, vehicle, shown.facing, footX, footY, 'front', seconds, shown.moving);
           return;
         }
         if (isSwimmingAt(shown.y)) {
-          drawSwimmer(c, colors, remote.facing, footX, shown.y * TILE, remote.moving, seconds);
+          drawSwimmer(c, colors, shown.facing, footX, shown.y * TILE, shown.moving, seconds);
           return;
         }
-        const frame = remote.moving ? (Math.floor(seconds / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
+        const frame = shown.moving ? (Math.floor(seconds / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
         c.fillStyle = 'rgba(0, 0, 0, 0.18)';
         c.fillRect(Math.round(footX - 5), Math.round(footY - 2), 10, 2);
-        drawAvatar(c, colors, remote.facing, frame, footX, footY, false);
+        drawAvatar(c, colors, shown.facing, frame, footX, footY, false);
       },
     });
   }
@@ -2620,7 +2664,7 @@ function animate(time: number): void {
   updatePlayer(dt);
   returnIdleVehicles();
   updateVendors(seconds);
-  updateRemotePlayers(dt);
+  updateRemotePlayers();
   syncPosition(seconds);
   savePosition(seconds);
   render(seconds);
