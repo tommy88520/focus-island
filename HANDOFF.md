@@ -1,4 +1,4 @@
-# 交接（最後更新 2026-10-15——看到別人變快、不再出現兩次；分享位置連結；環河公園）
+# 交接（最後更新 2026-10-15——前後端搬到家機（測試網址可用，待切換）；看到別人變快）
 
 > **固定 7 段、整份改寫、全長 ≤100 行**。過期內容搬到 `docs/HANDOFF_ARCHIVE.md`（接在最上面）。
 > 交接／接手的步驟見 `.claude/skills/handoff/`、`.claude/skills/takeover/`；規則在 `CLAUDE.md`，各功能細節在 `docs/ARCHITECTURE.md`。
@@ -14,8 +14,8 @@
 - 無。
 
 ## 3. 等使用者決定
-- **後端搬區**：Koyeb 後端在美東（回應標頭 `x-koyeb-backend: was`），台灣連過去每支 API 光 `/health` 就要約 1 秒、WebSocket 握手約 1 秒，
-  冷開頁到看到別人要 4–7 秒。建議 Koyeb 服務搬到新加坡或東京，Redis（現在也很遠）一起搬到同一區。要使用者的帳號才能做。
+- **搬到家機：還差正式切換**。前後端、Redis、新的 Postgres 資料庫都在家機跑好了（細節在後端 repo `deploy/home/README.md`），
+  測試網址 https://focus-island-home.huangyanming.com 實測可以用、從台灣每支 API 約 0.2 秒。要使用者點頭才把 `focus-island.huangyanming.com` 的 DNS 從 Vercel 切過去。
 - README「有什麼」要不要補：環河公園、游泳、日夜（清晨／黃昏）、路燈與燈籠、YouTube 電視。
 - README「有什麼」要不要補 YouTube 電視（README 的文字他決定）。
 - 想要同房間一起看 YouTube 的話：要後端加新的 WS 訊息、決定誰能換台（這次他選「只有自己看得到」）。
