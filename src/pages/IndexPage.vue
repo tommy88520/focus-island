@@ -205,6 +205,8 @@ if (sharedLocation?.scene === 'library') {
 }
 const initialLastSeat = loadLastSeat();
 const initialLocation = loadLastLocation();
+// 從分享連結進來的樓層／分區要馬上記住，不然重新整理會回到更早記的那一層
+if (sharedLocation) saveLastLocation(sharedLocation.floor, sharedLocation.zoneId);
 const currentFloor = ref(sharedLocation?.floor ?? initialLocation?.floor ?? initialLastSeat?.floor ?? 2);
 const activeZoneId = ref(sharedLocation?.zoneId ?? initialLocation?.zoneId ?? initialLastSeat?.zoneId ?? 'A');
 const isLoading = ref(false);

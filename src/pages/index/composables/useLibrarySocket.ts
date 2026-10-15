@@ -119,6 +119,8 @@ export type RemoteVehicle = 'bike' | 'cart' | 'boat';
 // 同房間其他人站著（或騎車）時的位置，以格為單位
 export interface RemotePlayer {
   key: string;
+  // 同一個人（同一個瀏覽器）可能有好幾個分頁、或重新整理前留下的舊連線
+  userId: string;
   displayName: string;
   x: number;
   y: number;
@@ -801,6 +803,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
               ...remotePlayers.value,
               [key]: {
                 key,
+                userId: msg.userId,
                 displayName: (typeof pos.username === 'string' && pos.username) || reader?.displayName || msg.userId,
                 x: pos.x,
                 y: pos.y,

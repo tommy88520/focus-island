@@ -570,8 +570,9 @@ interface SeatNode {
   focusing: boolean;
   // 開了勿擾
   dnd: boolean;
-  // 坐這裡的人（別人）的連線 key，跟 remotePlayers 的 key 一樣
+  // 坐這裡的人（別人）的連線 key（跟 remotePlayers 的 key 一樣）和 userId
   mateKey: string;
+  mateUserId: string;
 }
 
 interface StairInfo {
@@ -761,7 +762,7 @@ function buildMap(): void {
   goalVehicle = null;
   seatNodes = props.seats.flatMap((seat, index) => {
     const slot = map.seats[index];
-    return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR, focusing: false, dnd: false, mateKey: '' }] : [];
+    return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR, focusing: false, dnd: false, mateKey: '', mateUserId: '' }] : [];
   });
   rebuildStairs();
   buildNavigation();
@@ -800,11 +801,15 @@ function paintStatic(): void {
   staticLayer = canvas;
 }
 
-// 保留這個座位的人現在站著（地圖上看得到他在走）
+// 保留這個座位的人現在站著（地圖上看得到他在走）：同一個連線在走；或同一個人的另一個連線在走、而這個座位沒在專注
+// （重新整理前的舊連線留下的保留座位，後端還沒清掉時，不然同一個人會畫成兩個）
 function mateIsUp(node: SeatNode): boolean {
   if (node.state !== 'mate' || !node.mateKey) return false;
-  const remote = props.remotePlayers[node.mateKey];
-  return remote !== undefined && Date.now() - remote.at <= REMOTE_STALE_MS;
+  const now = Date.now();
+  const fresh = (remote: RemotePlayer | undefined) => remote !== undefined && now - remote.at <= REMOTE_STALE_MS;
+  if (fresh(props.remotePlayers[node.mateKey])) return true;
+  if (node.focusing || !node.mateUserId) return false;
+  return Object.values(props.remotePlayers).some((remote) => remote.userId === node.mateUserId && fresh(remote));
 }
 
 function syncSeatStates(): void {
@@ -821,6 +826,7 @@ function syncSeatStates(): void {
     node.focusing = state === 'me' ? props.disabled : state === 'mate' && mate?.state === '專注';
     node.dnd = state === 'me' ? playerPrefs.value.doNotDisturb : state === 'mate' && mate?.dnd === true;
     node.mateKey = state === 'mate' && mate ? mate.sessionId || mate.userId : '';
+    node.mateUserId = state === 'mate' && mate ? mate.userId : '';
     if (state === 'me') {
       node.label = t.value.common.meLabel;
       node.colors = myAvatar();
