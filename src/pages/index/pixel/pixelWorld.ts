@@ -23,6 +23,8 @@ export type OutdoorKind =
   | 'tableSet'
   | 'goldfish'
   | 'lanternPole'
+  | 'lanternString'
+  | 'streetLamp'
   | 'enclosure'
   | 'pool'
   | 'bamboo'
@@ -168,6 +170,19 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
     ...[3, 9, 15].map((x) => prop('tableSet', x, -4, 1, 2, true)),
     prop('goldfish', 20, -4, 4, 2, true),
     ...[0, 8, 16, 24, 31].map((x) => prop('lanternPole', x, -7, 1, 1, true)),
+    // 燈柱之間拉一串燈籠橫過走道（不擋路）；w = 到下一根燈柱的格數
+    ...[
+      [0, 8],
+      [8, 8],
+      [16, 8],
+      [24, 7],
+    ].map(([x, w]) => prop('lanternString', x as number, -7, w as number, 1, false)),
+    // ── 路燈：101 的人行道、動物園步道、海灘木棧道（晚上會亮） ──
+    ...[-8, 0, 7, 12].map((y) => prop('streetLamp', -2, y)),
+    ...[-7, 2].map((y) => prop('streetLamp', -13, y)),
+    ...[-3, 8].map((y) => prop('streetLamp', R + 5, y)),
+    prop('streetLamp', 1, libraryHeight),
+    prop('streetLamp', R - 2, libraryHeight),
     // ── 動物園 ──
     prop('enclosure', R + 6, -11, 9, 7, true, 0),
     prop('enclosure', R + 6, -2, 9, 7, true, 1),
@@ -600,6 +615,41 @@ export function paintOutdoorProp(ctx: CanvasRenderingContext2D, prop: OutdoorPro
         px(ctx, '#d9534f', lx - 2 + sway, ly, 5, 5);
         px(ctx, night ? '#ffd27a' : '#f2a541', lx - 1 + sway, ly + 1, 3, 2);
       }
+      break;
+    }
+    case 'lanternString': {
+      // 兩根燈柱頂端之間垂下來的一串燈籠，紅黃相間；晚上點亮
+      const from = x + 8;
+      const span = w;
+      const top = y - 19;
+      const count = Math.max(3, Math.round(span / 14));
+      for (let i = 0; i <= span; i += 2) {
+        const t = i / span;
+        px(ctx, '#3a3d45', from + i, Math.round(top + Math.sin(Math.PI * t) * 7), 2, 1);
+      }
+      for (let i = 1; i < count; i += 1) {
+        const t = i / count;
+        const lx = Math.round(from + span * t);
+        const ly = Math.round(top + Math.sin(Math.PI * t) * 7) + 1;
+        const sway = Math.round(Math.sin(seconds * 1.4 + i + x) * 0.6);
+        const red = i % 2 === 1;
+        px(ctx, '#3a3d45', lx, ly, 1, 2);
+        px(ctx, red ? '#d9534f' : '#e8a33d', lx - 2 + sway, ly + 2, 5, 6);
+        px(ctx, red ? '#b23c39' : '#c7832a', lx - 2 + sway, ly + 7, 5, 1);
+        px(ctx, night ? '#ffe9a8' : red ? '#ef7a6f' : '#f6c76b', lx - 1 + sway, ly + 3, 3, 3);
+        px(ctx, '#f2c14e', lx + sway, ly + 8, 1, 2);
+      }
+      break;
+    }
+    case 'streetLamp': {
+      // 深灰燈柱＋往前彎的燈頭；晚上燈泡亮起來（光暈在 drawNightLighting）
+      px(ctx, 'rgba(0,0,0,0.2)', x + 4, y + 12, 8, 2);
+      px(ctx, '#2f333b', x + 5, y + 10, 6, 3);
+      px(ctx, '#3d424c', x + 7, y - 24, 2, 35);
+      px(ctx, '#545a66', x + 7, y - 24, 1, 35);
+      px(ctx, '#3d424c', x + 7, y - 26, 6, 2);
+      px(ctx, '#2f333b', x + 10, y - 25, 6, 3);
+      px(ctx, night ? '#fff1a8' : '#cfd5de', x + 11, y - 22, 4, 2);
       break;
     }
     case 'enclosure': {

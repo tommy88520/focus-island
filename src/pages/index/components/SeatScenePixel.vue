@@ -2102,12 +2102,21 @@ function playerDrawable(seconds: number): Drawable | null {
 }
 
 // tint：整張圖乘上去的色調；lamps：燈光的強度（黃昏時燈剛點起來，比較弱）
+const OUTDOOR_NIGHT_TINT = '#7f88b8';
 function drawNightLighting(c: CanvasRenderingContext2D, seconds: number, tint = NIGHT_TINT[map.theme], lamps = 1): void {
   const { world } = map;
   c.save();
   c.globalCompositeOperation = 'multiply';
   c.fillStyle = tint;
   c.fillRect(world.x0 * TILE, world.y0 * TILE, (world.x1 - world.x0) * TILE, (world.y1 - world.y0) * TILE);
+  // 戶外比室內再暗一層（圖書館裡有開燈），路燈和燈籠才亮得起來
+  if (lamps === 1) {
+    c.beginPath();
+    c.rect(world.x0 * TILE, world.y0 * TILE, (world.x1 - world.x0) * TILE, (world.y1 - world.y0) * TILE);
+    c.rect(0, 0, map.width * TILE, map.libraryHeight * TILE);
+    c.fillStyle = OUTDOOR_NIGHT_TINT;
+    c.fill('evenodd');
+  }
   c.globalCompositeOperation = 'lighter';
   c.globalAlpha = lamps;
   const glow = (x: number, y: number, r: number, color: string) => {
@@ -2128,6 +2137,18 @@ function drawNightLighting(c: CanvasRenderingContext2D, seconds: number, tint = 
   for (const prop of world.props) {
     if (prop.kind === 'stall') glow((prop.tx + prop.w / 2) * TILE, prop.ty * TILE + 6, 46, 'rgba(255, 200, 120, 0.42)');
     if (prop.kind === 'lanternPole') glow(prop.tx * TILE + 8, prop.ty * TILE - 14, 56, `rgba(255, 120, 80, ${0.34 + Math.sin(seconds * 2 + prop.tx) * 0.04})`);
+    if (prop.kind === 'lanternString') {
+      const count = Math.max(3, Math.round((prop.w * TILE) / 14));
+      for (let i = 1; i < count; i += 1) {
+        const t = i / count;
+        glow(prop.tx * TILE + 8 + prop.w * TILE * t, prop.ty * TILE - 12 + Math.sin(Math.PI * t) * 7, 22, `rgba(255, 140, 80, ${0.3 + Math.sin(seconds * 2.2 + i) * 0.04})`);
+      }
+    }
+    // 路燈：燈頭一團光＋照在地上的一圈
+    if (prop.kind === 'streetLamp') {
+      glow(prop.tx * TILE + 13, prop.ty * TILE - 21, 26, 'rgba(255, 236, 170, 0.5)');
+      glow(prop.tx * TILE + 12, prop.ty * TILE + 10, 46, 'rgba(255, 214, 140, 0.32)');
+    }
     if (prop.kind === 'mrt') glow((prop.tx + prop.w / 2) * TILE, prop.ty * TILE, 40, 'rgba(255, 255, 255, 0.25)');
     if (prop.kind === 'tower101') glow((prop.tx + prop.w / 2) * TILE, prop.ty * TILE - 60, 90, 'rgba(140, 220, 255, 0.18)');
   }
@@ -2137,14 +2158,12 @@ function drawNightLighting(c: CanvasRenderingContext2D, seconds: number, tint = 
   c.restore();
 }
 
-// 場景的光線：跟著真實時間（清晨、傍晚是黃昏），或跟著網站的深淺色
-const DUSK_TINT = '#f0c9a8';
-function lightingNow(): 'day' | 'dusk' | 'night' {
+// 場景的光線：跟著瀏覽器的當地時間，或（關掉「跟著真實時間」時）跟著網站的深淺色。
+// 當地時間：早上 8 點到下午 6 點是白天，其他時間是晚上（路燈、燈籠會亮）
+function lightingNow(): 'day' | 'night' {
   if (!playerPrefs.value.sceneClock) return dark ? 'night' : 'day';
-  const hour = new Date().getHours() + new Date().getMinutes() / 60;
-  if (hour >= 19 || hour < 5) return 'night';
-  if (hour >= 17 || hour < 7) return 'dusk';
-  return 'day';
+  const hour = new Date().getHours();
+  return hour >= 8 && hour < 18 ? 'day' : 'night';
 }
 
 // 下雨：海灘上整片斜斜的雨絲、海面和沙上的小水花；室內只看得到窗戶上的雨痕
@@ -2441,12 +2460,8 @@ function render(seconds: number): void {
   if (me) drawables.push(me);
   drawables.sort((a, b) => a.sortY - b.sortY);
   for (const item of drawables) item.draw(ctx);
-  const light = lightingNow();
-  if (light === 'night') drawNightLighting(ctx, seconds);
-  else if (light === 'dusk') {
-    drawSunlight(ctx);
-    drawNightLighting(ctx, seconds, DUSK_TINT, 0.55);
-  } else drawSunlight(ctx);
+  if (lightingNow() === 'night') drawNightLighting(ctx, seconds);
+  else drawSunlight(ctx);
   if (props.raining) drawRain(ctx, seconds);
   paintAmbient(ctx, map, seconds, lightingNow() === 'night', 'over');
 
