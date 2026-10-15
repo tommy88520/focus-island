@@ -1280,10 +1280,7 @@ watch(
   transform-origin: top left;
   transform: rotate(90deg);
 }
-/* 讓出 Safari 浮在最下面的網址列：直拿轉過來時它在地圖的右邊，橫拿時在下面 */
-.scene-shell--fs .scene-rotor--bar-gap:not(.scene-rotor--rotated) {
-  bottom: 64px;
-}
+/* 讓出 Safari 浮在最下面的網址列（只有直拿、地圖轉過來時；它在地圖的右邊） */
 .scene-shell--fs .scene-rotor--rotated.scene-rotor--bar-gap {
   width: calc(100dvh - 72px);
 }

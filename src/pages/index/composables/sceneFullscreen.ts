@@ -7,8 +7,9 @@ const portraitTouch = ref(false);
 export const sceneRotated = computed(() => sceneFullscreen.value && portraitTouch.value);
 // 手機上沒拿到瀏覽器全螢幕（iPhone）：Safari 的網址列浮在畫面最下面，要讓出一條，不然搖桿、按鈕會被它蓋住
 const realFullscreen = ref(false);
-// 從主畫面書籤開的（App 模式）沒有網址列，不用讓
-export const sceneNeedsBarGap = computed(() => sceneFullscreen.value && touchDevice() && !realFullscreen.value && !standaloneApp());
+// 只有直拿（地圖轉 90 度）時 Safari 的網址列浮在畫面最下面；橫拿時它在上面、會把畫面往下擠，不用讓。
+// 從主畫面書籤開的（App 模式）沒有網址列，也不用讓
+export const sceneNeedsBarGap = computed(() => sceneRotated.value && !realFullscreen.value && !standaloneApp());
 
 function standaloneApp(): boolean {
   return (navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
