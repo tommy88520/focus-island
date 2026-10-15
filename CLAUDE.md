@@ -3,7 +3,7 @@
 > 這份每個 session 都會整份載入，**只放每次都用得到的東西**。各功能怎麼串起來的細節在 `docs/ARCHITECTURE.md`（要動哪一塊再 grep）；
 > 現在的狀態在 `HANDOFF.md`——**接手先讀它**；要交接／接手照下面「交接公式」。
 
-Quasar（Vue 3 + TS、`<script setup>`）SPA，部署在 Vercel（https://focus-island.huangyanming.com）。Pinia，Tailwind v4 跟 Quasar 並用。
+Quasar（Vue 3 + TS、`<script setup>`）SPA，跑在維護者自己的機器上、經 Cloudflare Tunnel 對外（https://focus-island.huangyanming.com）。Pinia，Tailwind v4 跟 Quasar 並用。
 後端是另一個 repo `COMEANC13-backend`（Go，跑在 Koyeb）。
 
 ## 文件地圖
@@ -32,11 +32,13 @@ npm run lint
 npx vue-tsc --noEmit   # 型別檢查（沒有測試）
 ```
 
-需要 Node 22.12 以上。環境變數（`.env.local`／Vercel）：`VITE_BACKEND_API_URL`、`VITE_BACKEND_WS_URL`
+需要 Node 22.12 以上。環境變數（`.env.local`；正式環境在部署腳本裡設）：`VITE_BACKEND_API_URL`、`VITE_BACKEND_WS_URL`
 （沒設時 WebSocket 連 `ws://localhost:8080`，REST 從它推出 `http://`）。
 
-**部署**：push 到 `master` → Vercel 自動部署（GitHub 整合；本機沒有 `.vercel` 連結，沒辦法用指令看部署狀態）。
-push 完過一兩分鐘**到網站實際看一次**才算部署好。後端改動要去 `COMEANC13-backend` 那個 repo 做（它有自己的文件）。
+**部署**（2026-10-15 起）：前後端都在維護者自己的機器上。**push 到 `master` 不會自動上線**，要另外跑部署腳本——
+腳本、機器怎麼連、踩過的坑都在後端 repo（私人）的 `deploy/home/README.md`，這份公開 repo 不寫機器細節。
+Vercel 專案還在（push 仍會自動部署到 Vercel），只是正式網址不指向它，留著當備援。部署完**到網站實際看一次**才算好。
+後端改動要去 `COMEANC13-backend` 那個 repo 做（它有自己的文件）。
 
 ## 鐵律（改壞了別人馬上看得到）
 
@@ -55,7 +57,7 @@ push 完過一兩分鐘**到網站實際看一次**才算部署好。後端改�
 
 - **一律用中文（繁體）**，包括做事中間的進度回報。
 - **回覆要短**：先講結論跟要他做什麼，細節放後面。
-- **他交代的事，做得到的就直接做**，不要列步驟叫他做、不要一項一項問；只有要他的帳號才做得到的（Vercel／Koyeb／Google 後台）才請他動手。
+- **他交代的事，做得到的就直接做**，不要列步驟叫他做、不要一項一項問；只有要他的帳號才做得到的（Cloudflare／Google 後台）才請他動手。
 - 畫面醜他會在意；這個專案本來就是做給人看的，美術跟手感優先。
 
 ## 一定會踩的坑

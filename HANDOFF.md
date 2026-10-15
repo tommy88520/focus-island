@@ -1,10 +1,10 @@
-# 交接（最後更新 2026-10-15——前後端搬到家機（測試網址可用，待切換）；看到別人變快）
+# 交接（最後更新 2026-10-15——前後端搬到家機、正式網址已切換；看到別人變快）
 
 > **固定 7 段、整份改寫、全長 ≤100 行**。過期內容搬到 `docs/HANDOFF_ARCHIVE.md`（接在最上面）。
 > 交接／接手的步驟見 `.claude/skills/handoff/`、`.claude/skills/takeover/`；規則在 `CLAUDE.md`，各功能細節在 `docs/ARCHITECTURE.md`。
 
 ## 1. 版本
-- 程式最後一次改動：`2d163e5`（10-15，座位快照和連線權杖同時要）。已上線。已在 `master`／線上；`vue-tsc`、lint 通過。
+- 程式最後一次改動：`2d163e5`（10-15，座位快照和連線權杖同時要）。已部署在家機（正式網址 10-15 16:44 起由家機提供）。已在 `master`／線上；`vue-tsc`、lint 通過。
 - 網站 https://focus-island.huangyanming.com push 後回 200。
 - 後端 `COMEANC13-backend`：10-15 `3f7ec86` 每區座位 72→88（環河公園 73–88）、`df7720b` POS 接受 `pose: 'swim'`。都已 push（Koyeb 自動部署）。
   後端還沒部署好之前，前端拿到的分區容量還是 72，公園的座位會顯示成被佔走，部署完就正常。
@@ -14,8 +14,7 @@
 - 無。
 
 ## 3. 等使用者決定
-- **搬到家機：還差正式切換**。前後端、Redis、新的 Postgres 資料庫都在家機跑好了（細節在後端 repo `deploy/home/README.md`），
-  測試網址 https://focus-island-home.huangyanming.com 實測可以用、從台灣每支 API 約 0.2 秒。要使用者點頭才把 `focus-island.huangyanming.com` 的 DNS 從 Vercel 切過去。
+- 搬到家機後的收尾（使用者決定）：已 Google 登入的人要重新登入一次（祕密換新）；Redis Cloud 密碼對話裡外流過→停掉或換；後端 repo 裡被 commit 的 `.env` 移出 git；家機資料庫排備份（可照期貨專案備份到 R2）；Koyeb 還有 anc-13.com 在用，先別關。
 - README「有什麼」要不要補：環河公園、游泳、日夜（清晨／黃昏）、路燈與燈籠、YouTube 電視。
 - README「有什麼」要不要補 YouTube 電視（README 的文字他決定）。
 - 想要同房間一起看 YouTube 的話：要後端加新的 WS 訊息、決定誰能換台（這次他選「只有自己看得到」）。
@@ -35,6 +34,9 @@
 
 ## 6. 最近做完
 **10-15（程式）**
+- 使用者：「開始規劃服務搬到我的家機吧，做法你可以參考我futres的專案」「不管是前後端我都要搬到家機了，port請不要用太常用的，然後資料庫你開一個新的啊」「做吧，dns本來就要改到家機啊」
+  → 前端、後端、Redis、新的 Postgres 資料庫 `focus_island`（從 Neon 複製）都在家機，Cloudflare Tunnel `focus-island`；10-15 16:44 正式網址 DNS 從 Vercel 切到家機。
+  **之後上線要跑部署腳本**（`CLAUDE.md`「部署」→ 後端 repo `deploy/home/README.md`）。
 - 使用者：「socket有點壞掉，開第二個瀏覽器，人物出現得非常慢」「看到其他人的速度很慢，有原因嗎」→
   `cffe5a9`：連線前送不出的位置連上補送、有人進房由連線層馬上重送（背景分頁也會）、心跳每 25 秒補送；別人保留座位但人在走動時不再畫成坐著（同一人出現兩次）。
   `2d163e5`：座位快照和權杖同時要。實測：連上後 0.7 秒內看到別人；剩下的慢是後端在美東（見第 3 段）。

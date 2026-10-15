@@ -10,7 +10,7 @@ description: 交接——使用者說「交接」、要離開／換機器／結�
 ## 1. 先把工作收乾淨
 - `git status -sb`：沒 commit 的先 commit（不 commit 的話在第 2 段寫清楚是什麼、為什麼留著）。
 - 要 push 的程式先過 `npx vue-tsc --noEmit` 跟 `npm run lint`。
-- **push 到 `master` 就會上線**（Vercel 自動部署）。push 完一兩分鐘到 https://focus-island.huangyanming.com 實際看一次，結果寫進第 1 段。
+- **push 到 `master` 不會自動上線**：要跑部署腳本（見 `CLAUDE.md`「部署」）。部署完到 https://focus-island.huangyanming.com 實際看一次，結果寫進第 1 段。
 - 這次有動到後端（`COMEANC13-backend`，另一個 repo）的話：那邊也要 commit／push／部署（Koyeb），並在第 1 段寫明前後端各到哪個 commit、誰先上。
 
 ## 2. 從這次對話逐條抓（這步決定會不會漏）
@@ -49,5 +49,5 @@ description: 交接——使用者說「交接」、要離開／換機器／結�
 - [ ] 沒有把 `.env.local` 的值、token 寫進任何文件（**這個 repo 是公開的**，也不要寫其他專案或機器的內部細節）
 
 ## 6. 提交與回報
-- `git add -A && git commit -m "docs: 交接（<一句話>）" && git push`。⚠️ push 就會觸發 Vercel 部署——只有文件也會，沒有關係，但程式還沒好的不要一起 push。
+- `git add -A && git commit -m "docs: 交接（<一句話>）" && git push`。只有文件不用部署。
 - 回報使用者 ≤6 行：第 2、3、4 段的重點。

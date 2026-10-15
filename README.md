@@ -152,7 +152,7 @@ VITE_BACKEND_API_URL=https://your-backend.example.com
 VITE_BACKEND_WS_URL=wss://your-backend.example.com
 ```
 
-部署在 Vercel：Framework 選 `Other`，Build Command `npm run build`，Output Directory `dist/spa`，SPA 路由交給 `vercel.json` 改寫。
+正式環境跑在維護者自己的機器上（`npm run build` 出來的 `dist/spa` 由一個小的靜態伺服器提供，經 Cloudflare Tunnel 對外）。也可以部署在 Vercel：Framework 選 `Other`，Build Command `npm run build`，Output Directory `dist/spa`，SPA 路由交給 `vercel.json` 改寫。
 
 ## 接下來
 
