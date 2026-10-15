@@ -74,6 +74,8 @@
         class="pixel-panel absolute bottom-2 right-2 h-24 w-24 !rounded-full opacity-80"
         style="touch-action: none"
         :aria-label="t.seatScene.joystick"
+        @touchstart.prevent
+        @touchmove.prevent
         @pointerdown="handleStickDown"
         @pointermove="handleStickMove"
         @pointerup="handleStickUp"

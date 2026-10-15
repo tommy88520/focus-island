@@ -76,6 +76,8 @@
         ref="stickRef"
         class="pixel-panel absolute bottom-2 right-2 h-24 w-24 !rounded-full opacity-80"
         style="touch-action: none"
+        @touchstart.prevent
+        @touchmove.prevent
         @pointerdown="stickDown"
         @pointermove="stickMove"
         @pointerup="stickUp"

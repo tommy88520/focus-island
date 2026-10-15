@@ -15,6 +15,19 @@ function touchDevice(): boolean {
 
 let shell: HTMLElement | null = null;
 
+// 全螢幕時後面的整頁不能捲：iPhone Safari 不認 touch-action: none，手指在地圖上一拖它就去捲頁面，搖桿的觸控就被取消了
+function blockPageScroll(event: TouchEvent): void {
+  // 展開的計時／音樂列（音量滑桿）照常
+  if (event.target instanceof Element && event.target.closest('.fs-dock, input')) return;
+  if (event.cancelable) event.preventDefault();
+}
+
+function lockPage(lock: boolean): void {
+  document.documentElement.style.overflow = lock ? 'hidden' : '';
+  document.body.style.overflow = lock ? 'hidden' : '';
+  document.documentElement.style.overscrollBehavior = lock ? 'none' : '';
+}
+
 function updatePortrait(): void {
   portraitTouch.value = touchDevice() && window.innerHeight > window.innerWidth;
   realFullscreen.value = !!document.fullscreenElement;
@@ -28,6 +41,8 @@ function onFullscreenChange(): void {
 export async function enterSceneFullscreen(el: HTMLElement): Promise<void> {
   shell = el;
   sceneFullscreen.value = true;
+  lockPage(true);
+  el.addEventListener('touchmove', blockPageScroll, { passive: false });
   updatePortrait();
   window.addEventListener('resize', updatePortrait);
   // 先等地圖搬到 body 底下再要瀏覽器全螢幕（全螢幕中的元素被搬動會直接退出）
@@ -53,6 +68,8 @@ export async function enterSceneFullscreen(el: HTMLElement): Promise<void> {
 export async function exitSceneFullscreen(): Promise<void> {
   sceneFullscreen.value = false;
   realFullscreen.value = false;
+  lockPage(false);
+  shell?.removeEventListener('touchmove', blockPageScroll);
   window.removeEventListener('resize', updatePortrait);
   document.removeEventListener('fullscreenchange', onFullscreenChange);
   try {
