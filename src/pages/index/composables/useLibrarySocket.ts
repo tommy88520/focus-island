@@ -894,12 +894,13 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
 
     void fetchFloorTraffic();
 
-    await fetchSeatSnapshot();
+    // 座位快照跟連線權杖同時要（各要等後端將近 1 秒，排隊的話進房就多等 1 秒）
+    const [, firstToken] = await Promise.all([fetchSeatSnapshot(), requestWebSocketToken()]);
 
     if (version !== connectionVersion) return;
 
     // 申請失敗（例如短時間內換太多次房間被限流）：等一下再試，最後還是失敗才跳通知
-    let tokenPayload = await requestWebSocketToken();
+    let tokenPayload = firstToken;
     for (const delay of TOKEN_RETRY_DELAYS_MS) {
       if (tokenPayload?.token || version !== connectionVersion) break;
       await new Promise((resolve) => setTimeout(resolve, delay));
