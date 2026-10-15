@@ -43,6 +43,17 @@
             @leave="sceneLocation = 'library'"
             @end-focus="endFocusToLeave"
           />
+          <RiverParkScene
+            v-else-if="useCanvasScene && sceneLocation === 'park'"
+            ref="parkSceneRef"
+            :seats="currentSeats.slice(PARK_SEAT_START, PARK_SEAT_START + PARK_SEAT_COUNT)"
+            :selected-seat-id="selectedSeatId"
+            :disabled="store.isRunning"
+            :get-mate-at-seat="librarySocket.getMateAtSeat"
+            @select="selectSeat"
+            @leave="sceneLocation = 'library'"
+            @end-focus="endFocusToLeave"
+          />
           <SeatScenePixel
             v-else-if="useCanvasScene"
             ref="pixelSceneRef"
@@ -66,6 +77,7 @@
             @change-floor="currentFloor = $event"
             @change-zone="activeZoneId = $event"
             @go-f1="sceneLocation = 'f1'"
+            @go-park="sceneLocation = 'park'"
             @open-tv="audioPlayerRef?.openYouTube()"
             @end-focus="endFocusToLeave"
             @area="sceneArea = $event"
@@ -134,11 +146,12 @@ import { useQuasar } from 'quasar';
 import { useAmbientAudio, type SoundscapeKind } from 'src/pages/index/composables/useAmbientAudio';
 import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vue';
 import YouTubeTv from 'src/pages/index/components/YouTubeTv.vue';
+import RiverParkScene from 'src/pages/index/components/RiverParkScene.vue';
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
 import SeatScenePixel from 'src/pages/index/components/SeatScenePixel.vue';
 import F1Scene from 'src/pages/index/components/F1Scene.vue';
-import { F1_SEAT_COUNT, F1_SEAT_START, LIBRARY_SEATS, SEATS_PER_ZONE, type Area } from 'src/pages/index/pixel/pixelMap';
+import { F1_SEAT_COUNT, F1_SEAT_START, LIBRARY_SEATS, PARK_SEAT_COUNT, PARK_SEAT_START, SEATS_PER_ZONE, type Area } from 'src/pages/index/pixel/pixelMap';
 import SeatGrid, { type Seat } from 'src/pages/index/components/SeatGrid.vue';
 import FocusClockPanel from 'src/pages/index/components/FocusClockPanel.vue';
 import { useLibrarySocket, buildSeatId } from 'src/pages/index/composables/useLibrarySocket';
@@ -704,7 +717,7 @@ async function handleNotificationsToggle(on: boolean) {
 }
 
 // 場景在哪：圖書館那張大地圖，或從 F1 站過去的 F1 賽車場（獨立地圖）
-const sceneLocation = ref<'library' | 'f1'>('library');
+const sceneLocation = ref<'library' | 'f1' | 'park'>('library');
 // 人在大地圖的哪一區，決定場景環境音（海浪、車流、夜市人聲…）
 const sceneArea = ref<Area>('library');
 const SOUNDSCAPES: Record<Area, SoundscapeKind | null> = { library: null, beach: 'beach', taipei101: 'city', zoo: 'zoo', nightmarket: 'market' };
@@ -712,15 +725,15 @@ watch(
   [sceneLocation, sceneArea, () => useCanvasScene.value],
   ([location, , canvas], [previousLocation]) => {
     // 從 F1 回來時場景會重建，它只在區域跟預設不同時才回報，所以先歸零
-    if (location === 'library' && previousLocation === 'f1') sceneArea.value = 'library';
-    audio.setSoundscape(!canvas ? null : location === 'f1' ? 'f1' : SOUNDSCAPES[sceneArea.value]);
+    if (location === 'library' && previousLocation !== 'library') sceneArea.value = 'library';
+    audio.setSoundscape(!canvas || location === 'park' ? null : location === 'f1' ? 'f1' : SOUNDSCAPES[sceneArea.value]);
   },
 );
 // 開始專注就回到圖書館的位子上
 watch(
   () => store.isRunning,
   (running) => {
-    if (running) sceneLocation.value = isF1Seat(selectedSeatId.value) ? 'f1' : 'library';
+    if (running) sceneLocation.value = isF1Seat(selectedSeatId.value) ? 'f1' : isParkSeat(selectedSeatId.value) ? 'park' : 'library';
   },
 );
 
@@ -730,11 +743,18 @@ function isF1Seat(seatId: string | null): boolean {
   return Number.isFinite(n) && n > F1_SEAT_START && n <= F1_SEAT_START + F1_SEAT_COUNT;
 }
 
-// 上次坐的是 F1 看台：一進來就回到賽車場坐好
+// 座位編號落在最後那段的是環河公園的座位
+function isParkSeat(seatId: string | null): boolean {
+  const n = Number(seatId?.split('-').pop());
+  return Number.isFinite(n) && n > PARK_SEAT_START && n <= PARK_SEAT_START + PARK_SEAT_COUNT;
+}
+
+// 上次坐的是 F1 看台／環河公園：一進來就回到那裡坐好
 watch(
   () => selectedSeatId.value,
   (id) => {
     if (isF1Seat(id)) sceneLocation.value = 'f1';
+    else if (isParkSeat(id)) sceneLocation.value = 'park';
   },
 );
 
@@ -895,11 +915,12 @@ function claimSeat(id: string) {
 // seatForFocus 回傳座位 id、'lying'（躺著）或 null（不在座位上）
 const pixelSceneRef = ref<{ seatForFocus: () => string | null } | null>(null);
 const f1SceneRef = ref<{ seatForFocus: () => string | null } | null>(null);
+const parkSceneRef = ref<{ seatForFocus: () => string | null } | null>(null);
 // 點牆上的電視時打開音樂設定裡的 YouTube 網址欄
 const audioPlayerRef = ref<{ openYouTube: () => void } | null>(null);
 // 回傳 false＝人不在座位上（走在路上、騎車、游泳），不該開始專注；2D 座位格子沒有「人在哪」，照舊用選好的座位
 function claimSeatWhereIAm(): boolean {
-  const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : pixelSceneRef.value;
+  const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : sceneLocation.value === 'park' ? parkSceneRef.value : pixelSceneRef.value;
   if (!scene) return true;
   const spot = scene.seatForFocus();
   if (spot === 'lying') return true;

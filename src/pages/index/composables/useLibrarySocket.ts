@@ -18,7 +18,7 @@ import { fetchWebSocketTokenAction } from 'src/pages/index/actions/webSocketToke
 
 const DEFAULT_FLOOR_CAPACITY = 288;
 const TOKEN_RETRY_DELAYS_MS = [2000, 5000, 10000];
-const DEFAULT_ZONE_CAPACITY = 72;
+const DEFAULT_ZONE_CAPACITY = 88;
 const FLOOR_POLL_INTERVAL_ACTIVE_MS = 8000;
 const FLOOR_POLL_INTERVAL_BACKGROUND_MS = 30000;
 const WS_HEARTBEAT_INTERVAL_MS = 25000;

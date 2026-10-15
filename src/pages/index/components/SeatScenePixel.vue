@@ -146,6 +146,9 @@
           >
             {{ zone.name }}
           </button>
+          <button type="button" class="pixel-btn pixel-btn--primary h-9 whitespace-nowrap px-2 text-xs" @click="goPark">
+            {{ t.seatScene.mrtPark }}
+          </button>
         </div>
       </div>
       <!-- 夜市攤位：跟老闆買東西（用專注幣） -->
@@ -332,6 +335,8 @@ const emit = defineEmits<{
   'change-zone': [zoneId: string];
   // 在 F1 站搭車去 F1 賽車場
   'go-f1': [];
+  // 在捷運站搭車去環河公園
+  'go-park': [];
   // 走進另一個區域（圖書館／沙灘／101／動物園／夜市），父層用來切換場景環境音
   area: [area: Area];
   // 瀏覽器拿不到 2D canvas 時通知父層退回 2D 座位格子
@@ -836,7 +841,8 @@ function insideElevatorZone(x: number, y: number): boolean {
 
 function insideMrtZone(x: number, y: number): boolean {
   const trigger = map.world.mrtTrigger;
-  return props.zones.length > 1 && Math.hypot(x - trigger.x, y - trigger.y) < 0.9;
+  // 只有一個分區也會跳出面板：還可以搭去環河公園
+  return Math.hypot(x - trigger.x, y - trigger.y) < 0.9;
 }
 
 // 搭捷運到同一層樓的另一個分區：從那一區的捷運站口出來
@@ -862,6 +868,14 @@ function goF1(): void {
   emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
   savePosition(performance.now() / 1000, true);
   emit('go-f1');
+}
+
+// 去環河公園：跟去 F1 一樣先把自己標成「不在這裡」，回來時從捷運站口出來
+function goPark(): void {
+  mrtOpen.value = false;
+  emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
+  savePosition(performance.now() / 1000, true);
+  emit('go-park');
 }
 
 function rideElevator(floor: number): void {
