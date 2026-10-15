@@ -41,8 +41,10 @@
           />
 
           <!-- 地圖全螢幕：外層蓋滿畫面，裡層手機直拿時轉 90 度（sceneFullscreen.ts） -->
+          <!-- 全螢幕時搬到 body 底下，才蓋得過上面的選單跟底部工具列（元件不會重建） -->
+          <Teleport to="body" :disabled="!sceneFullscreen">
           <div ref="sceneShellRef" class="scene-shell" :class="{ 'scene-shell--fs': sceneFullscreen }">
-          <div class="scene-rotor" :class="{ 'scene-rotor--rotated': sceneRotated }">
+          <div class="scene-rotor" :class="{ 'scene-rotor--rotated': sceneRotated, 'scene-rotor--bar-gap': sceneNeedsBarGap }">
           <button
             v-if="useCanvasScene"
             type="button"
@@ -118,6 +120,7 @@
           />
           </div>
           </div>
+          </Teleport>
         </section>
       </main>
     </div>
@@ -173,7 +176,7 @@ import RiverParkScene from 'src/pages/index/components/RiverParkScene.vue';
 import { buildShareLink, takeSharedLocation } from 'src/pages/index/shareLocation';
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
-import { enterSceneFullscreen, exitSceneFullscreen, sceneFullscreen, sceneRotated } from 'src/pages/index/composables/sceneFullscreen';
+import { enterSceneFullscreen, exitSceneFullscreen, sceneFullscreen, sceneNeedsBarGap, sceneRotated } from 'src/pages/index/composables/sceneFullscreen';
 import SeatScenePixel from 'src/pages/index/components/SeatScenePixel.vue';
 import F1Scene from 'src/pages/index/components/F1Scene.vue';
 import { F1_SEAT_COUNT, F1_SEAT_START, LIBRARY_SEATS, PARK_SEAT_COUNT, PARK_SEAT_START, SEATS_PER_ZONE, type Area } from 'src/pages/index/pixel/pixelMap';
@@ -1236,11 +1239,11 @@ watch(
 .scene-rotor {
   position: relative;
 }
-/* 全螢幕：蓋滿畫面（底部工具列 z-50 也蓋掉） */
+/* 全螢幕：蓋滿畫面（蓋過 Quasar 的 header 2000；對話框 6000、通知 9500 還是在上面） */
 .scene-shell--fs {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 3000;
   background: #1b1d26;
 }
 .scene-shell--fs .scene-rotor {
@@ -1256,6 +1259,13 @@ watch(
   height: 100dvw;
   transform-origin: top left;
   transform: rotate(90deg);
+}
+/* 讓出 Safari 浮在最下面的網址列：直拿轉過來時它在地圖的右邊，橫拿時在下面 */
+.scene-shell--fs .scene-rotor--bar-gap:not(.scene-rotor--rotated) {
+  bottom: 64px;
+}
+.scene-shell--fs .scene-rotor--rotated.scene-rotor--bar-gap {
+  width: calc(100dvh - 72px);
 }
 .scene-shell--fs .scene-rotor > :deep(div),
 .scene-shell--fs :deep(.scene-box) {

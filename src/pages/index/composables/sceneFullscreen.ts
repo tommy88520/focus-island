@@ -1,16 +1,23 @@
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 
 // 地圖全螢幕：整塊地圖蓋滿畫面（能用瀏覽器全螢幕就順便用，藏掉網址列）。
 // 手機一律橫的看：能鎖方向就鎖（Android），鎖不了（iPhone）而且手機是直拿的，就把地圖整塊轉 90 度。
 export const sceneFullscreen = ref(false);
 const portraitTouch = ref(false);
 export const sceneRotated = computed(() => sceneFullscreen.value && portraitTouch.value);
+// 手機上沒拿到瀏覽器全螢幕（iPhone）：Safari 的網址列浮在畫面最下面，要讓出一條，不然搖桿、按鈕會被它蓋住
+const realFullscreen = ref(false);
+export const sceneNeedsBarGap = computed(() => sceneFullscreen.value && touchDevice() && !realFullscreen.value);
+
+function touchDevice(): boolean {
+  return window.matchMedia('(pointer: coarse)').matches;
+}
 
 let shell: HTMLElement | null = null;
 
 function updatePortrait(): void {
-  const touch = window.matchMedia('(pointer: coarse)').matches;
-  portraitTouch.value = touch && window.innerHeight > window.innerWidth;
+  portraitTouch.value = touchDevice() && window.innerHeight > window.innerWidth;
+  realFullscreen.value = !!document.fullscreenElement;
 }
 
 function onFullscreenChange(): void {
@@ -23,6 +30,8 @@ export async function enterSceneFullscreen(el: HTMLElement): Promise<void> {
   sceneFullscreen.value = true;
   updatePortrait();
   window.addEventListener('resize', updatePortrait);
+  // 先等地圖搬到 body 底下再要瀏覽器全螢幕（全螢幕中的元素被搬動會直接退出）
+  await nextTick();
   try {
     if (el.requestFullscreen && !document.fullscreenElement) {
       await el.requestFullscreen({ navigationUI: 'hide' });
@@ -31,7 +40,7 @@ export async function enterSceneFullscreen(el: HTMLElement): Promise<void> {
   } catch {
     // iPhone 不支援元素全螢幕：照樣用蓋滿畫面的版本
   }
-  if (window.matchMedia('(pointer: coarse)').matches) {
+  if (touchDevice()) {
     try {
       await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape');
     } catch {
@@ -43,6 +52,7 @@ export async function enterSceneFullscreen(el: HTMLElement): Promise<void> {
 
 export async function exitSceneFullscreen(): Promise<void> {
   sceneFullscreen.value = false;
+  realFullscreen.value = false;
   window.removeEventListener('resize', updatePortrait);
   document.removeEventListener('fullscreenchange', onFullscreenChange);
   try {
