@@ -91,6 +91,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .youtube-tv {
+  /* 跟地圖一樣淡入（切分區載入完時地圖是 0.5 秒淡入） */
+  transition: opacity 0.5s;
   position: fixed;
   display: flex;
   flex-direction: column;
@@ -103,6 +105,7 @@ onBeforeUnmount(() => {
 }
 .youtube-tv--hidden {
   pointer-events: none;
+  opacity: 0;
 }
 .youtube-tv--expanded {
   /* 底部工具列是 z-50 */

@@ -1,10 +1,10 @@
-# 交接（最後更新 2026-10-15——YouTube 跟著影音牆移動，不再跳到角落）
+# 交接（最後更新 2026-10-15——YouTube 跟著影音牆移動；切分區時不再懸浮）
 
 > **固定 7 段、整份改寫、全長 ≤100 行**。過期內容搬到 `docs/HANDOFF_ARCHIVE.md`（接在最上面）。
 > 交接／接手的步驟見 `.claude/skills/handoff/`、`.claude/skills/takeover/`；規則在 `CLAUDE.md`，各功能細節在 `docs/ARCHITECTURE.md`。
 
 ## 1. 版本
-- 程式最後一次改動：10-15「YouTube 跟著影音牆移出畫面，不再縮成角落小視窗」（這份交接同一個 commit）。已在 `master`／線上；`vue-tsc`、lint 通過。
+- 程式最後一次改動：10-15「切樓層／分區載入中時 YouTube 一起藏起來」（這份交接同一個 commit）。已在 `master`／線上；`vue-tsc`、lint 通過。
 - 網站 https://focus-island.huangyanming.com push 後回 200。
 - 後端 `COMEANC13-backend` 不需要配合（這次全部只動前端；YouTube 只有自己看得到，沒有新的 WS 訊息）。
 - 這個專案在不同電腦上改：換一台開工先 `git pull --ff-only`，`package.json` 有變就 `npm install`（後端 repo 也一樣先 pull）。
@@ -31,6 +31,8 @@
 
 ## 6. 最近做完
 **10-15（程式）**
+- 使用者：「我切深海倉、圖書館的時候，那個youtube框框還懸浮在上面」→ 切分區時地圖淡出顯示載入中，影片沒跟著藏；現在載入中也藏起來，載入完跟地圖一起淡入。
+  （本機沒後端、沒有分區分頁，是直接把頁面的 isLoading 打開模擬的；請使用者在線上切一次確認。）
 - 使用者：「切換場景的時候youtbe的框框還在好怪」→ 拿掉角落小視窗：影片跟著影音牆、超出地圖的部分裁掉；去 F1／開小地圖就藏起來，聲音照樣播。
 
 **10-14（程式，都已上線）**

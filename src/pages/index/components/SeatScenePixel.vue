@@ -2467,7 +2467,7 @@ function render(seconds: number): void {
   reportTvScreen(canvas);
 }
 
-// 牆上電視的螢幕（tvScreenRect）在視窗上的位置＋畫布範圍，給 YouTubeTv 把影片疊上去、超出畫布的部分裁掉。小地圖開著就藏起來。
+// 牆上電視的螢幕（tvScreenRect）在視窗上的位置＋畫布範圍，給 YouTubeTv 把影片疊上去、超出畫布的部分裁掉。小地圖開著、載入中就藏起來。
 function reportTvScreen(canvas: HTMLCanvasElement): void {
   const screen = tvScreenRect(map);
   const rect = canvas.getBoundingClientRect();
@@ -2476,7 +2476,8 @@ function reportTvScreen(canvas: HTMLCanvasElement): void {
   const w = screen.w * view.scale;
   const h = screen.h * view.scale;
   Object.assign(tvScreen, {
-    visible: !minimapOpen.value,
+    // 切樓層／分區時地圖會淡出顯示載入中，影片也要一起藏起來
+    visible: !minimapOpen.value && !props.isLoading,
     x: Math.round(x),
     y: Math.round(y),
     w: Math.round(w),
