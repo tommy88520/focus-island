@@ -2467,8 +2467,7 @@ function render(seconds: number): void {
   reportTvScreen(canvas);
 }
 
-// 牆上電視的螢幕（tvScreenRect）在視窗上的位置，
-// 給 YouTubeTv 把影片疊上去。整個螢幕都在畫面裡、小地圖沒開才算看得到，不然它會退到角落。
+// 牆上電視的螢幕（tvScreenRect）在視窗上的位置＋畫布範圍，給 YouTubeTv 把影片疊上去、超出畫布的部分裁掉。小地圖開著就藏起來。
 function reportTvScreen(canvas: HTMLCanvasElement): void {
   const screen = tvScreenRect(map);
   const rect = canvas.getBoundingClientRect();
@@ -2476,9 +2475,17 @@ function reportTvScreen(canvas: HTMLCanvasElement): void {
   const y = rect.top + view.oy + screen.y * view.scale;
   const w = screen.w * view.scale;
   const h = screen.h * view.scale;
-  const visible =
-    !minimapOpen.value && x >= rect.left && y >= rect.top && x + w <= rect.right && y + h <= rect.bottom;
-  Object.assign(tvScreen, { visible, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
+  Object.assign(tvScreen, {
+    visible: !minimapOpen.value,
+    x: Math.round(x),
+    y: Math.round(y),
+    w: Math.round(w),
+    h: Math.round(h),
+    clipL: rect.left,
+    clipT: rect.top,
+    clipR: rect.right,
+    clipB: rect.bottom,
+  });
 }
 
 function animate(time: number): void {
