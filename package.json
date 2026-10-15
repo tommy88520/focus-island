@@ -12,7 +12,7 @@
     "test": "echo \"No test specified\" && exit 0",
     "dev": "quasar dev",
     "build": "quasar build",
-    "build:pwa": "quasar build -m pwa",
+    "build:pwa": "quasar build && rm -rf dist/pwa && cp -R dist/spa dist/pwa",
     "postinstall": "quasar prepare"
   },
   "dependencies": {
