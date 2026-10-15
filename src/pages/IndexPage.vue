@@ -258,7 +258,9 @@ function toggleSceneFullscreen() {
 }
 const isSwitching = ref(false);
 
-const userId = ref(localStorage.getItem('lib_uid') || createRandomId('user'));
+// 很早的版本存的是「使用者_123」這種含中文的 ID，後端只收英數、底線、減號（拿不到連線權杖）：不合格就換一個新的
+const storedUserId = localStorage.getItem('lib_uid');
+const userId = ref(storedUserId && /^[A-Za-z0-9_-]{1,64}$/.test(storedUserId) ? storedUserId : createRandomId('user'));
 localStorage.setItem('lib_uid', userId.value);
 
 const displayName = ref(
