@@ -3,8 +3,8 @@ import { reactive, ref } from 'vue';
 /**
  * 圖書館牆上的 YouTube 電視（只有自己看得到）。整個網站共用一個播放器：
  * - `YouTubeTv.vue` 負責 DOM（iframe 疊在電視上／角落小視窗／放大），掛載後 `hostMounted` 才是 true；
- * - `SeatScenePixel` 每格回報電視在畫面上的位置（`tvScreen`）：影片像真的掛在牆上，鏡頭移開就跟著移出畫面（聲音照樣播）；
- *   去 F1、開小地圖時整個藏起來；
+ * - `SeatScenePixel` 每格回報電視在畫面上的位置（`tvScreen`）：整台電視在畫面裡就疊在電視上，看不到（走遠、去 F1、開小地圖）就跳到右下角小視窗，
+ *   小視窗可以再縮成一條標題列（`minimized`）；切樓層／分區載入中整個藏起來；
  * - `useAmbientAudio` 把它當成一首「音樂」（track `youtube`）來播放、暫停、調音量。
  * YouTube 規定播放器要看得到，所以不能只放聲音、把影片藏起來。
  */
@@ -106,8 +106,10 @@ const hostMounted = ref(false);
 const started = ref(false);
 // YouTubeTv 現在有沒有顯示出來（顯示時牆上就不用再提示「可以放 YouTube」）
 const showing = ref(false);
-// 電視螢幕在視窗上的位置（CSS px，viewport 座標）跟地圖畫布的範圍（超出的部分裁掉）；visible=false 時整個藏起來
-const tvScreen = reactive({ visible: false, x: 0, y: 0, w: 0, h: 0, clipL: 0, clipT: 0, clipR: 0, clipB: 0 });
+// 電視螢幕在視窗上的位置（CSS px，viewport 座標）；visible=整台電視都在畫面裡，loading=地圖正在切樓層／分區
+const tvScreen = reactive({ visible: false, loading: false, x: 0, y: 0, w: 0, h: 0 });
+// 右下角小視窗縮成一條標題列（只影響角落，走回電視前面照樣顯示在電視上）
+const minimized = ref(false);
 
 let player: YTPlayer | null = null;
 let playerReady = false;
@@ -278,6 +280,7 @@ export function useYouTubeTv() {
     title,
     playing,
     expanded,
+    minimized,
     hostMounted,
     started,
     showing,

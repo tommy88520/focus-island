@@ -1028,9 +1028,21 @@ function findPath(to: { x: number; y: number }): Point[] | null {
   return nav.findPath({ x: player.x, z: player.y }, { x: to.x, z: to.y });
 }
 
-// 現在這一步能不能站（騎車時要待在那台車能去的範圍裡）
+// 走進海裡就是在游泳（比踩水再深一點）；游泳只看位置，別人那邊也用位置判斷，不用多送訊息
+const SWIM_DEPTH = 0.6;
+const SWIM_SPEED = WALK_SPEED * 0.55;
+// 游泳時只露出上半身
+const SWIM_ROWS = 13;
+function isSwimmingAt(y: number): boolean {
+  return y > map.beach.seaTop + SWIM_DEPTH;
+}
+function inSea(x: number, y: number): boolean {
+  return y >= map.beach.seaTop + 0.5 && y <= map.height - 0.5 && x >= map.world.x0 + 0.5 && x <= map.world.x1 - 0.5;
+}
+
+// 現在這一步能不能站（騎車時要待在那台車能去的範圍裡；走路的話海裡也能去，就是游泳）
 function canOccupy(x: number, y: number): boolean {
-  if (!riding) return nav ? !nav.isBlocked(x, y) : false;
+  if (!riding) return inSea(x, y) || (nav ? !nav.isBlocked(x, y) : false);
   const area = vehicleArea(map, riding.kind);
   if (x < area.xMin || x > area.xMax || y < area.yMin || y > area.yMax) return false;
   return riding.kind === 'boat' || (nav ? !nav.isBlocked(x, y) : false);
@@ -1065,11 +1077,11 @@ function dismount(): boolean {
   const v = riding;
   if (!v || !nav) return true;
   const shoreY = map.beach.seaTop + 0.35;
-  if (v.kind === 'boat' && v.y > map.beach.seaTop + 1.6) {
-    say('me', t.value.seatScene.boatTooFar);
-    return false;
-  }
-  const spot = nav.nearestFree(v.kind === 'boat' ? { x: v.x, z: shoreY } : { x: v.x, z: v.y + 0.5 });
+  // 小船離岸很遠：直接跳下水游泳
+  const spot =
+    v.kind === 'boat' && v.y > map.beach.seaTop + 1.6
+      ? { x: v.x, z: Math.min(map.height - 0.5, v.y + 0.6) }
+      : nav.nearestFree(v.kind === 'boat' ? { x: v.x, z: shoreY } : { x: v.x, z: v.y + 0.5 });
   if (!spot) return false;
   riding = null;
   isRiding.value = false;
@@ -1232,7 +1244,21 @@ function walkToPoint(target: { x: number; y: number }): void {
     player.state = 'walking';
     return;
   }
-  // 點到海裡或牆外：走到最靠近的邊緣
+  // 點到海裡：先走到岸邊，再直直游過去
+  if (inSea(target.x, target.y) && isSwimmingAt(target.y)) {
+    const swimTo = { x: target.x, z: Math.min(map.height - 0.5, target.y) };
+    if (isSwimmingAt(player.y) || inSea(player.x, player.y)) {
+      player.path = [swimTo];
+    } else {
+      const shore = findPath({ x: Math.min(map.world.x1 - 0.5, Math.max(map.world.x0 + 0.5, target.x)), y: map.beach.seaTop + 0.5 });
+      if (!shore) return;
+      player.path = [...shore.slice(1), swimTo];
+    }
+    player.goalSeatId = null;
+    player.state = 'walking';
+    return;
+  }
+  // 點到牆外：走到最靠近的邊緣
   const bounds = walkBounds(map);
   const path = findPath({
     x: Math.min(bounds.xMax, Math.max(bounds.xMin, target.x)),
@@ -1337,7 +1363,7 @@ function updatePlayer(dt: number): void {
       player.state = 'idle';
       goalVehicle = null;
       const length = Math.hypot(dx, dy);
-      const speed = riding ? VEHICLE_SPEED[riding.kind] : WALK_SPEED;
+      const speed = riding ? VEHICLE_SPEED[riding.kind] : isSwimmingAt(player.y) ? SWIM_SPEED : WALK_SPEED;
       if (riding?.kind !== 'boat') {
         const stepX = (dx / length) * speed * dt;
         const stepY = (dy / length) * speed * dt;
@@ -1367,7 +1393,7 @@ function updatePlayer(dt: number): void {
         const toX = next.x - player.x;
         const toY = next.z - player.y;
         const dist = Math.hypot(toX, toY);
-        const step = (riding ? VEHICLE_SPEED[riding.kind] : WALK_SPEED) * dt;
+        const step = (riding ? VEHICLE_SPEED[riding.kind] : isSwimmingAt(player.y) ? SWIM_SPEED : WALK_SPEED) * dt;
         const nx = dist <= step ? next.x : player.x + (toX / dist) * step;
         const ny = dist <= step ? next.z : player.y + (toY / dist) * step;
         if (riding && !canOccupy(nx, ny)) {
@@ -1551,6 +1577,7 @@ function remoteColors(remote: RemotePlayer, y: number): AvatarColors {
 
 function remoteHeadOffset(remote: RemotePlayer): number {
   if (remote.lying) return -21;
+  if (!remote.vehicle && isSwimmingAt(remoteShown.get(remote.key)?.y ?? remote.y)) return -16 + (AVATAR_SIZE.h - SWIM_ROWS);
   return remote.vehicle ? 5 - RIDE_LIFT[remote.vehicle] - RIDE_ROWS[remote.vehicle] - 1 : -16;
 }
 
@@ -1576,6 +1603,10 @@ function remoteDrawables(seconds: number): Drawable[] {
           paintVehicle(c, vehicle, remote.facing, footX, footY, 'back', seconds, remote.moving);
           c.drawImage(getAvatarFrame(colors, remote.facing, 'idle'), 0, 0, AVATAR_SIZE.w, rows, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - RIDE_LIFT[vehicle] - rows), AVATAR_SIZE.w, rows);
           paintVehicle(c, vehicle, remote.facing, footX, footY, 'front', seconds, remote.moving);
+          return;
+        }
+        if (isSwimmingAt(shown.y)) {
+          drawSwimmer(c, colors, remote.facing, footX, shown.y * TILE, remote.moving, seconds);
           return;
         }
         const frame = remote.moving ? (Math.floor(seconds / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
@@ -1630,6 +1661,30 @@ function drawAvatar(c: CanvasRenderingContext2D, colors: AvatarColors, facing: F
   const sprite = getAvatarFrame(colors, facing, frame);
   const rows = seated ? SEATED_ROWS : AVATAR_SIZE.h;
   c.drawImage(sprite, 0, 0, AVATAR_SIZE.w, rows, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - rows), AVATAR_SIZE.w, rows);
+}
+
+// 游泳：只畫露出水面的上半身，跟著水浮上浮下；游的時候兩側濺水花，停著就是一圈漣漪
+function drawSwimmer(c: CanvasRenderingContext2D, colors: AvatarColors, facing: Facing, x: number, y: number, moving: boolean, seconds: number): void {
+  const water = Math.round(y + 2);
+  const bob = Math.floor(seconds * (moving ? 4 : 2)) % 2;
+  const frame = moving ? (Math.floor(seconds / 0.2) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
+  const sprite = getAvatarFrame(colors, facing, frame);
+  c.drawImage(sprite, 0, 0, AVATAR_SIZE.w, SWIM_ROWS, Math.round(x - AVATAR_SIZE.w / 2), water - SWIM_ROWS + bob, AVATAR_SIZE.w, SWIM_ROWS);
+  // 水面線蓋在身上
+  c.fillStyle = 'rgba(120, 200, 235, 0.85)';
+  c.fillRect(Math.round(x - 7), water, 14, 2);
+  c.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  const ring = moving ? 0 : Math.floor(seconds * 1.5) % 3;
+  c.fillRect(Math.round(x - 8 - ring), water + 1, 3, 1);
+  c.fillRect(Math.round(x + 5 + ring), water + 1, 3, 1);
+  if (moving) {
+    // 划水：左右輪流濺起水花
+    const left = Math.floor(seconds / 0.2) % 2 === 0;
+    const sx = Math.round(x + (left ? -7 : 6));
+    c.fillRect(sx, water - 2, 1, 1);
+    c.fillRect(sx + (left ? -1 : 1), water - 3, 1, 1);
+    c.fillRect(sx, water - 1, 2, 1);
+  }
 }
 
 function seatDrawables(node: SeatNode, seconds: number): Drawable[] {
@@ -1841,6 +1896,7 @@ const RIDE_ROWS: Record<VehicleKind, number> = { bike: SEATED_ROWS, cart: SEATED
 // 頭頂離腳下幾個世界像素（名牌和泡泡用）
 function myHeadOffset(): number {
   if (player.state === 'lying') return lyingOn?.pose === 'floor' ? -14 : -21;
+  if (!riding && isSwimmingAt(player.y)) return -16 + (AVATAR_SIZE.h - SWIM_ROWS);
   return riding ? 5 - RIDE_LIFT[riding.kind] - RIDE_ROWS[riding.kind] - 1 : -16;
 }
 
@@ -2025,6 +2081,12 @@ function playerDrawable(seconds: number): Drawable | null {
         c.drawImage(sprite, 0, 0, AVATAR_SIZE.w, rows, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - RIDE_LIFT[ride.kind] - rows + bob), AVATAR_SIZE.w, rows);
         paintVehicle(c, ride.kind, player.facing, footX, footY, 'front', seconds, player.moving);
       },
+    };
+  }
+  if (isSwimmingAt(player.y)) {
+    return {
+      sortY: player.y + 0.35,
+      draw: (c) => drawSwimmer(c, myAvatar(true), player.facing, player.x * TILE, player.y * TILE, player.moving, seconds),
     };
   }
   return {
@@ -2293,19 +2355,21 @@ function drawBubble(c: CanvasRenderingContext2D, text: string, cx: number, botto
   const height = LABEL_FONT_PX + 13;
   // 冒出來時往上彈一下
   const pop = age < 0.15 ? Math.round((1 - age / 0.15) * 4) : 0;
-  const x = Math.round(cx - width / 2);
-  const y = Math.round(bottom - height - 6 + pop);
+  // 不要超出地圖畫布：例如夜市攤位在地圖最上緣，老闆的話冒在招牌上面會被切掉，就往下、往內收；尾巴還是指著說話的人
+  const x = Math.min(Math.max(4, Math.round(cx - width / 2)), Math.max(4, Math.round(view.cssW - width - 4)));
+  const y = Math.max(4, Math.round(bottom - height - 6 + pop));
+  const tail = Math.round(Math.min(Math.max(cx, x + 6), x + width - 6));
   c.fillStyle = '#3b2a20';
   c.fillRect(x - 2, y - 2, width + 4, height + 4);
-  c.fillRect(Math.round(cx) - 4, y + height, 8, 4);
-  c.fillRect(Math.round(cx) - 2, y + height + 4, 4, 2);
+  c.fillRect(tail - 4, y + height, 8, 4);
+  c.fillRect(tail - 2, y + height + 4, 4, 2);
   c.fillStyle = '#fffaf0';
   c.fillRect(x, y, width, height);
-  c.fillRect(Math.round(cx) - 2, y + height, 4, 3);
+  c.fillRect(tail - 2, y + height, 4, 3);
   c.fillStyle = '#3b2a20';
   c.textAlign = 'center';
   c.textBaseline = 'middle';
-  c.fillText(text, cx, y + height / 2 + 1);
+  c.fillText(text, x + width / 2, y + height / 2 + 1);
 }
 
 function drawBubbles(c: CanvasRenderingContext2D, seconds: number, toScreen: (wx: number, wy: number) => { x: number; y: number }): void {
@@ -2467,7 +2531,8 @@ function render(seconds: number): void {
   reportTvScreen(canvas);
 }
 
-// 牆上電視的螢幕（tvScreenRect）在視窗上的位置＋畫布範圍，給 YouTubeTv 把影片疊上去、超出畫布的部分裁掉。小地圖開著、載入中就藏起來。
+// 牆上電視的螢幕（tvScreenRect）在視窗上的位置，給 YouTubeTv 把影片疊上去。
+// 整台電視都在畫面裡、小地圖沒開才算看得到，不然它跳到右下角；切樓層／分區載入中整個藏起來。
 function reportTvScreen(canvas: HTMLCanvasElement): void {
   const screen = tvScreenRect(map);
   const rect = canvas.getBoundingClientRect();
@@ -2475,18 +2540,8 @@ function reportTvScreen(canvas: HTMLCanvasElement): void {
   const y = rect.top + view.oy + screen.y * view.scale;
   const w = screen.w * view.scale;
   const h = screen.h * view.scale;
-  Object.assign(tvScreen, {
-    // 切樓層／分區時地圖會淡出顯示載入中，影片也要一起藏起來
-    visible: !minimapOpen.value && !props.isLoading,
-    x: Math.round(x),
-    y: Math.round(y),
-    w: Math.round(w),
-    h: Math.round(h),
-    clipL: rect.left,
-    clipT: rect.top,
-    clipR: rect.right,
-    clipB: rect.bottom,
-  });
+  const visible = !minimapOpen.value && x >= rect.left && y >= rect.top && x + w <= rect.right && y + h <= rect.bottom;
+  Object.assign(tvScreen, { visible, loading: props.isLoading, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
 }
 
 function animate(time: number): void {
@@ -2879,6 +2934,7 @@ watchEffect(() => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(rafId);
   tvScreen.visible = false;
+  tvScreen.loading = false;
   window.removeEventListener('pagehide', handlePageHide);
   window.removeEventListener('keydown', handleKeyDown);
   window.removeEventListener('keyup', handleKeyUp);

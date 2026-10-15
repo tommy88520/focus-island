@@ -1,13 +1,30 @@
 <template>
-  <!-- 影音牆上的 YouTube：影片疊在電視位置、跟著鏡頭移動，超出地圖的部分裁掉；去 F1、開小地圖時藏起來（聲音照樣播）；也可以放大。
-       掛在 body 底下：頁面外層有 transform，fixed 會跟著跑掉 -->
+  <!-- 影音牆上的 YouTube：看得到電視就疊在電視上，看不到就跳到右下角小視窗（可以再縮成一條標題列），也可以放大；
+       切樓層／分區載入中藏起來（聲音照樣播）。掛在 body 底下：頁面外層有 transform，fixed 會跟著跑掉 -->
   <Teleport to="body">
     <div v-show="active" class="youtube-tv" :class="`youtube-tv--${mode}`" :style="frameStyle">
-      <div v-if="mode === 'expanded'" class="youtube-tv__bar">
+      <div
+        v-if="mode === 'mini' || mode === 'minimized' || mode === 'expanded'"
+        class="youtube-tv__bar"
+      >
         <q-icon name="smart_display" size="14px" class="shrink-0 text-red-400" />
         <span class="min-w-0 flex-1 truncate">{{ youtube.title.value || 'YouTube' }}</span>
-        <button type="button" class="youtube-tv__btn" aria-label="shrink" @click="toggleExpanded">
-          <q-icon name="close_fullscreen" size="14px" />
+        <button
+          v-if="mode !== 'expanded'"
+          type="button"
+          class="youtube-tv__btn"
+          :aria-label="mode === 'minimized' ? 'restore' : 'minimize'"
+          @click="youtube.minimized.value = mode !== 'minimized'"
+        >
+          <q-icon :name="mode === 'minimized' ? 'expand_less' : 'remove'" size="14px" />
+        </button>
+        <button
+          type="button"
+          class="youtube-tv__btn"
+          :aria-label="mode === 'expanded' ? 'shrink' : 'expand'"
+          @click="toggleExpanded"
+        >
+          <q-icon :name="mode === 'expanded' ? 'close_fullscreen' : 'open_in_full'" size="14px" />
         </button>
         <button type="button" class="youtube-tv__btn" aria-label="close" @click="close">
           <q-icon name="close" size="14px" />
@@ -44,19 +61,17 @@ const active = computed(
 watchEffect(() => {
   youtube.showing.value = active.value;
 });
-const mode = computed<'tv' | 'hidden' | 'expanded'>(() => {
+const mode = computed<'tv' | 'mini' | 'minimized' | 'expanded' | 'hidden'>(() => {
   if (youtube.expanded.value) return 'expanded';
-  return youtube.tvScreen.visible ? 'tv' : 'hidden';
+  // 切樓層／分區時地圖淡出顯示載入中，影片不要懸浮在上面
+  if (youtube.tvScreen.loading) return 'hidden';
+  if (youtube.tvScreen.visible) return 'tv';
+  return youtube.minimized.value ? 'minimized' : 'mini';
 });
 const frameStyle = computed(() => {
-  if (mode.value === 'expanded') return {};
-  const { x, y, w, h, clipL, clipT, clipR, clipB } = youtube.tvScreen;
-  // 只露出在地圖畫布裡的那一塊，像電視被鏡頭帶出畫面；藏起來時整個裁掉，iframe 不能拿掉不然會重新載入
-  const inset =
-    mode.value === 'hidden'
-      ? 'inset(50%)'
-      : `inset(${Math.max(0, clipT - y)}px ${Math.max(0, x + w - clipR)}px ${Math.max(0, y + h - clipB)}px ${Math.max(0, clipL - x)}px)`;
-  return { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px`, clipPath: inset };
+  if (mode.value !== 'tv' && mode.value !== 'hidden') return {};
+  const { x, y, w, h } = youtube.tvScreen;
+  return { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` };
 });
 
 function toggleExpanded() {
@@ -91,40 +106,70 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .youtube-tv {
-  /* 跟地圖一樣淡入（切分區載入完時地圖是 0.5 秒淡入） */
-  transition: opacity 0.5s;
   position: fixed;
   display: flex;
   flex-direction: column;
   background: #0b0d14;
 }
-.youtube-tv--tv,
-.youtube-tv--hidden {
-  /* 地圖那一層是 z-10，要疊在它上面 */
+.youtube-tv--tv {
+  /* 地圖那一層是 z-10，要疊在它上面；跟地圖一樣淡入（切分區載入完時地圖是 0.5 秒淡入） */
   z-index: 15;
+  transition: opacity 0.5s;
+  box-shadow: 0 0 0 2px #15171f;
 }
+/* 藏起來時 iframe 不能拿掉（會重新載入），只把它裁掉 */
 .youtube-tv--hidden {
-  pointer-events: none;
+  z-index: 15;
   opacity: 0;
+  clip-path: inset(50%);
+  pointer-events: none;
 }
+.youtube-tv--mini,
+.youtube-tv--minimized,
 .youtube-tv--expanded {
   /* 底部工具列是 z-50 */
   z-index: 60;
+  border: 3px solid #15171f;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+}
+.youtube-tv--mini,
+.youtube-tv--minimized {
+  right: 16px;
+  /* 疊在底部工具列上面（手機的工具列是兩排，比較高） */
+  bottom: 128px;
+  width: min(260px, calc(100vw - 32px));
+}
+@media (min-width: 640px) {
+  .youtube-tv--mini,
+  .youtube-tv--minimized {
+    bottom: 104px;
+    width: 320px;
+  }
+}
+.youtube-tv--minimized {
+  width: min(240px, calc(100vw - 32px));
+}
+.youtube-tv--expanded {
   left: 50%;
   top: 50%;
   width: min(960px, calc(100vw - 32px));
   transform: translate(-50%, -50%);
-  border: 3px solid #15171f;
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
 }
 .youtube-tv__screen {
   position: relative;
   flex: 1;
   min-height: 0;
 }
+.youtube-tv--mini .youtube-tv__screen,
 .youtube-tv--expanded .youtube-tv__screen {
   flex: none;
   aspect-ratio: 16 / 9;
+}
+/* 縮小：只剩標題列，影片縮成 0 高（聲音照樣播） */
+.youtube-tv--minimized .youtube-tv__screen {
+  flex: none;
+  height: 0;
+  overflow: hidden;
 }
 .youtube-tv__screen :deep(iframe) {
   position: absolute;
@@ -157,11 +202,9 @@ onBeforeUnmount(() => {
 .youtube-tv__btn:hover {
   background: #3b4360;
 }
-/* 放大鈕放在影片左上角裡面（外面會被裁掉；右上角是 YouTube 自己的按鈕） */
 .youtube-tv__expand {
   position: absolute;
-  top: 4px;
-  left: 4px;
-  opacity: 0.85;
+  top: -12px;
+  right: -12px;
 }
 </style>
