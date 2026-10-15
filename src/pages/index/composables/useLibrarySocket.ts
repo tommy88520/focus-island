@@ -452,6 +452,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     clearHeartbeatTimer();
     heartbeatTimer = window.setInterval(() => {
       if (socket?.readyState !== WebSocket.OPEN) return;
+      // 分頁在背景時畫面迴圈不跑、不會送位置：靠這裡保持別人看得到你（別人那邊 45 秒沒消息就把你拿掉）
+      if (Date.now() - lastPosSentAt > 15_000) resendPosition();
 
       socket.send(
         JSON.stringify({
@@ -506,11 +508,26 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
   // 有新的人進房：場景要再送一次自己的位置，對方才看得到站著的你
   const peerJoinedAt = ref(0);
 
-  function sendPosition(pos: MyPosition) {
-    if (socket?.readyState !== WebSocket.OPEN) return;
+  // 最後一次要送的位置：連線還沒好時先記著，連上就補送；有人進房、或分頁在背景（畫面迴圈停了）時由這裡重送
+  let lastPos: MyPosition | null = null;
+  let lastPosSentAt = 0;
+  function writePosition(pos: MyPosition): boolean {
+    if (socket?.readyState !== WebSocket.OPEN) return false;
     socket.send(
       JSON.stringify({ type: 'POS', userId: userId.value, sessionId, payload: { ...pos, username: displayName.value, ...myLook() } }),
     );
+    lastPosSentAt = Date.now();
+    return true;
+  }
+
+  function sendPosition(pos: MyPosition) {
+    lastPos = pos;
+    writePosition(pos);
+  }
+
+  // 站著的人才需要重送（坐下的那則 hidden 送過一次就好）
+  function resendPosition() {
+    if (lastPos && !lastPos.hidden) writePosition({ ...lastPos, moving: false });
   }
 
   function sendEmote(emote: EmoteId) {
@@ -562,6 +579,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
           },
         }),
       );
+      // 連線前送不出去的位置，連上就補送
+      if (lastPos) writePosition(lastPos);
 
       isLoading.value = false;
     };
@@ -646,7 +665,11 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
               };
             }
 
-            if (msg.sessionId !== sessionId) peerJoinedAt.value = Date.now();
+            if (msg.sessionId !== sessionId) {
+              peerJoinedAt.value = Date.now();
+              // 馬上告訴新來的人我站在哪（不用等畫面迴圈；分頁在背景也送得到）
+              resendPosition();
+            }
 
             if (msg.userId !== userId.value) {
               $q.notify({

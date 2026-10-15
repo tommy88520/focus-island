@@ -570,6 +570,8 @@ interface SeatNode {
   focusing: boolean;
   // 開了勿擾
   dnd: boolean;
+  // 坐這裡的人（別人）的連線 key，跟 remotePlayers 的 key 一樣
+  mateKey: string;
 }
 
 interface StairInfo {
@@ -759,7 +761,7 @@ function buildMap(): void {
   goalVehicle = null;
   seatNodes = props.seats.flatMap((seat, index) => {
     const slot = map.seats[index];
-    return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR, focusing: false, dnd: false }] : [];
+    return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR, focusing: false, dnd: false, mateKey: '' }] : [];
   });
   rebuildStairs();
   buildNavigation();
@@ -798,6 +800,13 @@ function paintStatic(): void {
   staticLayer = canvas;
 }
 
+// 保留這個座位的人現在站著（地圖上看得到他在走）
+function mateIsUp(node: SeatNode): boolean {
+  if (node.state !== 'mate' || !node.mateKey) return false;
+  const remote = props.remotePlayers[node.mateKey];
+  return remote !== undefined && Date.now() - remote.at <= REMOTE_STALE_MS;
+}
+
 function syncSeatStates(): void {
   for (const node of seatNodes) {
     const seat = props.seats[node.index];
@@ -811,6 +820,7 @@ function syncSeatStates(): void {
     node.state = state;
     node.focusing = state === 'me' ? props.disabled : state === 'mate' && mate?.state === '專注';
     node.dnd = state === 'me' ? playerPrefs.value.doNotDisturb : state === 'mate' && mate?.dnd === true;
+    node.mateKey = state === 'mate' && mate ? mate.sessionId || mate.userId : '';
     if (state === 'me') {
       node.label = t.value.common.meLabel;
       node.colors = myAvatar();
@@ -1713,7 +1723,8 @@ function seatDrawables(node: SeatNode, seconds: number): Drawable[] {
   const x = slot.tx * TILE;
   const y = slot.ty * TILE;
   const meSeated = node.state === 'me' && player.state === 'seated' && player.seatId === node.seatId;
-  const occupied = node.state === 'mate' || node.state === 'taken' || meSeated;
+  // 座位是別人保留的、但他人站在別處走動（還在送位置）：不要再畫一個坐著的他，不然同一個人會出現兩次
+  const occupied = (node.state === 'mate' && !mateIsUp(node)) || node.state === 'taken' || meSeated;
   const highlighted = (hoveredSeatId === node.seatId || nearSeatId === node.seatId) && node.state === 'empty' && !props.disabled;
   const reservedAway = node.state === 'me' && !meSeated;
 
@@ -2541,7 +2552,7 @@ function render(seconds: number): void {
     drawPill(ctx, t.value.seatScene.escalatorBeach, p.x, p.y, COLOR_MATE);
   }
   for (const node of seatNodes) {
-    if (!node.label) continue;
+    if (!node.label || mateIsUp(node)) continue;
     const meSeated = node.state === 'me' && player.state === 'seated' && player.seatId === node.seatId;
     if (node.state === 'me' && !meSeated) continue;
     const p = toScreen(node.slot.tx * TILE + 8, node.slot.ty * TILE - 6);
