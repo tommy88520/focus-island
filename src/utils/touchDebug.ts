@@ -16,7 +16,7 @@ function enabled(): boolean {
 function describe(el: Element | null): string {
   if (!el) return '(none)';
   const cls = typeof el.className === 'string' ? el.className.split(/\s+/).slice(0, 3).join('.') : '';
-  return `${el.tagName.toLowerCase()}${cls ? '.' + cls : ''}`.slice(0, 48);
+  return `${el.tagName.toLowerCase()}${cls ? '.' + cls : ''}`.slice(0, 22);
 }
 
 function rect(el: Element | null): string {
@@ -29,7 +29,7 @@ export function installTouchDebug(): void {
   if (typeof window === 'undefined' || !enabled()) return;
   const panel = document.createElement('pre');
   panel.style.cssText =
-    'position:fixed;left:4px;top:4px;z-index:2147483647;margin:0;padding:6px;max-width:92vw;background:rgba(0,0,0,.82);color:#7CFC9A;font:10px/1.35 ui-monospace,monospace;pointer-events:none;white-space:pre-wrap;border-radius:6px';
+    'position:fixed;left:50%;top:2px;transform:translateX(-50%);z-index:2147483647;margin:0;padding:3px 5px;max-width:50vw;max-height:30vh;overflow:hidden;background:rgba(0,0,0,.6);color:#7CFC9A;font:8px/1.3 ui-monospace,monospace;pointer-events:none;white-space:pre;text-overflow:ellipsis;border-radius:4px';
   document.body.appendChild(panel);
   const events: string[] = [];
   let lastMoveAt = 0;
@@ -39,11 +39,8 @@ export function installTouchDebug(): void {
     const rotor = document.querySelector('.scene-rotor');
     const stick = document.querySelector('.scene-box .\\!rounded-full');
     return [
-      `win ${innerWidth}x${innerHeight} scr ${screen.width}x${screen.height} ${screen.orientation?.type ?? ''}`,
-      `vv ${vv ? `${Math.round(vv.width)}x${Math.round(vv.height)} s${vv.scale.toFixed(2)} off${Math.round(vv.offsetLeft)},${Math.round(vv.offsetTop)}` : '-'} scrollY ${Math.round(scrollY)}`,
-      `standalone ${String((navigator as Navigator & { standalone?: boolean }).standalone ?? matchMedia('(display-mode: standalone)').matches)} fsEl ${describe(document.fullscreenElement)}`,
-      `rotor ${rotor ? rotor.className.replace(/scene-rotor--/g, '').replace('scene-rotor', '').trim() || 'plain' : '-'} ${rect(rotor)}`,
-      `stick ${rect(stick)}`,
+      `win ${innerWidth}x${innerHeight} ${(screen.orientation?.type ?? '').slice(0, 4)} vv ${vv ? `${Math.round(vv.width)}x${Math.round(vv.height)} s${vv.scale.toFixed(2)}` : '-'} y${Math.round(scrollY)} sa ${String((navigator as Navigator & { standalone?: boolean }).standalone ?? false)[0]}`,
+      `rotor ${rotor ? rotor.className.replace(/scene-rotor--/g, '').replace('scene-rotor', '').trim() || 'plain' : '-'} ${rect(rotor)} stick ${rect(stick)}`,
     ].join('\n');
   };
 
@@ -66,9 +63,10 @@ export function installTouchDebug(): void {
       y = t?.clientY ?? 0;
     }
     const hit = document.elementFromPoint(x, y);
-    const extra = event instanceof PointerEvent ? ` ${event.pointerType}#${event.pointerId}` : '';
-    events.unshift(`${event.type}${extra} @${Math.round(x)},${Math.round(y)} tgt=${describe(event.target as Element)} hit=${describe(hit)}${event.defaultPrevented ? ' prevented' : ''}`);
-    events.length = Math.min(events.length, 12);
+    const extra = event instanceof PointerEvent ? ` ${event.pointerType[0]}${event.pointerId}` : '';
+    const type = event.type.replace('pointer', 'p:').replace('touch', 't:');
+    events.unshift(`${type}${extra} ${Math.round(x)},${Math.round(y)} ${describe(event.target as Element)}${hit === event.target ? '' : ` hit=${describe(hit)}`}`);
+    events.length = Math.min(events.length, 5);
     render();
   };
 
