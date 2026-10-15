@@ -3,6 +3,7 @@
 // 會存一份到後端，換裝置登入同一個帳號就會合併回來。不存 email，只存 Google 的使用者編號。
 
 import { ref, watch } from 'vue';
+import { backendApiUrl, backendWsUrl } from 'src/utils/backendUrl';
 import { usePlayerPrefs, type PlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { usePomodoroStore, type DailyHistoryEntry, type SyncedProgress } from 'src/stores/pomodoro';
 
@@ -22,9 +23,9 @@ interface CloudData {
 }
 
 function apiBase(): string {
-  const api = import.meta.env.VITE_BACKEND_API_URL as string | undefined;
+  const api = backendApiUrl();
   if (api) return api.replace(/\/$/, '');
-  const ws = (import.meta.env.VITE_BACKEND_WS_URL as string | undefined) || 'ws://localhost:8080';
+  const ws = backendWsUrl() || 'ws://localhost:8080';
   return ws.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:').replace(/\/$/, '');
 }
 

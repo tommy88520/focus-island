@@ -1,4 +1,5 @@
 import { ref, computed, type ComputedRef, type Ref } from 'vue';
+import { backendApiUrl, backendWsUrl } from 'src/utils/backendUrl';
 import type { QVueGlobals } from 'quasar';
 import { useLocale, type LocaleKey } from 'src/composables/useLocale';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
@@ -369,8 +370,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
 
   async function fetchSeatSnapshot() {
     try {
-      const apiBaseUrl = import.meta.env.VITE_BACKEND_API_URL as string | undefined;
-      const wsBaseUrl = import.meta.env.VITE_BACKEND_WS_URL as string | undefined;
+      const apiBaseUrl = backendApiUrl();
+      const wsBaseUrl = backendWsUrl();
       const snapshot = await fetchSeatSnapshotAction({
         roomID: roomID.value,
         ...(apiBaseUrl ? { apiBaseUrl } : {}),
@@ -391,8 +392,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
 
   async function fetchFloorTraffic() {
     try {
-      const apiBaseUrl = import.meta.env.VITE_BACKEND_API_URL as string | undefined;
-      const wsBaseUrl = import.meta.env.VITE_BACKEND_WS_URL as string | undefined;
+      const apiBaseUrl = backendApiUrl();
+      const wsBaseUrl = backendWsUrl();
       const result = await fetchFloorTrafficAction({
         defaultFloorCapacity: DEFAULT_FLOOR_CAPACITY,
         ...(apiBaseUrl ? { apiBaseUrl } : {}),
@@ -471,8 +472,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
 
   async function requestWebSocketToken() {
     try {
-      const apiBaseUrl = import.meta.env.VITE_BACKEND_API_URL as string | undefined;
-      const wsBaseUrl = import.meta.env.VITE_BACKEND_WS_URL as string | undefined;
+      const apiBaseUrl = backendApiUrl();
+      const wsBaseUrl = backendWsUrl();
       if (import.meta.env.DEV) {
         console.log('[WS Token Request] Config:', {
           apiBaseUrl: apiBaseUrl || '(not set)',
@@ -550,7 +551,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
   }
 
   function connectWebSocket(token: string, version: number) {
-    const baseUrl = import.meta.env.VITE_BACKEND_WS_URL || 'ws://localhost:8080';
+    const baseUrl = backendWsUrl() || 'ws://localhost:8080';
     const url = `${baseUrl}/api/v1/library/ws?floor=${currentFloor.value}&zone=${activeZoneId.value}&userId=${userId.value}&sessionId=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(token)}`;
 
     if (import.meta.env.DEV) {
