@@ -68,6 +68,7 @@ import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, SEATED_ROWS, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
+import { takeArrival } from 'src/pages/index/shareLocation';
 
 type Facing = 'up' | 'down' | 'left' | 'right';
 type Season = 'sakura' | 'snow';
@@ -268,7 +269,13 @@ function seatForFocus(): string | null {
   return seat.id;
 }
 
-defineExpose({ seatForFocus });
+// 分享位置用：坐著就回報座位前面，不然是自己站的地方
+function positionForShare(): { x: number; y: number } {
+  const at = seatedIndex === null ? me : seatApproach(seatedIndex) ?? me;
+  return { x: at.x, y: at.y };
+}
+
+defineExpose({ seatForFocus, positionForShare });
 
 function standUp(): void {
   const i = seatedIndex;
@@ -293,6 +300,18 @@ function nearestSeat(): number | null {
     }
   });
   return best;
+}
+
+// 站到某一點旁邊最近的空地
+function placeNear(at: { x: number; y: number }): void {
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [0, 0]] as const) {
+    if (!blocked(at.x + dx, at.y + dy)) {
+      me.x = at.x + dx;
+      me.y = at.y + dy;
+      stationLock = false;
+      return;
+    }
+  }
 }
 
 function walkTo(to: { x: number; y: number }, seat: number | null): void {
@@ -992,9 +1011,11 @@ onMounted(() => {
   ground = paintGround();
   // 一抵達就站在捷運站旁：先走開才會再跳出回程面板
   stationLock = true;
-  // 上次就坐在公園裡：直接坐回去
+  // 朋友分享的位置：站到他旁邊；不然上次就坐在公園裡的話直接坐回去
+  const arrival = takeArrival('park');
   const mine = props.seats.findIndex((s) => s.id === props.selectedSeatId);
-  if (mine >= 0) sitAt(mine);
+  if (arrival) placeNear(arrival);
+  else if (mine >= 0) sitAt(mine);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', clearKeys);

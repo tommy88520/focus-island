@@ -1342,7 +1342,12 @@ function seatBeside(): SeatNode | undefined {
   return best;
 }
 
-defineExpose({ seatForFocus });
+// 分享位置用：自己現在站（或坐）在哪
+function positionForShare(): { x: number; y: number } {
+  return { x: Math.round(player.x * 10) / 10, y: Math.round(player.y * 10) / 10 };
+}
+
+defineExpose({ seatForFocus, positionForShare });
 
 function nearestSittableSeat(): SeatNode | undefined {
   let best: SeatNode | undefined;

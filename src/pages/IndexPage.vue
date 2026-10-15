@@ -16,6 +16,14 @@
             <p class="hide-below-sm truncate text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:!text-white/55">
               {{ librarySocket.currentZone.value?.name }} · {{ librarySocket.currentZone.value?.description }}
             </p>
+            <button
+              type="button"
+              class="pixel-btn h-7 shrink-0 whitespace-nowrap px-2 text-[11px]"
+              :title="t.indexPage.shareLocationHint"
+              @click="shareMyLocation"
+            >
+              📍 {{ t.indexPage.shareLocation }}
+            </button>
           </div>
 
           <FloorTabs
@@ -147,6 +155,7 @@ import { useAmbientAudio, type SoundscapeKind } from 'src/pages/index/composable
 import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vue';
 import YouTubeTv from 'src/pages/index/components/YouTubeTv.vue';
 import RiverParkScene from 'src/pages/index/components/RiverParkScene.vue';
+import { buildShareLink, takeSharedLocation } from 'src/pages/index/shareLocation';
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
 import SeatScenePixel from 'src/pages/index/components/SeatScenePixel.vue';
@@ -179,10 +188,25 @@ const DEFAULT_ZONE_CAPACITY = SEATS_PER_ZONE;
 // 再多一次樓層切換。`loadLastSeat` 是下面定義的 function declaration，
 // 因為會 hoist 所以這裡可以先用。
 // 最後所在的樓層／分區優先：走樓梯去別層逛、沒坐下就關掉，下次也回到那一層
+// （這兩個 key 要宣告在這裡：下面馬上就要讀，宣告在後面的話讀的時候會出錯、被 try/catch 吃掉，等於永遠讀不到）
+const LAST_SEAT_KEY = 'focus_island_last_seat_v1';
+const LAST_LOCATION_KEY = 'focus_island_last_location_v1';
+// 朋友分享的位置連結：直接到那一層、那一區、那張地圖，站在他旁邊（圖書館一帶的話把「上次站的位置」改成他旁邊，場景載入時就會站過去）
+const sharedLocation = takeSharedLocation();
+if (sharedLocation?.scene === 'library') {
+  try {
+    localStorage.setItem(
+      'focus_island_player_position_v1',
+      JSON.stringify({ room: `${sharedLocation.floor}-${sharedLocation.zoneId}`, x: sharedLocation.x + 1, y: sharedLocation.y, facing: 'left', seated: false }),
+    );
+  } catch {
+    // ignore storage errors (e.g. private mode)
+  }
+}
 const initialLastSeat = loadLastSeat();
 const initialLocation = loadLastLocation();
-const currentFloor = ref(initialLocation?.floor ?? initialLastSeat?.floor ?? 2);
-const activeZoneId = ref(initialLocation?.zoneId ?? initialLastSeat?.zoneId ?? 'A');
+const currentFloor = ref(sharedLocation?.floor ?? initialLocation?.floor ?? initialLastSeat?.floor ?? 2);
+const activeZoneId = ref(sharedLocation?.zoneId ?? initialLocation?.zoneId ?? initialLastSeat?.zoneId ?? 'A');
 const isLoading = ref(false);
 const selectedSeatId = ref<string | null>(null);
 const isShake = ref(false);
@@ -230,7 +254,6 @@ const FOCUS_PREFS_KEY = 'focus_island_focus_prefs_v1';
 const CURRENT_ROOM_INFO_KEY = 'focus_island_current_room_info_v1';
 
 // --- 上次選的座位（跨次造訪記住座位偏好） ---
-const LAST_SEAT_KEY = 'focus_island_last_seat_v1';
 
 type LastSeatPayload = {
   seatId: string;
@@ -266,7 +289,6 @@ function saveLastSeat(seatId: string, floor: number, zoneId: string) {
 }
 
 // --- 最後所在的樓層與分區（不管有沒有坐下，換層／換區就記） ---
-const LAST_LOCATION_KEY = 'focus_island_last_location_v1';
 
 type LastLocationPayload = {
   floor: number;
@@ -717,7 +739,7 @@ async function handleNotificationsToggle(on: boolean) {
 }
 
 // 場景在哪：圖書館那張大地圖，或從 F1 站過去的 F1 賽車場（獨立地圖）
-const sceneLocation = ref<'library' | 'f1' | 'park'>('library');
+const sceneLocation = ref<'library' | 'f1' | 'park'>(sharedLocation?.scene ?? 'library');
 // 人在大地圖的哪一區，決定場景環境音（海浪、車流、夜市人聲…）
 const sceneArea = ref<Area>('library');
 const SOUNDSCAPES: Record<Area, SoundscapeKind | null> = { library: null, beach: 'beach', taipei101: 'city', zoo: 'zoo', nightmarket: 'market' };
@@ -913,9 +935,14 @@ function claimSeat(id: string) {
 
 // 在人現在所在的座位開始專注（場景決定是哪個；躺著就沿用原本保留的座位）
 // seatForFocus 回傳座位 id、'lying'（躺著）或 null（不在座位上）
-const pixelSceneRef = ref<{ seatForFocus: () => string | null } | null>(null);
-const f1SceneRef = ref<{ seatForFocus: () => string | null } | null>(null);
-const parkSceneRef = ref<{ seatForFocus: () => string | null } | null>(null);
+const pixelSceneRef = ref<SceneHandle | null>(null);
+// 每張地圖都會回答：在哪個座位開始專注、我現在站在哪（分享位置用）
+interface SceneHandle {
+  seatForFocus: () => string | null;
+  positionForShare: () => { x: number; y: number };
+}
+const f1SceneRef = ref<SceneHandle | null>(null);
+const parkSceneRef = ref<SceneHandle | null>(null);
 // 點牆上的電視時打開音樂設定裡的 YouTube 網址欄
 const audioPlayerRef = ref<{ openYouTube: () => void } | null>(null);
 // 回傳 false＝人不在座位上（走在路上、騎車、游泳），不該開始專注；2D 座位格子沒有「人在哪」，照舊用選好的座位
@@ -931,6 +958,28 @@ function claimSeatWhereIAm(): boolean {
 
 function notifyNotSeated() {
   $q.notify({ message: t.value.indexPage.notifyNotSeated, color: 'warning', icon: 'event_seat', timeout: 2200, position: 'top' });
+}
+
+// 分享我的位置：複製一條連結，朋友打開就會出現在我旁邊（手機用系統的分享選單）
+async function shareMyLocation() {
+  const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : sceneLocation.value === 'park' ? parkSceneRef.value : pixelSceneRef.value;
+  const at = scene?.positionForShare() ?? { x: 16, y: 5.2 };
+  const link = buildShareLink({ floor: currentFloor.value, zoneId: activeZoneId.value, scene: sceneLocation.value, x: at.x, y: at.y, name: displayName.value });
+  const isTouch = window.matchMedia('(pointer: coarse)').matches;
+  if (isTouch && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title: 'Focus Island', text: t.value.indexPage.shareText, url: link });
+      return;
+    } catch {
+      // 使用者取消分享：退回複製連結
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(link);
+    $q.notify({ message: t.value.indexPage.shareCopied, color: 'positive', icon: 'link', timeout: 2600, position: 'top' });
+  } catch {
+    window.prompt(t.value.indexPage.shareManual, link);
+  }
 }
 
 // --- 操作方法 ---
@@ -1102,6 +1151,15 @@ watch(
 );
 
 onMounted(() => {
+  if (sharedLocation) {
+    $q.notify({
+      message: sharedLocation.name ? t.value.indexPage.arrivedNear(sharedLocation.name) : t.value.indexPage.arrivedGeneric,
+      color: 'primary',
+      icon: 'place',
+      timeout: 3200,
+      position: 'top',
+    });
+  }
   groupTimer = window.setInterval(tickGroupFocus, 1000);
   loadFocusPreferences();
   loadResumeCandidate();

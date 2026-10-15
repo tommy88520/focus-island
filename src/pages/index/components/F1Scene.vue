@@ -66,6 +66,7 @@ import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, SEATED_ROWS } from 'src/pages/index/pixel/pixelArt';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
+import { takeArrival } from 'src/pages/index/shareLocation';
 
 // 看台的座位跟圖書館的一樣是這個分區的座位（同步給所有人），只是畫在賽車場裡
 const props = defineProps<{
@@ -303,7 +304,13 @@ function seatForFocus(): string | null {
   return seat.id;
 }
 
-defineExpose({ seatForFocus });
+// 分享位置用：開車時是車子的位置
+function positionForShare(): { x: number; y: number } {
+  const at = driving.value ? car : me;
+  return { x: at.x, y: at.y };
+}
+
+defineExpose({ seatForFocus, positionForShare });
 
 function standUp(): void {
   const spot = seatedIndex === null ? null : SEAT_SPOTS[seatedIndex];
@@ -758,9 +765,17 @@ onMounted(() => {
   ground = paintGround();
   // 一抵達就站在車站旁：先走開才會再跳出回程面板
   stationLock = true;
-  // 上次就坐在看台上：直接坐回去
+  // 朋友分享的位置：站到他旁邊；不然上次就坐在看台上的話直接坐回去
+  const arrival = takeArrival('f1');
   const mine = props.seats.findIndex((s) => s.id === props.selectedSeatId);
-  if (mine >= 0) sitAt(mine);
+  if (arrival) {
+    const spot = [[1, 0], [-1, 0], [0, 1], [0, -1], [0, 0]].map(([dx = 0, dy = 0]) => ({ x: arrival.x + dx, y: arrival.y + dy })).find((p) => !blocked(p.x, p.y));
+    if (spot) {
+      me.x = spot.x;
+      me.y = spot.y;
+      stationLock = false;
+    }
+  } else if (mine >= 0) sitAt(mine);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', clearKeys);
