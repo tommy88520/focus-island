@@ -7,7 +7,12 @@ const portraitTouch = ref(false);
 export const sceneRotated = computed(() => sceneFullscreen.value && portraitTouch.value);
 // 手機上沒拿到瀏覽器全螢幕（iPhone）：Safari 的網址列浮在畫面最下面，要讓出一條，不然搖桿、按鈕會被它蓋住
 const realFullscreen = ref(false);
-export const sceneNeedsBarGap = computed(() => sceneFullscreen.value && touchDevice() && !realFullscreen.value);
+// 從主畫面書籤開的（App 模式）沒有網址列，不用讓
+export const sceneNeedsBarGap = computed(() => sceneFullscreen.value && touchDevice() && !realFullscreen.value && !standaloneApp());
+
+function standaloneApp(): boolean {
+  return (navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+}
 
 function touchDevice(): boolean {
   return window.matchMedia('(pointer: coarse)').matches;
@@ -22,15 +27,40 @@ function blockPageScroll(event: TouchEvent): void {
   if (event.cancelable) event.preventDefault();
 }
 
+// 從主畫面的書籤（App 模式）開、手機轉橫時，iPhone 會把整頁往下推一截（scrollY 變負的），
+// 畫面上看到的搖桿跟手指實際按到的位置就差了幾十點，按不到。全螢幕時把整頁釘在最上面，轉向時再歸零一次
+let savedScrollY = 0;
+function resetScroll(): void {
+  window.scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+}
+
 function lockPage(lock: boolean): void {
-  document.documentElement.style.overflow = lock ? 'hidden' : '';
-  document.body.style.overflow = lock ? 'hidden' : '';
-  document.documentElement.style.overscrollBehavior = lock ? 'none' : '';
+  const html = document.documentElement.style;
+  const body = document.body.style;
+  if (lock) {
+    savedScrollY = window.scrollY;
+    resetScroll();
+  }
+  html.overflow = lock ? 'hidden' : '';
+  html.overscrollBehavior = lock ? 'none' : '';
+  body.overflow = lock ? 'hidden' : '';
+  body.position = lock ? 'fixed' : '';
+  body.top = lock ? '0' : '';
+  body.left = lock ? '0' : '';
+  body.width = lock ? '100%' : '';
+  if (!lock) window.scrollTo(0, savedScrollY);
 }
 
 function updatePortrait(): void {
   portraitTouch.value = touchDevice() && window.innerHeight > window.innerWidth;
   realFullscreen.value = !!document.fullscreenElement;
+  if (sceneFullscreen.value) {
+    resetScroll();
+    // iPhone 轉向的動畫跑完才會把頁面推下去：等一下再歸零一次
+    window.setTimeout(resetScroll, 400);
+  }
 }
 
 function onFullscreenChange(): void {
