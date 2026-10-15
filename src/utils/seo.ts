@@ -7,17 +7,18 @@ export interface RouteSeoMeta {
 }
 
 const SITE_URL = 'https://focus-island.huangyanming.com';
-const SEO_IMAGE_URL = 'https://imgs.huangyanming.com/Focus-Island.png';
+// 像素風的分享圖（1200×630，湖畔咖啡＋標題），放在 public/
+const SEO_IMAGE_URL = `${SITE_URL}/og-image.png`;
 
 const DEFAULT_SEO: Record<LocaleKey, { title: string; description: string }> = {
   'en-US': {
     title: 'Focus Island | Online Study Room & Pomodoro Timer',
     description:
-      'Focus Island is a visual online study room with synced seats, a Pomodoro timer, ambient sound, and daily focus tracking.',
+      'Focus Island is a pixel-art online study room with synced seats, a Pomodoro timer, ambient sound, and daily focus tracking.',
   },
   'zh-TW': {
-    title: 'Focus Island | 專注自習室與番茄鐘',
-    description: 'Focus Island 是可視化的線上專注自習室，提供座位同步、番茄鐘、白噪音與每日專注進度追蹤。',
+    title: 'Focus Island｜像素風線上自習室與番茄鐘',
+    description: 'Focus Island 是像素風的線上專注自習室，提供座位同步、番茄鐘、白噪音與每日專注進度追蹤。',
   },
 };
 

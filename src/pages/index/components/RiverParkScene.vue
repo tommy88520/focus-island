@@ -34,6 +34,42 @@
         <button type="button" class="pixel-btn pixel-btn--primary h-9 px-4 text-xs" @click="emit('leave')">{{ t.riverPark.goBack }}</button>
       </div>
 
+      <!-- 湖畔咖啡：跟店員點飲料（用專注幣） -->
+      <div v-if="cafeOpen && !stationOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(20rem,calc(100%-1.5rem))] -translate-x-1/2 px-4 py-3">
+        <div class="!flex !flex-nowrap items-center justify-between gap-2">
+          <p class="!mb-0 text-sm font-black">☕ {{ t.riverPark.cafeMenu }}</p>
+          <button type="button" class="text-[color:var(--px-muted)]" :aria-label="t.seatScene.profileClose" @click="closeCafe">
+            <q-icon name="close" size="18px" />
+          </button>
+        </div>
+        <p class="!mb-2 mt-1 text-[11px] font-bold text-[color:var(--px-muted)]">🪙 {{ t.seatScene.coinsLeft(prefs.coins) }}</p>
+        <div class="!flex flex-col !flex-nowrap gap-1.5">
+          <button
+            v-for="drink in cafeMenu"
+            :key="drink.id"
+            type="button"
+            class="pixel-btn pixel-btn--primary h-10 w-full justify-between px-3 text-xs"
+            :disabled="prefs.coins < drink.price"
+            @click="buyDrink(drink)"
+          >
+            <span>{{ drink.emoji }} {{ drink.name[locale] }}</span>
+            <span>🪙 {{ drink.price }}</span>
+          </button>
+        </div>
+        <p v-if="cafeMenu.every((d) => prefs.coins < d.price)" class="!mb-0 mt-2 text-[11px] text-[color:var(--px-muted)]">{{ t.seatScene.notEnoughCoins }}</p>
+      </div>
+
+      <!-- YouBike：借車／騎上停好的車／下車 -->
+      <button
+        v-if="bikeAction && !disabled"
+        type="button"
+        class="pixel-btn pixel-btn--primary absolute right-2 h-9 px-3 text-xs"
+        :class="isTouch ? 'bottom-28' : 'bottom-2'"
+        @click="toggleBike"
+      >
+        {{ bikeAction === 'off' ? t.seatScene.getOff : bikeAction === 'rent' ? t.riverPark.rentBike : t.riverPark.rideBike }}
+      </button>
+
       <!-- 手機搖桿 -->
       <div
         v-if="isTouch"
@@ -60,14 +96,15 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { Reader } from 'src/pages/index/composables/useLibrarySocket';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
 import { localPoint } from 'src/pages/index/composables/sceneFullscreen';
 import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
-import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, SEATED_ROWS, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
+import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, paintVehicle, SEATED_ROWS, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
+import { getBaristaFrame, paintBikeRack, paintCafe, paintCafeDeck, paintMenuSign } from 'src/pages/index/pixel/parkCafe';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
 import { takeArrival } from 'src/pages/index/shareLocation';
 
@@ -81,7 +118,7 @@ const props = defineProps<{
   getMateAtSeat: (seatId: string) => Reader | null | undefined;
 }>();
 const emit = defineEmits<{ leave: []; select: [seatId: string]; 'end-focus': [] }>();
-const { t } = useLocale();
+const { t, locale } = useLocale();
 const prefs = usePlayerPrefs();
 
 const containerRef = ref<HTMLDivElement | null>(null);
@@ -126,7 +163,18 @@ const BRIDGE_X = (BRIDGE.x0 + BRIDGE.x1) / 2;
 const NORTH_WALK = { y0: 13, y1: CANAL.y0 };
 const SOUTH_WALK = { y0: CANAL.y1, y1: 24 };
 const STATION = { x0: 2, y0: 1.5, x1: 6, y1: 4, trigger: { x: 4, y: 5 } };
-const CAFE = { x0: 40, y0: 6.5, x1: 48, y1: 11 };
+const CAFE = { x0: 38.5, y0: 5.25, x1: 49.5, y1: 11.25 };
+// 咖啡屋前的木頭露台；店員站在門口右邊，旁邊一塊立式黑板菜單
+const DECK = { x0: 38.75, y0: CAFE.y1, x1: 49.75, y1: 13 };
+const BARISTA = { x: 47.9, y: 11.85 };
+const MENU_SIGN = { x: 49.1, y: 12.2 };
+// YouBike 站（左上角、寬 3 格）：捷運站旁一個、南岸一個
+const BIKE_STATIONS = [
+  { x: 6.6, y: 5.6 },
+  { x: 44.5, y: 24.7 },
+];
+const BIKE_SPEED = 7.5;
+const WALK_SPEED = 4.2;
 const TOWERS = [
   { x0: 22.5, y0: 10, x1: 25.5, y1: 12.6 },
   { x0: 29.5, y0: 24.6, x1: 32.5, y1: 27.2 },
@@ -155,7 +203,7 @@ const TREES = [
     [29, 4],
     [33, 7.5],
     [36, 3.5],
-    [50, 4],
+    [52.5, 3.5],
     [53, 8],
     [8, 31],
     [16, 30],
@@ -198,6 +246,9 @@ const blocked = (x: number, y: number) =>
   TOWERS.some((r) => inRect(x, y, r)) ||
   SEAT_SPOTS.some((s) => Math.abs(x - s.x) < 0.45 && Math.abs(y - s.y) < 0.4) ||
   CAFE_TABLES.some((s) => Math.hypot(x - s.x, y - s.y) < 0.45) ||
+  Math.hypot(x - BARISTA.x, y - BARISTA.y) < 0.4 ||
+  Math.hypot(x - MENU_SIGN.x, y - MENU_SIGN.y) < 0.35 ||
+  BIKE_STATIONS.some((b) => x > b.x && x < b.x + 3 && y > b.y + 0.2 && y < b.y + 0.85) ||
   TREES.some((tr) => Math.abs(x - tr.x) < 0.35 && Math.abs(y - tr.y) < 0.3) ||
   LAMPS.some((l) => Math.abs(x - l.x) < 0.25 && Math.abs(y - l.y) < 0.25);
 
@@ -209,6 +260,104 @@ let seatedIndex: number | null = null;
 let route: { x: number; y: number }[] = [];
 let walkTarget: number | null = null;
 let stuckFor = 0;
+
+// ── YouBike：公園是自己一個人的地圖，車子也只有自己看得到，一次一台 ──
+let riding = false;
+// 不在站旁邊下車：車子停在原地，之後可以再騎上去；在站旁邊下車就是還車
+let parkedBike: { x: number; y: number; facing: Facing } | null = null;
+const bikeAction = ref<'rent' | 'ride' | 'off' | null>(null);
+
+function stationNear(): boolean {
+  return BIKE_STATIONS.some((b) => Math.hypot(me.x - (b.x + 1.5), me.y - (b.y + 1.4)) < 1.6);
+}
+
+function parkedNear(): boolean {
+  return parkedBike !== null && Math.hypot(me.x - parkedBike.x, me.y - parkedBike.y) < 1.3;
+}
+
+function mount(): void {
+  if (seatedIndex !== null) standUp();
+  if (parkedBike && parkedNear()) {
+    me.x = parkedBike.x;
+    me.y = parkedBike.y;
+    me.facing = parkedBike.facing;
+  }
+  parkedBike = null;
+  riding = true;
+  route = [];
+  walkTarget = null;
+}
+
+function dismount(): void {
+  riding = false;
+  if (!stationNear()) parkedBike = { x: me.x, y: me.y, facing: me.facing };
+}
+
+function toggleBike(): void {
+  if (riding) dismount();
+  else if (parkedNear() || stationNear()) mount();
+  containerRef.value?.focus({ preventScroll: true });
+}
+
+// ── 湖畔咖啡的店員：走到她面前會打招呼、跳出菜單，用專注幣買飲料（拿在手上 3 分鐘，只有自己看得到） ──
+interface Drink {
+  id: string;
+  emoji: string;
+  price: number;
+  name: { 'zh-TW': string; 'en-US': string };
+}
+const cafeMenu = computed<Drink[]>(() => [
+  { id: 'latte', emoji: '☕', price: 35, name: { 'zh-TW': '石虎拿鐵', 'en-US': 'Leopard cat latte' } },
+  { id: 'matcha', emoji: '🍵', price: 40, name: { 'zh-TW': '抹茶拿鐵', 'en-US': 'Matcha latte' } },
+  season.value === 'snow'
+    ? { id: 'cocoa', emoji: '🍫', price: 45, name: { 'zh-TW': '熱可可（加棉花糖）', 'en-US': 'Hot cocoa with marshmallows' } }
+    : { id: 'sakura', emoji: '🌸', price: 45, name: { 'zh-TW': '櫻花星冰樂', 'en-US': 'Sakura frappé' } },
+]);
+const HOLD_DRINK_S = 180;
+const cafeOpen = ref(false);
+let cafeDismissed = false;
+let heldDrink: { emoji: string; until: number } | null = null;
+let baristaSays: { text: string; until: number } | null = null;
+let meSays: { text: string; until: number } | null = null;
+let greetedAt = -Infinity;
+
+const nowS = () => performance.now() / 1000;
+
+function nearBarista(): boolean {
+  return Math.hypot(me.x - BARISTA.x, me.y - BARISTA.y) < 1.7;
+}
+
+function closeCafe(): void {
+  cafeOpen.value = false;
+  cafeDismissed = true;
+  containerRef.value?.focus({ preventScroll: true });
+}
+
+function buyDrink(drink: Drink): void {
+  if (prefs.value.coins < drink.price) return;
+  prefs.value.coins -= drink.price;
+  const now = nowS();
+  heldDrink = { emoji: drink.emoji, until: now + HOLD_DRINK_S };
+  baristaSays = { text: t.value.riverPark.baristaThanks, until: now + 3.5 };
+  meSays = { text: `${drink.emoji} ${t.value.riverPark.tasty}`, until: now + 2.5 };
+  closeCafe();
+}
+
+function updateCafe(): void {
+  const near = nearBarista() && seatedIndex === null && !riding && !props.disabled;
+  if (!near) {
+    cafeDismissed = false;
+    cafeOpen.value = false;
+    return;
+  }
+  if (cafeOpen.value || cafeDismissed) return;
+  cafeOpen.value = true;
+  const now = nowS();
+  if (now - greetedAt > 20) {
+    greetedAt = now;
+    baristaSays = { text: t.value.riverPark.baristaHello, until: now + 3.5 };
+  }
+}
 
 const keys = new Set<string>();
 const stick = { x: 0, y: 0 };
@@ -252,6 +401,7 @@ function sitAt(i: number): void {
   const seat = props.seats[i];
   const spot = SEAT_SPOTS[i];
   if (!seat || !spot) return;
+  if (riding) dismount();
   seatedIndex = i;
   walkTarget = null;
   route = [];
@@ -317,6 +467,7 @@ function placeNear(at: { x: number; y: number }): void {
 
 function walkTo(to: { x: number; y: number }, seat: number | null): void {
   if (seatedIndex !== null) standUp();
+  if (seat !== null && riding) dismount();
   route = planRoute(to);
   walkTarget = seat;
   stuckFor = 0;
@@ -324,8 +475,9 @@ function walkTo(to: { x: number; y: number }, seat: number | null): void {
 
 function step(dx: number, dy: number, dt: number): void {
   const length = Math.hypot(dx, dy) || 1;
-  const nx = me.x + (dx / length) * 4.2 * dt;
-  const ny = me.y + (dy / length) * 4.2 * dt;
+  const speed = riding ? BIKE_SPEED : WALK_SPEED;
+  const nx = me.x + (dx / length) * speed * dt;
+  const ny = me.y + (dy / length) * speed * dt;
   const beforeX = me.x;
   const beforeY = me.y;
   if (!blocked(nx, me.y)) me.x = nx;
@@ -379,6 +531,8 @@ function updateWalk(dt: number): void {
   const atStation = Math.hypot(me.x - STATION.trigger.x, me.y - STATION.trigger.y) < 1.1;
   if (!atStation) stationLock = false;
   stationOpen.value = atStation && !stationLock && seatedIndex === null;
+  updateCafe();
+  bikeAction.value = seatedIndex !== null ? null : riding ? 'off' : parkedNear() ? 'ride' : stationNear() ? 'rent' : null;
 }
 
 // ── 光線：跟圖書館那張地圖一樣看當地時間（5–8 清晨、8–15 白天、15–18 黃昏、其他晚上） ──
@@ -595,32 +749,6 @@ function towerTop(r: { x0: number; x1: number; y1: number; y0: number }): { x: n
 }
 
 
-// 玻璃咖啡屋：薄薄的屋頂板、整面玻璃牆，裡面暖色燈光
-function drawCafe(c: CanvasRenderingContext2D, lit: boolean, snow: boolean): void {
-  const x = CAFE.x0 * T;
-  const y = CAFE.y0 * T;
-  const w = (CAFE.x1 - CAFE.x0) * T;
-  const h = (CAFE.y1 - CAFE.y0) * T;
-  px(c, 'rgba(0,0,0,0.22)', x + 4, y + h - 2, w, 6);
-  px(c, '#cfc7b8', x - 2, y + h - 4, w + 4, 6);
-  // 室內
-  px(c, lit ? '#f6d48b' : '#e9dcc0', x + 4, y + 10, w - 8, h - 14);
-  for (let i = 0; i < 5; i += 1) px(c, '#7a5236', x + 10 + i * 22, y + h - 18, 10, 6);
-  px(c, '#4a3a2c', x + 8, y + 16, 30, 8);
-  // 玻璃牆
-  c.fillStyle = lit ? 'rgba(255, 236, 190, 0.25)' : 'rgba(170, 220, 240, 0.45)';
-  c.fillRect(x + 4, y + 10, w - 8, h - 14);
-  for (let gx = x + 4; gx <= x + w - 4; gx += 16) px(c, '#e8ecef', gx, y + 10, 2, h - 14);
-  px(c, 'rgba(255,255,255,0.55)', x + 8, y + 12, 18, 2);
-  // 屋頂板
-  px(c, '#f4f2ea', x - 6, y, w + 12, 10);
-  px(c, '#2f6b4f', x - 6, y + 8, w + 12, 3);
-  if (snow) {
-    px(c, '#ffffff', x - 7, y - 4, w + 14, 5);
-    px(c, '#ffffff', x - 4, y - 6, w + 8, 2);
-  }
-}
-
 function drawBoat(c: CanvasRenderingContext2D, seconds: number): void {
   // 遊船：在運河上慢慢來回
   const span = 46;
@@ -692,6 +820,59 @@ function drawPerson(c: CanvasRenderingContext2D, colors: AvatarColors, x: number
   const sprite = getAvatarFrame(colors, facing, frame);
   px(c, 'rgba(0,0,0,0.18)', Math.round(x * T - 5), Math.round(y * T + 3), 10, 2);
   c.drawImage(sprite, Math.round(x * T - AVATAR_SIZE.w / 2), Math.round(y * T + 5 - AVATAR_SIZE.h));
+}
+
+// 店員：平常站著眨眼，打招呼時揮手
+function drawBarista(c: CanvasRenderingContext2D, seconds: number): void {
+  const greeting = baristaSays !== null && nowS() < baristaSays.until;
+  const frame = greeting && Math.floor(seconds / 0.3) % 2 === 0 ? 'wave' : seconds % 4 < 0.14 ? 'blink' : 'idle';
+  const bob = !greeting && Math.floor(seconds / 0.8) % 2 === 0 ? 1 : 0;
+  const x = Math.round(BARISTA.x * T);
+  const y = Math.round(BARISTA.y * T);
+  px(c, 'rgba(0,0,0,0.18)', x - 5, y + 3, 10, 2);
+  c.drawImage(getBaristaFrame(frame), x - 8, y + 5 - 20 + bob);
+}
+
+function drawBike(c: CanvasRenderingContext2D, x: number, y: number, facing: Facing, moving: boolean, seconds: number): void {
+  paintVehicle(c, 'bike', facing, x * T, y * T + 5, 'back', seconds, moving);
+  paintVehicle(c, 'bike', facing, x * T, y * T + 5, 'front', seconds, moving);
+}
+
+// 騎車：先畫車身，再畫坐在上面的人（只畫到腰），最後畫把手
+function drawRider(c: CanvasRenderingContext2D, colors: AvatarColors, seconds: number): void {
+  const footX = me.x * T;
+  const footY = me.y * T + 5;
+  paintVehicle(c, 'bike', me.facing, footX, footY, 'back', seconds, me.moving);
+  c.drawImage(getAvatarFrame(colors, me.facing, 'idle'), 0, 0, AVATAR_SIZE.w, SEATED_ROWS, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - 7 - SEATED_ROWS), AVATAR_SIZE.w, SEATED_ROWS);
+  paintVehicle(c, 'bike', me.facing, footX, footY, 'front', seconds, me.moving);
+}
+
+// 對話泡泡（螢幕座標）：白底、下面一個小尖角
+function bubble(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number): void {
+  c.font = '700 12px system-ui, -apple-system, "PingFang TC", sans-serif';
+  const width = Math.ceil(c.measureText(text).width) + 16;
+  const height = 22;
+  const left = Math.round(cx - width / 2);
+  const top = Math.round(bottom - height - 6);
+  c.fillStyle = '#ffffff';
+  c.strokeStyle = '#2b2135';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.roundRect(left, top, width, height, 8);
+  c.fill();
+  c.stroke();
+  c.beginPath();
+  c.moveTo(cx - 5, top + height - 0.5);
+  c.lineTo(cx, top + height + 6);
+  c.lineTo(cx + 5, top + height - 0.5);
+  c.fill();
+  c.stroke();
+  c.fillStyle = '#ffffff';
+  c.fillRect(cx - 4, top + height - 2, 8, 2);
+  c.fillStyle = '#2b2135';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText(text, cx, top + height / 2 + 0.5);
 }
 
 function strollerPose(s: (typeof STROLLERS)[number], seconds: number): { x: number; facing: Facing } {
@@ -766,7 +947,13 @@ function drawLighting(c: CanvasRenderingContext2D, seconds: number): void {
       glow(lamp.x * T, lamp.y * T - 25, 22, 'rgba(255, 236, 170, 0.55)');
       glow(lamp.x * T, lamp.y * T + 4, 44, 'rgba(255, 214, 140, 0.3)');
     }
-    glow(((CAFE.x0 + CAFE.x1) / 2) * T, CAFE.y1 * T, 90, 'rgba(255, 200, 120, 0.4)');
+    // 落地窗整面亮起來，光灑在露台上
+    c.fillStyle = 'rgba(255, 190, 110, 0.35)';
+    c.fillRect(CAFE.x0 * T, CAFE.y0 * T + 36, (CAFE.x1 - CAFE.x0) * T, (CAFE.y1 - CAFE.y0) * T - 44);
+    const cafeX = ((CAFE.x0 + CAFE.x1) / 2) * T;
+    glow(cafeX, CAFE.y1 * T - 20, 120, 'rgba(255, 205, 130, 0.45)');
+    glow(cafeX - 50, CAFE.y1 * T + 10, 60, 'rgba(255, 210, 140, 0.25)');
+    glow(cafeX + 50, CAFE.y1 * T + 10, 60, 'rgba(255, 210, 140, 0.25)');
     for (const r of TOWERS) {
       const top = towerTop(r);
       glow(top.x, top.y + 6, 40, `rgba(255, 230, 170, ${0.4 + Math.sin(seconds * 1.2) * 0.04})`);
@@ -802,6 +989,7 @@ function render(seconds: number): void {
   ctx.imageSmoothingEnabled = false;
   ctx.setTransform(scale * dpr, 0, 0, scale * dpr, ox * dpr, oy * dpr);
   if (ground) ctx.drawImage(ground, 0, 0);
+  paintCafeDeck(ctx, DECK.x0 * T, DECK.y0 * T, (DECK.x1 - DECK.x0) * T, (DECK.y1 - DECK.y0) * T, snow);
 
   const c = ctx;
   drawBoat(c, seconds);
@@ -809,7 +997,12 @@ function render(seconds: number): void {
   // 依 y 排前後
   const items: { y: number; draw: () => void }[] = [];
   items.push({ y: STATION.y1, draw: () => drawStation(c, snow) });
-  items.push({ y: CAFE.y1, draw: () => drawCafe(c, lit, snow) });
+  items.push({ y: CAFE.y1, draw: () => paintCafe(c, CAFE.x0 * T, CAFE.y0 * T, (CAFE.x1 - CAFE.x0) * T, (CAFE.y1 - CAFE.y0) * T, { lit, snow, seconds }) });
+  items.push({ y: BARISTA.y, draw: () => drawBarista(c, seconds) });
+  items.push({ y: MENU_SIGN.y, draw: () => paintMenuSign(c, MENU_SIGN.x * T, MENU_SIGN.y * T + 4) });
+  BIKE_STATIONS.forEach((b) => items.push({ y: b.y + 0.8, draw: () => paintBikeRack(c, Math.round(b.x * T), Math.round(b.y * T), 3, snow) }));
+  const parked = parkedBike;
+  if (parked) items.push({ y: parked.y + 0.35, draw: () => drawBike(c, parked.x, parked.y, parked.facing, false, seconds) });
   TOWERS.forEach((r) => items.push({ y: r.y1, draw: () => drawTower(c, r, lit, snow) }));
   TREES.forEach((tree) => items.push({ y: tree.y, draw: () => drawTree(c, tree, seconds, snow) }));
   if (!snow) PICNICS.forEach((p) => items.push({ y: p.y - 1, draw: () => drawPicnic(c, p) }));
@@ -820,7 +1013,13 @@ function render(seconds: number): void {
     const pose = strollerPose(s, seconds);
     items.push({ y: s.y, draw: () => drawPerson(c, avatarColorsFor(s.look), pose.x, s.y, pose.facing, true, seconds + i) });
   });
-  if (seatedIndex === null) items.push({ y: me.y + 0.35, draw: () => drawPerson(c, lookColors(prefs.value.hair, prefs.value.shirt), me.x, me.y, me.facing, me.moving, me.walkClock) });
+  if (seatedIndex === null) {
+    const colors = lookColors(prefs.value.hair, prefs.value.shirt);
+    items.push({
+      y: me.y + 0.35,
+      draw: () => (riding ? drawRider(c, colors, seconds) : drawPerson(c, colors, me.x, me.y, me.facing, me.moving, me.walkClock)),
+    });
+  }
   items.sort((a, b) => a.y - b.y).forEach((item) => item.draw());
   drawLighting(c, seconds);
 
@@ -834,8 +1033,23 @@ function render(seconds: number): void {
   pill(ctx, t.value.riverPark.cafe, cp.x, cp.y, '#fbbf24');
   const bp = screen(BRIDGE_X, CANAL.y1 + 1.6);
   pill(ctx, t.value.riverPark.bridge, bp.x, bp.y, '#f87171');
-  const mp = seatedIndex === null ? screen(me.x, me.y - 1.1) : screen(SEAT_SPOTS[seatedIndex]?.x ?? me.x, (SEAT_SPOTS[seatedIndex]?.y ?? me.y) - 1.1);
+  const mp = seatedIndex === null ? screen(me.x, me.y - (riding ? 1.45 : 1.1)) : screen(SEAT_SPOTS[seatedIndex]?.x ?? me.x, (SEAT_SPOTS[seatedIndex]?.y ?? me.y) - 1.1);
   pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
+  // 手上的飲料、說的話
+  const now = nowS();
+  if (heldDrink && now > heldDrink.until) heldDrink = null;
+  if (heldDrink) {
+    const hp = seatedIndex === null ? screen(me.x + 0.5, me.y - 0.2) : screen((SEAT_SPOTS[seatedIndex]?.x ?? me.x) + 0.5, (SEAT_SPOTS[seatedIndex]?.y ?? me.y) - 0.3);
+    ctx.font = `${Math.round(scale * 6)}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(heldDrink.emoji, hp.x, hp.y);
+  }
+  if (meSays && now < meSays.until) bubble(ctx, meSays.text, mp.x, mp.y - 24);
+  if (baristaSays && now < baristaSays.until) {
+    const bp2 = screen(BARISTA.x, BARISTA.y - 1.3);
+    bubble(ctx, baristaSays.text, bp2.x, bp2.y);
+  }
   SEAT_SPOTS.forEach((spot, i) => {
     const mate = props.seats[i] ? props.getMateAtSeat(props.seats[i]?.id ?? '') : null;
     if (!mate) return;
@@ -932,10 +1146,13 @@ function onKeyDown(event: KeyboardEvent): void {
   }
   if (event.code === 'KeyE' || event.code === 'Space') {
     event.preventDefault();
-    if (seatedIndex !== null) standUp();
+    if (riding) dismount();
+    else if (seatedIndex !== null) standUp();
     else {
       const seat = nearestSeat();
       if (seat !== null) sitAt(seat);
+      else if (parkedNear() || stationNear()) mount();
+      else if (nearBarista()) cafeDismissed = false;
     }
   }
 }
@@ -960,6 +1177,20 @@ function handleClick(event: MouseEvent): void {
   if (props.disabled) {
     // 點自己的座位不算要離開
     if (seat < 0 || seat !== seatedIndex) askToLeave(() => handleClick(event));
+    return;
+  }
+  // 點店員：走到她面前；點停著的車或 YouBike 站：走過去
+  if (Math.abs(x - BARISTA.x) < 0.6 && y > BARISTA.y - 1.4 && y < BARISTA.y + 0.4) {
+    walkTo({ x: BARISTA.x, y: BARISTA.y + 0.9 }, null);
+    return;
+  }
+  if (parkedBike && Math.hypot(x - parkedBike.x, y - parkedBike.y) < 0.9) {
+    walkTo({ x: parkedBike.x, y: parkedBike.y + 0.6 }, null);
+    return;
+  }
+  const rack = BIKE_STATIONS.find((b) => x > b.x && x < b.x + 3 && y > b.y - 1 && y < b.y + 1);
+  if (rack) {
+    walkTo({ x: rack.x + 1.5, y: rack.y + 1.4 }, null);
     return;
   }
   if (seat >= 0) {

@@ -44,7 +44,7 @@
           <!-- 全螢幕時搬到 body 底下，才蓋得過上面的選單跟底部工具列（元件不會重建） -->
           <Teleport to="body" :disabled="!sceneFullscreen">
           <div ref="sceneShellRef" class="scene-shell" :class="{ 'scene-shell--fs': sceneFullscreen }">
-          <div class="scene-rotor" :class="{ 'scene-rotor--rotated': sceneRotated, 'scene-rotor--bar-gap': sceneNeedsBarGap }">
+          <div ref="sceneRotorRef" class="scene-rotor" :class="{ 'scene-rotor--rotated': sceneRotated, 'scene-rotor--bar-gap': sceneNeedsBarGap }">
           <button
             v-if="useCanvasScene"
             type="button"
@@ -130,7 +130,20 @@
     class="fixed inset-x-1 bottom-1 z-50 sm:inset-x-auto sm:bottom-3 sm:left-1/2 sm:w-max sm:max-w-[calc(100vw-1.5rem)] sm:-translate-x-1/2"
     :style="{ paddingBottom: 'env(safe-area-inset-bottom)' }"
   >
-    <div class="pixel-panel flex flex-col !flex-nowrap gap-2 p-2 sm:flex-row sm:items-center sm:gap-3 sm:px-3">
+    <!-- 全螢幕時計時、音樂搬進地圖裡（跟著一起轉），可以收成一顆小按鈕；YouTube 播放器不搬（iframe 搬了會重新載入） -->
+    <Teleport :to="sceneRotorRef ?? 'body'" :disabled="!sceneFullscreen">
+    <div :class="{ 'fs-dock': sceneFullscreen }">
+    <button
+      v-if="sceneFullscreen"
+      type="button"
+      class="pixel-btn fs-dock__toggle h-8 px-3 text-xs"
+      :aria-expanded="!dockCollapsed"
+      @click="dockCollapsed = !dockCollapsed"
+    >
+      <template v-if="dockCollapsed">⏱ {{ formattedTime }} <q-icon name="expand_less" size="16px" /></template>
+      <template v-else><q-icon name="expand_more" size="16px" /> {{ t.indexPage.collapseDock }}</template>
+    </button>
+    <div v-show="!sceneFullscreen || !dockCollapsed" class="pixel-panel flex flex-col !flex-nowrap gap-2 p-2 sm:flex-row sm:items-center sm:gap-3 sm:px-3">
       <FocusClockPanel
         :is-running="store.isRunning"
         :base-duration="store.baseDuration"
@@ -160,6 +173,8 @@
       <div class="hide-below-sm h-10 w-[2px] bg-[color:var(--px-ink)] opacity-30"></div>
       <AmbientAudioPlayer ref="audioPlayerRef" :audio="audio" />
     </div>
+    </div>
+    </Teleport>
     <YouTubeTv :audio="audio" />
   </div>
 </template>
@@ -234,6 +249,9 @@ const isShake = ref(false);
 // WebGL 不可用（或建立 renderer 失敗）時退回 2D 座位格子
 const useCanvasScene = ref(true);
 const sceneShellRef = ref<HTMLElement | null>(null);
+const sceneRotorRef = ref<HTMLElement | null>(null);
+// 全螢幕時底部的計時／音樂預設收起來，點一下展開
+const dockCollapsed = ref(true);
 function toggleSceneFullscreen() {
   if (sceneFullscreen.value) void exitSceneFullscreen();
   else if (sceneShellRef.value) void enterSceneFullscreen(sceneShellRef.value);
@@ -1154,8 +1172,8 @@ watch([currentFloor, activeZoneId], ([, zone], [, previousZone]) => {
 watch(
   [() => store.timeLeft, () => t.value],
   ([newTime]) => {
-    const status = store.isRunning ? t.value.indexPage.documentTitleFocused : t.value.indexPage.documentTitleIdle;
-    document.title = `${formatTime(newTime)} | ${status}`;
+    // 專注中分頁標題顯示倒數；沒在專注就是網站名稱
+    document.title = store.isRunning ? `⏳ ${formatTime(newTime)} ${t.value.indexPage.documentTitleFocused}` : t.value.indexPage.documentTitleIdle;
   },
   { immediate: true },
 );
@@ -1267,10 +1285,33 @@ watch(
 .scene-shell--fs .scene-rotor--rotated.scene-rotor--bar-gap {
   width: calc(100dvh - 72px);
 }
-.scene-shell--fs .scene-rotor > :deep(div),
+.scene-shell--fs .scene-rotor > :deep(div:not(.fs-dock)),
 .scene-shell--fs :deep(.scene-box) {
   height: 100% !important;
   min-height: 0 !important;
+}
+.fs-dock {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 30;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 16px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.fs-dock__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+/* 地圖下面那行操作說明全螢幕時不用（會露在 Safari 網址列那條） */
+.scene-shell--fs :deep(.scene-box + p) {
+  display: none;
 }
 .scene-shell--fs :deep(.scene-box) {
   border-radius: 0;
