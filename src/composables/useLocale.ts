@@ -4,10 +4,17 @@ export type LocaleKey = 'zh-TW' | 'en-US';
 
 const APP_LOCALE_KEY = 'focus_island_app_locale_v1';
 
+// 自己切過語言就用切過的；沒切過就看瀏覽器的第一個偏好語言：中文（不分繁簡）給中文，其他一律英文
 function readStoredLocale(): LocaleKey {
-  if (typeof localStorage === 'undefined') return 'en-US';
-  const stored = localStorage.getItem(APP_LOCALE_KEY);
-  return stored === 'zh-TW' ? 'zh-TW' : 'en-US';
+  try {
+    const stored = localStorage.getItem(APP_LOCALE_KEY);
+    if (stored === 'zh-TW' || stored === 'en-US') return stored;
+  } catch {
+    // ignore storage errors (e.g. private mode)
+  }
+  if (typeof navigator === 'undefined') return 'en-US';
+  const preferred = navigator.languages?.[0] ?? navigator.language ?? '';
+  return preferred.toLowerCase().startsWith('zh') ? 'zh-TW' : 'en-US';
 }
 
 // Module-scoped singleton so every component/composable shares one locale.
