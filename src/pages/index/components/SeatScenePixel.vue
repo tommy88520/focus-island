@@ -2,7 +2,7 @@
   <div class="relative" :class="{ 'shake-error': isShake }">
     <div
       ref="containerRef"
-      class="relative h-[calc(100dvh-350px)] min-h-[320px] w-full overflow-hidden rounded-[3px] bg-[#1b1d26] outline-none transition-opacity duration-500 focus-visible:ring-2 focus-visible:ring-amber-400/40 lg:h-[calc(100vh-300px)] lg:min-h-[460px]"
+      class="scene-box relative h-[calc(100dvh-350px)] min-h-[320px] w-full overflow-hidden rounded-[3px] bg-[#1b1d26] outline-none transition-opacity duration-500 focus-visible:ring-2 focus-visible:ring-amber-400/40 lg:h-[calc(100vh-300px)] lg:min-h-[460px]"
       :class="isLoading ? 'opacity-0' : 'opacity-100'"
       style="touch-action: pan-y"
       tabindex="0"
@@ -300,6 +300,7 @@ import {
   type OutdoorKind,
 } from 'src/pages/index/pixel/pixelWorld';
 import { useYouTubeTv } from 'src/pages/index/composables/useYouTubeTv';
+import { localPoint, sceneRotated } from 'src/pages/index/composables/sceneFullscreen';
 
 const { tvScreen, showing: youtubeShowing } = useYouTubeTv();
 
@@ -369,10 +370,10 @@ const stickKnob = ref({ x: 0, y: 0 });
 const stick = { x: 0, y: 0 };
 
 function updateStick(event: PointerEvent): void {
-  const rect = stickRef.value?.getBoundingClientRect();
-  if (!rect) return;
-  let x = event.clientX - (rect.left + rect.width / 2);
-  let y = event.clientY - (rect.top + rect.height / 2);
+  if (!stickRef.value) return;
+  const at = localPoint(stickRef.value, event.clientX, event.clientY);
+  let x = at.x - at.width / 2;
+  let y = at.y - at.height / 2;
   const length = Math.hypot(x, y);
   if (length > STICK_RADIUS_PX) {
     x = (x / length) * STICK_RADIUS_PX;
@@ -2604,7 +2605,8 @@ function reportTvScreen(canvas: HTMLCanvasElement): void {
   const y = rect.top + view.oy + screen.y * view.scale;
   const w = screen.w * view.scale;
   const h = screen.h * view.scale;
-  const visible = !minimapOpen.value && x >= rect.left && y >= rect.top && x + w <= rect.right && y + h <= rect.bottom;
+  // 全螢幕轉 90 度時影片疊不準：交給角落的小視窗
+  const visible = !sceneRotated.value && !minimapOpen.value && x >= rect.left && y >= rect.top && x + w <= rect.right && y + h <= rect.bottom;
   Object.assign(tvScreen, { visible, loading: props.isLoading, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
 }
 
@@ -2629,10 +2631,10 @@ function animate(time: number): void {
 function toWorld(event: MouseEvent): { x: number; y: number } | null {
   const canvas = canvasRef.value;
   if (!canvas) return null;
-  const rect = canvas.getBoundingClientRect();
+  const at = localPoint(canvas, event.clientX, event.clientY);
   return {
-    x: (event.clientX - rect.left - view.ox) / view.scale / TILE,
-    y: (event.clientY - rect.top - view.oy) / view.scale / TILE,
+    x: (at.x - view.ox) / view.scale / TILE,
+    y: (at.y - view.oy) / view.scale / TILE,
   };
 }
 
@@ -2745,11 +2747,11 @@ function handleMinimapClick(event: MouseEvent): void {
   const canvas = minimapRef.value;
   if (canvas && askToLeave(() => handleMinimapClick(event))) return;
   if (!canvas || !canInteract()) return;
-  const rect = canvas.getBoundingClientRect();
+  const at = localPoint(canvas, event.clientX, event.clientY);
   const { world } = map;
   const point = {
-    x: world.x0 + ((event.clientX - rect.left) / rect.width) * (world.x1 - world.x0),
-    y: world.y0 + ((event.clientY - rect.top) / rect.height) * (world.y1 - world.y0),
+    x: world.x0 + (at.x / at.width) * (world.x1 - world.x0),
+    y: world.y0 + (at.y / at.height) * (world.y1 - world.y0),
   };
   // 小地圖上點車子（紅點）也算點車子，範圍放寬一點
   const vehicle = vehicles.find((v) => v !== riding && Math.hypot(point.x - v.x, point.y - v.y) < 1.5);

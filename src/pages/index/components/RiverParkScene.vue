@@ -4,7 +4,7 @@
   <div class="relative">
     <div
       ref="containerRef"
-      class="relative h-[calc(100dvh-350px)] min-h-[320px] w-full overflow-hidden rounded-[3px] outline-none lg:h-[calc(100vh-300px)] lg:min-h-[460px]"
+      class="scene-box relative h-[calc(100dvh-350px)] min-h-[320px] w-full overflow-hidden rounded-[3px] outline-none lg:h-[calc(100vh-300px)] lg:min-h-[460px]"
       :class="season === 'snow' ? 'bg-[#e9eef4]' : 'bg-[#86bf68]'"
       style="touch-action: pan-y"
       tabindex="0"
@@ -64,6 +64,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { Reader } from 'src/pages/index/composables/useLibrarySocket';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
+import { localPoint } from 'src/pages/index/composables/sceneFullscreen';
 import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, SEATED_ROWS, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
@@ -951,10 +952,10 @@ function seatAt(x: number, y: number): number {
 // 點座位：走過去坐；點地面：走過去（在對岸就繞天橋）
 function handleClick(event: MouseEvent): void {
   containerRef.value?.focus({ preventScroll: true });
-  const rect = canvasRef.value?.getBoundingClientRect();
-  if (!rect) return;
-  const x = (event.clientX - rect.left - view.ox) / view.scale / T;
-  const y = (event.clientY - rect.top - view.oy) / view.scale / T;
+  const at = canvasRef.value ? localPoint(canvasRef.value, event.clientX, event.clientY) : null;
+  if (!at) return;
+  const x = (at.x - view.ox) / view.scale / T;
+  const y = (at.y - view.oy) / view.scale / T;
   const seat = seatAt(x, y);
   if (props.disabled) {
     // 點自己的座位不算要離開
@@ -970,10 +971,10 @@ function handleClick(event: MouseEvent): void {
 }
 
 function updateStick(event: PointerEvent): void {
-  const rect = stickRef.value?.getBoundingClientRect();
-  if (!rect) return;
-  let x = event.clientX - (rect.left + rect.width / 2);
-  let y = event.clientY - (rect.top + rect.height / 2);
+  if (!stickRef.value) return;
+  const at = localPoint(stickRef.value, event.clientX, event.clientY);
+  let x = at.x - at.width / 2;
+  let y = at.y - at.height / 2;
   const len = Math.hypot(x, y);
   if (len > 30) {
     x = (x / len) * 30;

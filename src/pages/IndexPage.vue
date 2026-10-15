@@ -40,6 +40,19 @@
             @update:active-zone-id="activeZoneId = $event"
           />
 
+          <!-- 地圖全螢幕：外層蓋滿畫面，裡層手機直拿時轉 90 度（sceneFullscreen.ts） -->
+          <div ref="sceneShellRef" class="scene-shell" :class="{ 'scene-shell--fs': sceneFullscreen }">
+          <div class="scene-rotor" :class="{ 'scene-rotor--rotated': sceneRotated }">
+          <button
+            v-if="useCanvasScene"
+            type="button"
+            class="absolute left-2 top-2 z-20 !flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900/80 text-white shadow-lg ring-1 ring-white/15 transition hover:bg-slate-800"
+            :aria-label="sceneFullscreen ? t.indexPage.exitFullscreen : t.indexPage.fullscreen"
+            :title="sceneFullscreen ? t.indexPage.exitFullscreen : t.indexPage.fullscreen"
+            @click="toggleSceneFullscreen"
+          >
+            <q-icon :name="sceneFullscreen ? 'fullscreen_exit' : 'fullscreen'" size="20px" />
+          </button>
           <F1Scene
             v-if="useCanvasScene && sceneLocation === 'f1'"
             ref="f1SceneRef"
@@ -103,6 +116,8 @@
             :get-mate-at-seat="librarySocket.getMateAtSeat"
             @select="selectSeat"
           />
+          </div>
+          </div>
         </section>
       </main>
     </div>
@@ -158,6 +173,7 @@ import RiverParkScene from 'src/pages/index/components/RiverParkScene.vue';
 import { buildShareLink, takeSharedLocation } from 'src/pages/index/shareLocation';
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
+import { enterSceneFullscreen, exitSceneFullscreen, sceneFullscreen, sceneRotated } from 'src/pages/index/composables/sceneFullscreen';
 import SeatScenePixel from 'src/pages/index/components/SeatScenePixel.vue';
 import F1Scene from 'src/pages/index/components/F1Scene.vue';
 import { F1_SEAT_COUNT, F1_SEAT_START, LIBRARY_SEATS, PARK_SEAT_COUNT, PARK_SEAT_START, SEATS_PER_ZONE, type Area } from 'src/pages/index/pixel/pixelMap';
@@ -214,6 +230,11 @@ const selectedSeatId = ref<string | null>(null);
 const isShake = ref(false);
 // WebGL 不可用（或建立 renderer 失敗）時退回 2D 座位格子
 const useCanvasScene = ref(true);
+const sceneShellRef = ref<HTMLElement | null>(null);
+function toggleSceneFullscreen() {
+  if (sceneFullscreen.value) void exitSceneFullscreen();
+  else if (sceneShellRef.value) void enterSceneFullscreen(sceneShellRef.value);
+}
 const isSwitching = ref(false);
 
 const userId = ref(localStorage.getItem('lib_uid') || createRandomId('user'));
@@ -1211,6 +1232,40 @@ watch(
 </script>
 
 <style scoped>
+.scene-shell,
+.scene-rotor {
+  position: relative;
+}
+/* 全螢幕：蓋滿畫面（底部工具列 z-50 也蓋掉） */
+.scene-shell--fs {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #1b1d26;
+}
+.scene-shell--fs .scene-rotor {
+  position: absolute;
+  inset: 0;
+}
+/* 手機直拿又鎖不了方向：整塊轉 90 度（順時針），手機往左轉就是正的 */
+.scene-shell--fs .scene-rotor--rotated {
+  inset: auto;
+  top: 0;
+  left: 100%;
+  width: 100dvh;
+  height: 100dvw;
+  transform-origin: top left;
+  transform: rotate(90deg);
+}
+.scene-shell--fs .scene-rotor > :deep(div),
+.scene-shell--fs :deep(.scene-box) {
+  height: 100% !important;
+  min-height: 0 !important;
+}
+.scene-shell--fs :deep(.scene-box) {
+  border-radius: 0;
+  touch-action: none !important;
+}
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
