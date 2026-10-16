@@ -99,7 +99,8 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import type { Reader } from 'src/pages/index/composables/useLibrarySocket';
+import type { MyPosition, Reader, RemotePlayer } from 'src/pages/index/composables/useLibrarySocket';
+import { createPositionSync, createRemoteView, remoteColors, remoteLabel, type ShownRemote } from 'src/pages/index/sceneRemotes';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
 import { localPoint } from 'src/pages/index/composables/sceneFullscreen';
@@ -118,8 +119,14 @@ const props = defineProps<{
   selectedSeatId: string | null;
   disabled: boolean;
   getMateAtSeat: (seatId: string) => Reader | null | undefined;
+  // 同房間的人（只畫也在公園裡的）
+  remotePlayers: Record<string, RemotePlayer>;
 }>();
-const emit = defineEmits<{ leave: []; select: [seatId: string]; 'end-focus': [] }>();
+const emit = defineEmits<{ leave: []; select: [seatId: string]; 'end-focus': []; position: [position: MyPosition] }>();
+// 自己的位置送給同房間的人；別人的位置平滑地畫出來
+const syncPosition = createPositionSync((pos) => emit('position', pos));
+const viewRemotes = createRemoteView();
+let shownRemotes: ShownRemote[] = [];
 const { t, locale } = useLocale();
 const prefs = usePlayerPrefs();
 
@@ -1015,6 +1022,24 @@ function render(seconds: number): void {
     const pose = strollerPose(s, seconds);
     items.push({ y: s.y, draw: () => drawPerson(c, avatarColorsFor(s.look), pose.x, s.y, pose.facing, true, seconds + i) });
   });
+  for (const other of shownRemotes) {
+    if (other.remote.lying) continue;
+    const colors = remoteColors(other.remote);
+    items.push({
+      y: other.y + 0.35,
+      draw: () => {
+        if (other.remote.vehicle === 'bike') {
+          const footX = other.x * T;
+          const footY = other.y * T + 5;
+          paintVehicle(c, 'bike', other.remote.facing, footX, footY, 'back', seconds, other.remote.moving);
+          c.drawImage(getAvatarFrame(colors, other.remote.facing, 'idle'), 0, 0, AVATAR_SIZE.w, SEATED_ROWS, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - 7 - SEATED_ROWS), AVATAR_SIZE.w, SEATED_ROWS);
+          paintVehicle(c, 'bike', other.remote.facing, footX, footY, 'front', seconds, other.remote.moving);
+        } else {
+          drawPerson(c, colors, other.x, other.y, other.remote.facing, other.remote.moving, seconds);
+        }
+      },
+    });
+  }
   if (seatedIndex === null) {
     const colors = lookColors(prefs.value.hair, prefs.value.shirt);
     items.push({
@@ -1037,6 +1062,10 @@ function render(seconds: number): void {
   pill(ctx, t.value.riverPark.bridge, bp.x, bp.y, '#f87171');
   const mp = seatedIndex === null ? screen(me.x, me.y - (riding ? 1.45 : 1.1)) : screen(SEAT_SPOTS[seatedIndex]?.x ?? me.x, (SEAT_SPOTS[seatedIndex]?.y ?? me.y) - 1.1);
   pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
+  for (const other of shownRemotes) {
+    const op = screen(other.x, other.y - (other.remote.vehicle === 'bike' ? 1.45 : 1.1));
+    pill(ctx, remoteLabel(other), op.x, op.y, '#2dd4bf');
+  }
   // 手上的飲料、說的話
   const now = nowS();
   if (heldDrink && now > heldDrink.until) heldDrink = null;
@@ -1068,6 +1097,14 @@ function frame(time: number): void {
   const dt = last ? Math.min(0.05, seconds - last) : 0;
   last = seconds;
   updateWalk(dt);
+  shownRemotes = viewRemotes(props.remotePlayers, 'park', dt);
+  // 坐下就送 hidden（別人看座位就知道你在哪）
+  syncPosition(
+    seatedIndex !== null
+      ? { x: me.x, y: me.y, facing: me.facing, moving: false, hidden: true, scene: 'park' }
+      : { x: Math.round(me.x * 100) / 100, y: Math.round(me.y * 100) / 100, facing: me.facing, moving: me.moving, scene: 'park', ...(riding ? { vehicle: 'bike' as const } : {}) },
+    seconds,
+  );
   render(seconds);
 }
 

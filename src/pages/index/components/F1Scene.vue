@@ -61,7 +61,8 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import type { Reader } from 'src/pages/index/composables/useLibrarySocket';
+import type { MyPosition, Reader, RemotePlayer } from 'src/pages/index/composables/useLibrarySocket';
+import { createPositionSync, createRemoteView, remoteColors, remoteLabel, type ShownRemote } from 'src/pages/index/sceneRemotes';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
 import { localPoint } from 'src/pages/index/composables/sceneFullscreen';
@@ -77,8 +78,16 @@ const props = defineProps<{
   selectedSeatId: string | null;
   disabled: boolean;
   getMateAtSeat: (seatId: string) => Reader | null | undefined;
+  // 同房間的人（只畫也在賽車場的）
+  remotePlayers: Record<string, RemotePlayer>;
 }>();
-const emit = defineEmits<{ leave: []; select: [seatId: string]; 'end-focus': [] }>();
+const emit = defineEmits<{ leave: []; select: [seatId: string]; 'end-focus': []; position: [position: MyPosition] }>();
+// 自己的位置（開車時是車子的位置和方向）送給同房間的人；別人的位置平滑地畫出來
+const syncPosition = createPositionSync((pos) => emit('position', pos));
+const viewRemotes = createRemoteView();
+let shownRemotes: ShownRemote[] = [];
+// 別人的車用不同顏色（照名字固定一種）
+const RIVAL_COLORS = ['#e86a8a', '#4fa35a', '#8b5cf6', '#f97316', '#0ea5e9', '#a3a3a3'];
 const { t } = useLocale();
 const prefs = usePlayerPrefs();
 
@@ -523,6 +532,13 @@ function drawMe(c: CanvasRenderingContext2D): void {
   c.drawImage(sprite, Math.round(me.x * T - AVATAR_SIZE.w / 2), Math.round(me.y * T + 5 - AVATAR_SIZE.h));
 }
 
+function drawRemote(c: CanvasRenderingContext2D, other: ShownRemote, seconds: number): void {
+  const frame = other.remote.moving ? (Math.floor(seconds / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
+  const sprite = getAvatarFrame(remoteColors(other.remote), other.remote.facing, frame);
+  px(c, 'rgba(0,0,0,0.18)', Math.round(other.x * T - 5), Math.round(other.y * T + 3), 10, 2);
+  c.drawImage(sprite, Math.round(other.x * T - AVATAR_SIZE.w / 2), Math.round(other.y * T + 5 - AVATAR_SIZE.h));
+}
+
 function pill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, color: string): void {
   c.font = '700 12px system-ui, -apple-system, "PingFang TC", sans-serif';
   const width = Math.ceil(c.measureText(text).width) + 14;
@@ -576,6 +592,14 @@ function render(seconds: number): void {
   items.push({ y: car.y, draw: () => drawF1(c, car.x, car.y, car.angle, '#f6c945', '#2b2d33') });
   SEAT_SPOTS.forEach((spot, i) => items.push({ y: spot.y + 0.4, draw: () => drawSeat(c, i, seconds) }));
   if (!driving.value && seatedIndex === null) items.push({ y: me.y + 0.35, draw: () => drawMe(c) });
+  for (const other of shownRemotes) {
+    if (other.remote.car) {
+      const color = RIVAL_COLORS[Math.abs([...other.remote.displayName].reduce((h, ch) => h * 31 + ch.charCodeAt(0), 7)) % RIVAL_COLORS.length] ?? '#e86a8a';
+      items.push({ y: other.y, draw: () => drawF1(c, other.x, other.y, other.angle, color, '#2b2d33') });
+    } else {
+      items.push({ y: other.y + 0.35, draw: () => drawRemote(c, other, seconds) });
+    }
+  }
   items.sort((a, b) => a.y - b.y).forEach((item) => item.draw());
 
   // 名牌（螢幕座標）
@@ -587,6 +611,10 @@ function render(seconds: number): void {
   if (!driving.value) pill(ctx, t.value.f1.yourCar, cp.x, cp.y, '#fbbf24');
   const mp = driving.value ? screen(car.x, car.y - 0.8) : screen(me.x, me.y - 1);
   pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
+  for (const other of shownRemotes) {
+    const op = screen(other.x, other.y - (other.remote.car ? 0.8 : 1));
+    pill(ctx, remoteLabel(other), op.x, op.y, '#2dd4bf');
+  }
   const vp = screen(26, 22.4);
   pill(ctx, t.value.f1.vipSeats, vp.x, vp.y + 22, '#2dd4bf');
   SEAT_SPOTS.forEach((spot, i) => {
@@ -606,6 +634,16 @@ function frame(time: number): void {
   last = seconds;
   if (driving.value) updateCar(dt, seconds);
   else updateWalk(dt);
+  shownRemotes = viewRemotes(props.remotePlayers, 'f1', dt);
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  syncPosition(
+    seatedIndex !== null
+      ? { x: me.x, y: me.y, facing: me.facing, moving: false, hidden: true, scene: 'f1' }
+      : driving.value
+        ? { x: r2(car.x), y: r2(car.y), facing: me.facing, moving: Math.abs(car.speed) > 0.3, scene: 'f1', vehicle: 'f1', angle: r2(car.angle) }
+        : { x: r2(me.x), y: r2(me.y), facing: me.facing, moving: me.moving, scene: 'f1' },
+    seconds,
+  );
   render(seconds);
 }
 

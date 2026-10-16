@@ -1601,13 +1601,14 @@ function updateRemotePlayers(): void {
   const now = Date.now();
   for (const key of remoteShown.keys()) {
     const remote = props.remotePlayers[key];
-    if (!remote || now - remote.at > REMOTE_STALE_MS) {
+    if (!remote || remote.scene || now - remote.at > REMOTE_STALE_MS) {
       remoteShown.delete(key);
       remoteTracks.delete(key);
     }
   }
   for (const remote of Object.values(props.remotePlayers)) {
-    if (now - remote.at > REMOTE_STALE_MS) continue;
+    // 在 F1／環河公園的人不畫在主地圖
+    if (remote.scene || now - remote.at > REMOTE_STALE_MS) continue;
     let track = remoteTracks.get(remote.key);
     if (!track) {
       track = { lastAt: remote.at, samples: [{ t: remote.at, x: remote.x, y: remote.y }] };

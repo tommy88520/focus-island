@@ -63,6 +63,8 @@
             :disabled="store.isRunning"
             :get-mate-at-seat="librarySocket.getMateAtSeat"
             @select="selectSeat"
+            :remote-players="librarySocket.remotePlayers.value"
+            @position="librarySocket.sendPosition"
             @leave="sceneLocation = 'library'"
             @end-focus="endFocusToLeave"
           />
@@ -74,6 +76,8 @@
             :disabled="store.isRunning"
             :get-mate-at-seat="librarySocket.getMateAtSeat"
             @select="selectSeat"
+            :remote-players="librarySocket.remotePlayers.value"
+            @position="librarySocket.sendPosition"
             @leave="sceneLocation = 'library'"
             @end-focus="endFocusToLeave"
           />

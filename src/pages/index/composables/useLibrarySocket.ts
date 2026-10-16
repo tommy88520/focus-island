@@ -133,6 +133,10 @@ export interface RemotePlayer {
   floor?: boolean;
   // 手上拿著的夜市小吃
   item?: ShopItemId;
+  // 在 F1 賽車場／環河公園（沒有的話在主地圖）；在 F1 開車時 car＝true、angle 是車頭方向
+  scene?: 'f1' | 'park';
+  car?: boolean;
+  angle?: number;
   hair?: number;
   shirt?: number;
   dnd?: boolean;
@@ -148,9 +152,11 @@ export interface MyPosition {
   y: number;
   facing: RemotePlayer['facing'];
   moving: boolean;
-  vehicle?: RemoteVehicle;
+  vehicle?: RemoteVehicle | 'f1';
   lying?: boolean;
   pose?: 'floor';
+  scene?: 'f1' | 'park';
+  angle?: number;
   item?: ShopItemId;
   hidden?: boolean;
 }
@@ -823,6 +829,9 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 ...(['bike', 'cart', 'boat'].includes(pos.vehicle) ? { vehicle: pos.vehicle as RemoteVehicle } : {}),
                 ...(pos.lying === true ? { lying: true } : {}),
                 ...(pos.pose === 'floor' ? { floor: true } : {}),
+                ...(pos.scene === 'f1' || pos.scene === 'park' ? { scene: pos.scene as 'f1' | 'park' } : {}),
+                ...(pos.vehicle === 'f1' ? { car: true } : {}),
+                ...(typeof pos.angle === 'number' && Number.isFinite(pos.angle) ? { angle: pos.angle } : {}),
                 ...(typeof pos.item === 'string' && pos.item in SHOP_ITEM_EMOJI ? { item: pos.item as ShopItemId } : {}),
                 ...(reader ? readerExtras(reader as unknown as Record<string, unknown>) : {}),
                 ...readerExtras(pos),
