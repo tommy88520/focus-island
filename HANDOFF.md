@@ -11,8 +11,7 @@
 - 無。
 
 ## 3. 等使用者決定
-- **Vercel 要不要刪**：建議刪（已無備援價值；舊 PWA service worker 就是從它來的），要他到 Vercel 後台刪專案或 Disconnect Git。刪了要改 `CLAUDE.md`「部署」和後端 `deploy/home/README.md` 的回滾說明。Koyeb 先別關（anc-13.com）。
-- 搬家收尾：Redis Cloud 換密碼（要他帳號）；家機資料庫每日備份（建議用期貨專案的 R2 設定），還沒回。
+- 搬家收尾：Redis Cloud 換密碼（要他帳號；10-16 他說先不用、記著）；家機資料庫每日備份（建議用期貨專案的 R2 設定），還沒回。
 - README 要不要補：環河公園、北投溫泉＋湖畔咖啡／店員／YouBike、全螢幕地圖、游泳、日夜、YouTube 電視、分享位置；截圖還是 10-06 的。
 - 同房間一起看 YouTube（要後端加 WS 訊息）；角色配件、點名牌私訊。
 
@@ -39,4 +38,4 @@
 ## 7. 已知問題
 - 沒有測試（只有 `vue-tsc`、lint）。直播存檔類 YouTube 不給嵌入；沒 Premium 有廣告。
 - iPhone Safari 不能真的全螢幕：橫拿時 Safari 的網址列／分頁列一定在上面（網頁藏不掉），要滿版用主畫面 App。
-- Vercel 仍會隨 push 部署一份（正式網址不指向它）。
+- Vercel 10-16 已刪，沒有備援主機；Koyeb 先別關（anc-13.com 還在用）。

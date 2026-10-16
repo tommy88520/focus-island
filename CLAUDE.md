@@ -10,7 +10,7 @@ Quasar（Vue 3 + TS、`<script setup>`）SPA＋Pinia，Tailwind v4 跟 Quasar �
 - 指令：`npm run dev`、`npm run build`（→ `dist/spa`）、`npm run lint`、`npx vue-tsc --noEmit`（沒有測試）。Node 22.12+。
   環境變數 `VITE_BACKEND_API_URL`、`VITE_BACKEND_WS_URL`（`.env.local`；沒設連 `ws://localhost:8080`）。
 - **部署**：前後端都在維護者自己的機器上（Cloudflare Tunnel）。**push 不會自動上線**，要跑部署腳本——在後端 repo `deploy/home/README.md`
-  （這份公開 repo 不寫機器細節）。部署完到網站實際看一次。Vercel 專案留著當備援（push 仍會部署到 Vercel，但正式網址不指向它）。
+  （這份公開 repo 不寫機器細節）。部署完到網站實際看一次。沒有備援主機（Vercel 10-16 已刪），壞了就 revert 再部署。
 
 ## 鐵律
 1. **座位順序不能動**：編號 NN ↔ 地圖 slot 順序，只能加在最後面，同時加大後端 `seatsPerZone`。
