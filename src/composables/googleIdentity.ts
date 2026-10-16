@@ -13,11 +13,6 @@ declare global {
 
 let loading: Promise<GoogleIdApi> | null = null;
 
-// 沒登入的人一進頁面就先在背景載入，按「我的家」時登入鈕才不用等
-export function preloadGoogleIdentity(): void {
-  loadGoogleIdentity().catch(() => undefined);
-}
-
 function loadGoogleIdentity(): Promise<GoogleIdApi> {
   if (window.google?.accounts?.id) return Promise.resolve(window.google.accounts.id);
   loading ??= new Promise((resolve, reject) => {
