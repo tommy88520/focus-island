@@ -40,7 +40,7 @@ Quasar（Vue 3 + TS、`<script setup>`）SPA＋Pinia，Tailwind v4 跟 Quasar �
 
 ## 程式在哪
 - `pages/IndexPage.vue` 主頁；連線 `pages/index/composables/useLibrarySocket.ts`＋`actions/`。
-- 場景：`SeatScenePixel.vue`（主地圖）、`F1Scene.vue`、`RiverParkScene.vue`、`BeitouScene.vue`；`pixel/`：`pixelMap`（座位家具）、`pixelWorld`（戶外）、`pixelArt`、`pixelThemes`；
+- 場景：`SeatScenePixel.vue`（主地圖）、`F1Scene.vue`、`RiverParkScene.vue`、`BeitouScene.vue`、`HomeScene.vue`（自己的家）；`pixel/`：`pixelMap`（座位家具）、`pixelWorld`（戶外）、`pixelArt`、`pixelThemes`；
   `seatNavigation.ts`（碰撞、A*）。
 - `composables/`：`useAmbientAudio`＋`synthAmbience`（音樂）、`useYouTubeTv`（YouTube）、`usePlayerPrefs`、`useAccount`（Google 登入）、`groupFocus`。
   分享位置 `pages/index/shareLocation.ts`。番茄鐘 `stores/pomodoro.ts`＋`workers/timer.worker.ts`。

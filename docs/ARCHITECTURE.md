@@ -64,3 +64,8 @@
 - IndexPage: floor/zone tabs are collapsed behind one chip (`mobileNavOpen`, all sizes); in F1/park/beitou the chip becomes "ride back" and tabs are hidden. Scene height `100dvh-235px` (mobile) / `100dvh-262px` (sm+).
 - `ProfileCard.vue` is the shared name card (main map + separate scenes; wave only on the main map). `SceneHint.vue` is the under-map hint (one line on mobile, tap to expand).
 
+## Home & garden (v1.1.0, 10-16)
+- `HomeScene.vue` is a separate scene (`sceneLocation = 'home'`, not shareable; `rememberScene('home')` restores it on reload only while signed in). Entry: "🏠 My home" button top-left on every map → `LoginDialog.vue` if `useAccount().session` is empty. "Back to map" returns to the scene you came from (`homeReturnTo`).
+- Indoors: wardrobe (`LookEditor.vue` in draft mode — v-model, "Save" writes prefs), bookshelf (goal / DND / whispers, live), desk (sit = focus; pressing Start while indoors auto-sits, no library seat needed). Garden: `GARDEN_ITEMS` in `pixel/homeArt.ts`, placements in `prefs.garden` (cloud-synced with the account), editing is a draft; saving charges new items and refunds half for removed ones. First visit seeds `STARTER_GARDEN` (`prefs.homeVisited`).
+- Unsaved guard: wardrobe/garden drafts → leaving (header button, gate, closing a panel) asks Save / Discard / Keep editing; `beforeunload` blocks closing the tab.
+
