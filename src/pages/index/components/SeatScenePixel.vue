@@ -132,6 +132,25 @@
             {{ floor }}F
           </button>
         </div>
+        <!-- 同一層的其他分區也能直接搭過去（鍵盤 Z／X／C／V） -->
+        <div v-if="zones.length > 1" class="mt-2 !flex !flex-wrap justify-center gap-2">
+          <button
+            v-for="(zone, i) in zones"
+            :key="zone.id"
+            type="button"
+            class="h-9 whitespace-nowrap rounded-xl px-2 text-xs font-black ring-1 transition"
+            :class="
+              zone.id === currentZoneId
+                ? 'cursor-default bg-amber-400 text-slate-900 ring-amber-300'
+                : 'bg-slate-800 text-white ring-white/15 hover:bg-slate-700'
+            "
+            :disabled="zone.id === currentZoneId"
+            @click="rideElevatorToZone(zone.id)"
+          >
+            <span v-if="!isTouch && ELEVATOR_ZONE_KEYS[i]" class="mr-1 font-pixel text-[9px] opacity-60">{{ ELEVATOR_ZONE_KEYS[i]?.slice(3) }}</span>{{ zone.name }}
+          </button>
+        </div>
+        <p v-if="!isTouch" class="!mb-0 mt-2 text-[10px] text-white/50">{{ t.seatScene.elevatorKeys }}</p>
       </div>
       <!-- 捷運站：選要去哪個分區（同一層樓） -->
       <div v-if="mrtOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
@@ -904,7 +923,8 @@ function insideStairZone(x: number, y: number): StairInfo | undefined {
 }
 
 function insideElevatorZone(x: number, y: number): boolean {
-  if (props.floors.length < 2) return false;
+  // 只有一層樓也會開：還可以換分區
+  if (props.floors.length < 2 && props.zones.length < 2) return false;
   const trigger = elevatorTrigger(map);
   return Math.hypot(x - trigger.x, y - trigger.y) < STAIR_RADIUS;
 }
@@ -946,6 +966,19 @@ function goPark(): void {
   emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
   savePosition(performance.now() / 1000, true);
   emit('go-park');
+}
+
+// 電梯也能換到同一層的其他分區：從那一區的電梯口出來
+const ELEVATOR_ZONE_KEYS = ['KeyZ', 'KeyX', 'KeyC', 'KeyV'];
+function rideElevatorToZone(zoneId: string): void {
+  elevatorOpen.value = false;
+  containerRef.value?.focus({ preventScroll: true });
+  if (zoneId === currentZoneId.value || !canInteract()) return;
+  const trigger = elevatorTrigger(map);
+  pendingSpawn = { point: { x: trigger.x, y: trigger.y + 0.2 }, floor: props.currentFloor };
+  savedPosition = null;
+  restoredStanding = false;
+  emit('change-zone', zoneId);
 }
 
 function rideElevator(floor: number): void {
@@ -3033,6 +3066,21 @@ function handleKeyDown(event: KeyboardEvent): void {
     event.preventDefault();
     askToLeave(null);
     return;
+  }
+  // 電梯面板開著：數字鍵選樓層、Z／X／C／V 選分區（這時候數字鍵不打招呼）
+  if (elevatorOpen.value && !event.repeat) {
+    const digit = /^Digit([1-9])$/.exec(event.code);
+    if (digit && elevatorFloors.value.includes(Number(digit[1]))) {
+      event.preventDefault();
+      rideElevator(Number(digit[1]));
+      return;
+    }
+    const zone = props.zones[ELEVATOR_ZONE_KEYS.indexOf(event.code)];
+    if (zone) {
+      event.preventDefault();
+      rideElevatorToZone(zone.id);
+      return;
+    }
   }
   const emoteKey = event.code === 'KeyH' ? 0 : ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(event.code);
   const emote = EMOTE_IDS[emoteKey];

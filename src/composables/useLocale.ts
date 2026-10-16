@@ -229,7 +229,8 @@ const translations = {
       emoteReplies: { wave: '嗨～', cheer: '你也加油！', coffee: '好啊 ☕', thumbs: '😄' },
       elevator: '電梯',
       youtubeTv: '▶ 點這裡放 YouTube',
-      elevatorPrompt: '電梯 · 要去幾樓？',
+      elevatorPrompt: '電梯 · 要去哪裡？',
+      elevatorKeys: '數字鍵選樓層 · Z X C V 選分區',
     },
     f1: {
       title: 'F1 賽車場',
@@ -507,7 +508,8 @@ const translations = {
       emoteReplies: { wave: 'Hi there!', cheer: 'You too!', coffee: 'Sure ☕', thumbs: '😄' },
       elevator: 'Elevator',
       youtubeTv: '▶ Play YouTube',
-      elevatorPrompt: 'Elevator · which floor?',
+      elevatorPrompt: 'Elevator · where to?',
+      elevatorKeys: 'Number keys for a floor · Z X C V for a zone',
     },
     f1: {
       title: 'F1 Circuit',
