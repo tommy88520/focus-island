@@ -2733,7 +2733,8 @@ function drawBubbles(c: CanvasRenderingContext2D, seconds: number, toScreen: (wx
       const owner = fishOwnerSpot();
       if (owner) {
         anchor = toScreen(owner.x * TILE, owner.y * TILE - 22);
-        anchor.y -= LABEL_FONT_PX + 10;
+        // 在「釣魚池」名牌上面
+        anchor.y -= (LABEL_FONT_PX + 10) * 2;
       }
     } else if (key.startsWith('npc:')) {
       const goer = map.beachgoers[Number(key.slice(4))];
