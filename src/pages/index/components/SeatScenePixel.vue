@@ -2,7 +2,7 @@
   <div class="relative" :class="{ 'shake-error': isShake }">
     <div
       ref="containerRef"
-      class="scene-box relative h-[calc(100dvh-350px)] min-h-[320px] w-full overflow-hidden rounded-[3px] bg-[#1b1d26] outline-none transition-opacity duration-500 focus-visible:ring-2 focus-visible:ring-amber-400/40 lg:h-[calc(100vh-300px)] lg:min-h-[460px]"
+      class="scene-box relative h-[calc(100dvh-235px)] sm:h-[calc(100dvh-350px)] min-h-[320px] w-full overflow-hidden rounded-[3px] bg-[#1b1d26] outline-none transition-opacity duration-500 focus-visible:ring-2 focus-visible:ring-amber-400/40 lg:h-[calc(100vh-300px)] lg:min-h-[460px]"
       :class="isLoading ? 'opacity-0' : 'opacity-100'"
       style="touch-action: pan-y"
       tabindex="0"

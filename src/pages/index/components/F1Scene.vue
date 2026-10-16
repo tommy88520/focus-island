@@ -3,7 +3,7 @@
   <div class="relative">
     <div
       ref="containerRef"
-      class="scene-box relative h-[calc(100dvh-350px)] min-h-[320px] w-full overflow-hidden rounded-[3px] bg-[#3f7a3a] outline-none lg:h-[calc(100vh-300px)] lg:min-h-[460px]"
+      class="scene-box relative h-[calc(100dvh-235px)] sm:h-[calc(100dvh-350px)] min-h-[320px] w-full overflow-hidden rounded-[3px] bg-[#3f7a3a] outline-none lg:h-[calc(100vh-300px)] lg:min-h-[460px]"
       style="touch-action: pan-y"
       tabindex="0"
     >

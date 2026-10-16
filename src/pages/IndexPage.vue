@@ -1,8 +1,8 @@
 <template>
-  <div class="relative min-h-[calc(100vh-80px)] px-3 py-3 pb-36 sm:px-4 sm:py-3 sm:pb-28">
+  <div class="relative min-h-[calc(100vh-80px)] px-3 py-2 pb-24 sm:px-4 sm:py-3 sm:pb-28">
     <div class="relative z-10 mx-auto max-w-[1500px]">
       <!-- 地圖佔滿整個寬度；番茄鐘和音樂收進底部的工具列 -->
-      <main class="space-y-3">
+      <main class="space-y-2 sm:space-y-3">
         <header class="flex flex-wrap items-center justify-between gap-2">
           <div class="flex min-w-0 items-center gap-2">
             <div
@@ -10,7 +10,17 @@
             >
               {{ t.indexPage.floorBadgePrefix }}{{ currentFloor }}
             </div>
-            <h3 class="truncate !text-sm !leading-tight font-black !tracking-tight text-slate-900 dark:!text-white sm:!text-base">
+            <!-- 手機：樓層、分區收成一顆，點開才有分頁，地圖才大 -->
+            <button
+              type="button"
+              class="pixel-btn h-7 min-w-0 shrink !flex-nowrap gap-1 px-2 text-[11px] sm:!hidden"
+              :aria-expanded="mobileNavOpen"
+              @click="mobileNavOpen = !mobileNavOpen"
+            >
+              <span class="truncate">{{ librarySocket.currentZone.value?.name || `Zone ${activeZoneId}` }}</span>
+              <q-icon :name="mobileNavOpen ? 'expand_less' : 'expand_more'" size="16px" />
+            </button>
+            <h3 class="hide-below-sm truncate !text-sm !leading-tight font-black !tracking-tight text-slate-900 dark:!text-white sm:!text-base">
               {{ store.isRunning ? t.indexPage.headerTitleRunning : t.indexPage.headerTitleIdle }}
             </h3>
             <p class="hide-below-sm truncate text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:!text-white/55">
@@ -22,19 +32,21 @@
               :title="t.indexPage.shareLocationHint"
               @click="shareMyLocation"
             >
-              📍 {{ t.indexPage.shareLocation }}
+              📍<span class="hide-below-sm"> {{ t.indexPage.shareLocation }}</span>
             </button>
           </div>
 
           <FloorTabs
+            :class="{ 'max-sm:!hidden': !mobileNavOpen }"
             :floors="floorTabItems"
             :current-floor="currentFloor"
             @update:current-floor="currentFloor = $event"
           />
         </header>
 
-        <section class="pixel-panel relative p-2 sm:p-3">
+        <section class="pixel-panel relative p-1.5 sm:p-3">
           <ZoneTabs
+            :class="{ 'max-sm:!hidden': !mobileNavOpen }"
             :zones="zoneTabItems"
             :active-zone-id="activeZoneId"
             @update:active-zone-id="activeZoneId = $event"
@@ -120,7 +132,7 @@
             @go-f1="sceneLocation = 'f1'"
             @go-park="sceneLocation = 'park'"
             @go-beitou="sceneLocation = 'beitou'"
-            @open-tv="audioPlayerRef?.openYouTube()"
+            @open-tv="mobileAudioOpen = true; audioPlayerRef?.openYouTube()"
             @end-focus="endFocusToLeave"
             @area="sceneArea = $event"
             @webgl-failed="useCanvasScene = false"
@@ -163,7 +175,9 @@
       <template v-else><q-icon name="expand_more" size="16px" /> {{ t.indexPage.collapseDock }}</template>
     </button>
     <div v-show="!sceneFullscreen || !dockCollapsed" class="pixel-panel flex flex-col !flex-nowrap gap-2 p-2 sm:flex-row sm:items-center sm:gap-3 sm:px-3">
+      <div class="flex min-w-0 !flex-nowrap items-center gap-2">
       <FocusClockPanel
+        class="min-w-0 flex-1"
         :is-running="store.isRunning"
         :base-duration="store.baseDuration"
         :time-left="store.timeLeft"
@@ -189,8 +203,20 @@
         :notifications="playerPrefs.notifications"
         @update:notifications="handleNotificationsToggle"
       />
+      <!-- 手機：音樂收成一顆按鈕，展開才佔一列 -->
+      <button
+        type="button"
+        class="pixel-btn h-10 w-10 shrink-0 sm:!hidden"
+        :class="{ 'pixel-btn--active': mobileAudioOpen }"
+        :aria-label="t.indexPage.toggleMusic"
+        :aria-expanded="mobileAudioOpen"
+        @click="mobileAudioOpen = !mobileAudioOpen"
+      >
+        {{ audio.isAudioPlaying.value ? '🎶' : '🎵' }}
+      </button>
+      </div>
       <div class="hide-below-sm h-10 w-[2px] bg-[color:var(--px-ink)] opacity-30"></div>
-      <AmbientAudioPlayer ref="audioPlayerRef" :audio="audio" />
+      <AmbientAudioPlayer ref="audioPlayerRef" :class="{ 'max-sm:!hidden': !mobileAudioOpen && !sceneFullscreen }" :audio="audio" />
     </div>
     </div>
     </Teleport>
@@ -274,6 +300,9 @@ const sceneShellRef = ref<HTMLElement | null>(null);
 const sceneRotorRef = ref<HTMLElement | null>(null);
 // 全螢幕時底部的計時／音樂預設收起來，點一下展開
 const dockCollapsed = ref(true);
+// 手機版：樓層／分區分頁、音樂列平常收起來，讓地圖最大
+const mobileNavOpen = ref(false);
+const mobileAudioOpen = ref(false);
 function toggleSceneFullscreen() {
   if (sceneFullscreen.value) void exitSceneFullscreen();
   else if (sceneShellRef.value) void enterSceneFullscreen(sceneShellRef.value);
