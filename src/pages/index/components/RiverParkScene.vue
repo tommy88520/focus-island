@@ -110,6 +110,7 @@ import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, paintVehicle,
 import { getBaristaFrame, paintBikeRack, paintCafe, paintCafeDeck, paintMenuSign } from 'src/pages/index/pixel/parkCafe';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
 import { takeArrival } from 'src/pages/index/shareLocation';
+import { pickSeatSpot } from 'src/pages/index/seatPick';
 
 type Facing = 'up' | 'down' | 'left' | 'right';
 type Season = 'sakura' | 'snow';
@@ -449,7 +450,7 @@ function standUp(): void {
 
 function nearestSeat(): number | null {
   let best: number | null = null;
-  let bestDist = 1.4;
+  let bestDist = 2;
   SEAT_SPOTS.forEach((_, i) => {
     const a = seatApproach(i);
     if (!a) return;
@@ -1202,7 +1203,7 @@ function onKeyUp(event: KeyboardEvent): void {
 }
 
 function seatAt(x: number, y: number): number {
-  return SEAT_SPOTS.findIndex((s) => Math.abs(x - s.x) < 0.6 && y > s.y - 1.4 && y < s.y + 0.6);
+  return pickSeatSpot(SEAT_SPOTS, x, y, (i) => seatState(i) === 'empty');
 }
 
 // 點座位：走過去坐；點地面：走過去（在對岸就繞天橋）

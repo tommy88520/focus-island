@@ -578,7 +578,7 @@ const WALK_SPEED = 4.2;
 const PLAYER_RADIUS = 0.28;
 const STAIR_RADIUS = 0.6;
 const SIT_TWEEN_SECONDS = 0.25;
-const SIT_REACH = 1.25;
+const SIT_REACH = 1.8;
 // 能整張放進畫面就用最大的整數倍；放不下（手機）就固定 2 倍、鏡頭跟著人走
 const MIN_SCALE = 2;
 const LABEL_FONT_PX = 12;
@@ -1445,7 +1445,7 @@ function seatForFocus(): string | null {
 // 不管從哪一側靠近：人跟空椅子貼在一起就算
 function seatBeside(): SeatNode | undefined {
   let best: SeatNode | undefined;
-  let bestDist = 1.3;
+  let bestDist = 1.8;
   for (const node of seatNodes) {
     if (!sitCandidate(node)) continue;
     const c = seatCenter(node.slot);
@@ -2969,14 +2969,25 @@ function toWorld(event: MouseEvent): { x: number; y: number } | null {
   };
 }
 
-// 點到座位的格子，或坐著的人頭（座位上面那格）都算點座位
+// 點到座位的格子，或坐著的人頭（座位上面那格）都算點座位；沒點正也算附近最近的空位（大約半格內）
 function pickSeat(point: { x: number; y: number }): SeatNode | undefined {
   const tx = Math.floor(point.x);
   const ty = Math.floor(point.y);
-  return (
+  const exact =
     seatNodes.find((n) => n.slot.tx === tx && n.slot.ty === ty) ??
-    seatNodes.find((n) => n.slot.tx === tx && n.slot.ty - 1 === ty && n.state !== 'empty')
-  );
+    seatNodes.find((n) => n.slot.tx === tx && n.slot.ty - 1 === ty && n.state !== 'empty');
+  if (exact) return exact;
+  let best: SeatNode | undefined;
+  let bestDist = 1.05;
+  for (const node of seatNodes) {
+    if (node.state !== 'empty') continue;
+    const dist = Math.hypot(point.x - (node.slot.tx + 0.5), point.y - (node.slot.ty + 0.5));
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = node;
+    }
+  }
+  return best;
 }
 
 function handlePointerMove(event: PointerEvent): void {
@@ -3191,7 +3202,7 @@ function handleKeyDown(event: KeyboardEvent): void {
     if (player.state === 'idle' || player.state === 'walking') {
       // 座位、車子、躺椅：哪個最近就用哪個
       const vehicle = nearestVehicle();
-      const node = nearestSittableSeat();
+      const node = nearestSittableSeat() ?? seatBeside();
       const lie = nearestLieSpot();
       const options: { dist: number; act: () => void }[] = [];
       if (node) options.push({ dist: Math.hypot(player.x - seatApproach(node.slot).x, player.y - seatApproach(node.slot).y), act: () => startSit(node) });

@@ -55,6 +55,7 @@ import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, SEATED_ROWS, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
 import { takeArrival } from 'src/pages/index/shareLocation';
+import { pickSeatSpot } from 'src/pages/index/seatPick';
 
 type Facing = 'up' | 'down' | 'left' | 'right';
 type Rect = { x0: number; y0: number; x1: number; y1: number };
@@ -244,7 +245,7 @@ function standUp(): void {
 
 function nearestSeat(): number | null {
   let best: number | null = null;
-  let bestDist = 1.4;
+  let bestDist = 2;
   SEAT_SPOTS.forEach((_, i) => {
     const a = seatApproach(i);
     if (!a) return;
@@ -256,6 +257,31 @@ function nearestSeat(): number | null {
   });
   return best;
 }
+
+// 溫泉／泡腳池整塊是擋路的：走進去、點水面、在池邊按 E，都直接泡進離那一點最近的空位
+function poolAt(x: number, y: number, margin = 0): SeatKind | null {
+  const grow = (r: Rect) => ({ x0: r.x0 - margin, y0: r.y0 - margin, x1: r.x1 + margin, y1: r.y1 + margin });
+  if (inRect(x, y, grow(BATH))) return 'bath';
+  if (inRect(x, y, grow(FOOTBATH))) return 'foot';
+  return null;
+}
+
+function emptySeatNear(kind: SeatKind, x: number, y: number): number | null {
+  let best: number | null = null;
+  let bestDist = Infinity;
+  SEAT_SPOTS.forEach((spot, i) => {
+    if (spot.kind !== kind || seatState(i) !== 'empty') return;
+    const d = Math.hypot(x - spot.x, y - spot.y);
+    if (d < bestDist) {
+      bestDist = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+// 用方向鍵走進池子坐下後，要先放開按鍵才會站起來（不然一坐下就被還按著的鍵拉起來）
+let holdUntilRelease = false;
 
 function walkTo(to: { x: number; y: number }, seat: number | null): void {
   if (seatedIndex !== null) standUp();
@@ -298,7 +324,8 @@ function updateWalk(dt: number): void {
   const { x, y } = input();
   if (seatedIndex !== null) {
     me.moving = false;
-    if ((x === 0 && y === 0) || props.disabled) return;
+    if (x === 0 && y === 0) holdUntilRelease = false;
+    if ((x === 0 && y === 0) || props.disabled || holdUntilRelease) return;
     standUp();
   }
   if (x !== 0 || y !== 0) {
@@ -306,6 +333,13 @@ function updateWalk(dt: number): void {
     walkTarget = null;
     me.moving = true;
     step(x, y, dt);
+    // 頂著池邊走一下下：下水
+    const pool = stuckFor > 0.3 ? poolAt(me.x + Math.sign(x) * 0.6, me.y + Math.sign(y) * 0.6) : null;
+    const seat = pool ? emptySeatNear(pool, me.x, me.y) : null;
+    if (seat !== null) {
+      sitAt(seat);
+      holdUntilRelease = true;
+    }
   } else if (route.length) {
     const next = route[0];
     if (next) {
@@ -964,7 +998,8 @@ function onKeyDown(event: KeyboardEvent): void {
     event.preventDefault();
     if (seatedIndex !== null) standUp();
     else {
-      const seat = nearestSeat();
+      const pool = poolAt(me.x, me.y, 1.2);
+      const seat = nearestSeat() ?? (pool ? emptySeatNear(pool, me.x, me.y) : null);
       if (seat !== null) sitAt(seat);
     }
   }
@@ -976,7 +1011,7 @@ function onKeyUp(event: KeyboardEvent): void {
 }
 
 function seatAt(x: number, y: number): number {
-  return SEAT_SPOTS.findIndex((s) => Math.abs(x - s.x) < 0.7 && y > s.y - 1.4 && y < s.y + 0.7);
+  return pickSeatSpot(SEAT_SPOTS, x, y, (i) => seatState(i) === 'empty');
 }
 
 // 點座位：走過去坐（溫泉就走到池邊再下水）；點地面：走過去（在對岸就繞橋）
@@ -991,12 +1026,17 @@ function handleClick(event: MouseEvent): void {
     if (seat < 0 || seat !== seatedIndex) askToLeave(() => handleClick(event));
     return;
   }
-  if (seat >= 0) {
+  if (seat >= 0 && (seatState(seat) === 'empty' || !poolAt(x, y))) {
     const approach = seatApproach(seat);
     if (approach && seatState(seat) === 'empty') walkTo(approach, seat);
     return;
   }
-  if (!blocked(x, y)) walkTo({ x, y }, null);
+  // 點水面：走到池邊，泡進離點的地方最近的空位
+  const pool = poolAt(x, y);
+  const near = pool ? emptySeatNear(pool, x, y) : null;
+  const approach = near === null ? null : seatApproach(near);
+  if (near !== null && approach) walkTo(approach, near);
+  else if (!blocked(x, y)) walkTo({ x, y }, null);
 }
 
 function updateStick(event: PointerEvent): void {

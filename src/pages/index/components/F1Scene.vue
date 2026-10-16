@@ -71,6 +71,7 @@ import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, SEATED_ROWS } from 'src/pages/index/pixel/pixelArt';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
 import { takeArrival } from 'src/pages/index/shareLocation';
+import { pickSeatSpot } from 'src/pages/index/seatPick';
 
 // 看台的座位跟圖書館的一樣是這個分區的座位（同步給所有人），只是畫在賽車場裡
 const props = defineProps<{
@@ -335,7 +336,7 @@ function standUp(): void {
 
 function nearestSeat(): number | null {
   let best: number | null = null;
-  let bestDist = 1.4;
+  let bestDist = 2;
   SEAT_SPOTS.forEach((spot, i) => {
     const d = Math.hypot(me.x - spot.x, me.y - (spot.y + 1));
     if (d < bestDist && seatState(i) === 'empty') {
@@ -748,7 +749,7 @@ function handleClick(event: MouseEvent): void {
   const y = (at.y - view.oy) / view.scale / T;
   if (props.disabled) {
     // 點自己的座位不算要離開
-    const clicked = SEAT_SPOTS.findIndex((s) => Math.abs(x - s.x) < 0.6 && y > s.y - 1.4 && y < s.y + 0.6);
+    const clicked = pickSeatSpot(SEAT_SPOTS, x, y, (i) => seatState(i) === 'empty');
     if (clicked < 0 || clicked !== seatedIndex) askToLeave(() => handleClick(event));
     return;
   }
@@ -757,7 +758,7 @@ function handleClick(event: MouseEvent): void {
     return;
   }
   // 點看台座位：走過去坐
-  const seat = SEAT_SPOTS.findIndex((s) => Math.abs(x - s.x) < 0.6 && y > s.y - 1.4 && y < s.y + 0.6);
+  const seat = pickSeatSpot(SEAT_SPOTS, x, y, (i) => seatState(i) === 'empty');
   if (seat >= 0 && seatState(seat) === 'empty' && !props.disabled) {
     if (seatedIndex !== null) standUp();
     walkTarget = seat;

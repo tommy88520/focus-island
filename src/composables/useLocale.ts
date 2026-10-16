@@ -284,8 +284,8 @@ const translations = {
       valley: '♨️ 地熱谷',
       bath: '♨️ 露天溫泉',
       footbath: '泡腳池',
-      hintDesktop: 'WASD／方向鍵移動 · 點地面走過去、點長椅、泡腳池或溫泉坐下專注 · 空白鍵／E 坐下或起來 · 走紅橋過北投溪',
-      hintTouch: '點地面走過去 · 點長椅、泡腳池或溫泉坐下 · 走紅橋過溪',
+      hintDesktop: 'WASD／方向鍵移動 · 點地面走過去、點長椅坐下專注 · 直接走進溫泉或泡腳池就能泡 · 空白鍵／E 坐下或起來 · 走紅橋過北投溪',
+      hintTouch: '點地面走過去 · 點長椅坐下 · 點溫泉、泡腳池就下去泡 · 走紅橋過溪',
     },
     floorTabs: {
       floorLabel: (floor: number) => `${floor}樓`,
@@ -585,8 +585,8 @@ const translations = {
       valley: '♨️ Thermal Valley',
       bath: '♨️ Open-air bath',
       footbath: 'Foot bath',
-      hintDesktop: 'WASD / arrows to move · click the ground to walk, a bench, the foot bath or a hot spring to sit and focus · Space / E to sit or stand · cross the creek on the red bridges',
-      hintTouch: 'Tap the ground to walk · tap a bench, the foot bath or a hot spring to sit · cross by the red bridges',
+      hintDesktop: 'WASD / arrows to move · click the ground to walk, a bench to sit and focus · walk into a hot spring or the foot bath to soak · Space / E to sit or stand · cross the creek on the red bridges',
+      hintTouch: 'Tap the ground to walk · tap a bench to sit · tap a hot spring or the foot bath to soak · cross by the red bridges',
     },
     floorTabs: {
       floorLabel: (floor: number) => `F${floor}`,
