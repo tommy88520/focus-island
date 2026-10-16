@@ -65,7 +65,8 @@ watch(
       // ignore storage errors (e.g. private mode)
     }
   },
-  { deep: true },
+  // immediate：載入時補到 300 的結果馬上存起來
+  { deep: true, immediate: true },
 );
 
 export function usePlayerPrefs() {
