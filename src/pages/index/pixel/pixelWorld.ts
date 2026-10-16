@@ -94,7 +94,10 @@ export type ShopItemId =
   | 'plush'
   | 'balloon'
   | 'oyster'
-  | 'misua';
+  | 'misua'
+  | 'goldfish'
+  | 'tropicalFish'
+  | 'pufferfish';
 
 export interface ShopItem {
   id: ShopItemId;
@@ -178,7 +181,18 @@ export const STALLS: {
   },
 ];
 
-export const SHOP_ITEM_EMOJI: Record<ShopItemId, string> = Object.fromEntries(STALLS.flatMap((s) => s.items.map((item) => [item.id, item.emoji]))) as Record<ShopItemId, string>;
+// 夜市金魚池可以釣魚：釣一次 FISHING_PRICE，釣到的魚裝袋拿在手上（跟小吃一樣，id 也要在後端 allowedShopItems 裡）
+export const FISHING_PRICE = 20;
+export const FISH: { id: ShopItemId; emoji: string; chance: number; name: { 'zh-TW': string; 'en-US': string } }[] = [
+  { id: 'goldfish', emoji: '🐟', chance: 0.7, name: { 'zh-TW': '一條小金魚', 'en-US': 'a little goldfish' } },
+  { id: 'tropicalFish', emoji: '🐠', chance: 0.25, name: { 'zh-TW': '一條熱帶魚', 'en-US': 'a tropical fish' } },
+  { id: 'pufferfish', emoji: '🐡', chance: 0.05, name: { 'zh-TW': '超稀有的河豚！', 'en-US': 'a rare pufferfish!' } },
+];
+
+export const SHOP_ITEM_EMOJI: Record<ShopItemId, string> = Object.fromEntries([
+  ...STALLS.flatMap((s) => s.items.map((item) => [item.id, item.emoji])),
+  ...FISH.map((fish) => [fish.id, fish.emoji]),
+]) as Record<ShopItemId, string>;
 
 export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, worldBottom: number): OutdoorWorld {
   const x0 = -WORLD_LEFT;

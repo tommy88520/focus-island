@@ -182,6 +182,39 @@
           {{ t.seatScene.notEnoughCoins }}
         </p>
       </div>
+      <!-- 夜市金魚池：釣魚（拋竿 → 浮標動了就拉） -->
+      <div v-if="fishOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(20rem,calc(100%-1.5rem))] -translate-x-1/2 px-4 py-3">
+        <div class="!flex !flex-nowrap items-center justify-between gap-2">
+          <p class="!mb-0 text-sm font-black">{{ t.seatScene.fishTitle }}</p>
+          <button type="button" class="text-[color:var(--px-muted)]" :aria-label="t.seatScene.profileClose" @click="closeFishing">
+            <q-icon name="close" size="18px" />
+          </button>
+        </div>
+        <p class="!mb-2 mt-1 text-[11px] font-bold text-[color:var(--px-muted)]">🪙 {{ t.seatScene.coinsLeft(playerPrefs.coins) }}</p>
+        <p v-if="fishPhase !== 'idle'" class="!mb-2 text-center text-xs font-black" :class="{ 'text-red-500': fishPhase === 'bite' }">
+          {{ fishMessage }}
+        </p>
+        <button
+          v-if="fishPhase === 'waiting' || fishPhase === 'bite'"
+          type="button"
+          class="pixel-btn pixel-btn--primary h-11 w-full text-sm font-black"
+          @click="pullLine"
+        >
+          🎣 {{ t.seatScene.fishPull }}
+        </button>
+        <button
+          v-else
+          type="button"
+          class="pixel-btn pixel-btn--primary h-10 w-full text-xs"
+          :disabled="playerPrefs.coins < FISHING_PRICE"
+          @click="castLine"
+        >
+          {{ fishPhase === 'idle' ? t.seatScene.fishCast(FISHING_PRICE) : `${t.seatScene.fishAgain}（🪙 ${FISHING_PRICE}）` }}
+        </button>
+        <p v-if="playerPrefs.coins < FISHING_PRICE && fishPhase !== 'waiting' && fishPhase !== 'bite'" class="!mb-0 mt-2 text-[11px] text-[color:var(--px-muted)]">
+          {{ t.seatScene.notEnoughCoins }}
+        </p>
+      </div>
       <!-- F1 站：搭車去另一張獨立的 F1 賽車場地圖 -->
       <div v-if="f1Open" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
         <p class="!mb-2 !text-[11px] font-black">🏁 {{ t.seatScene.f1Prompt }}</p>
@@ -305,6 +338,8 @@ import {
   paintWalker,
   STALLS,
   SHOP_ITEM_EMOJI,
+  FISH,
+  FISHING_PRICE,
   type ShopItemId,
   walkerPose,
   type OutdoorKind,
@@ -1282,6 +1317,7 @@ function walkToPoint(target: { x: number; y: number }): void {
   goalLie = null;
   goalStation = null;
   goalShop = null;
+  goalFish = false;
   if (riding) {
     // 騎車時點到哪就往哪去，但不會離開那台車能去的範圍
     const area = vehicleArea(map, riding.kind);
@@ -1445,6 +1481,8 @@ function updatePlayer(dt: number): void {
         goalStation = null;
         if (goalShop !== null && nearestStall() === goalShop) openShop(goalShop);
         goalShop = null;
+        if (goalFish && nearFishPool()) openFishing();
+        goalFish = false;
       } else {
         const toX = next.x - player.x;
         const toY = next.z - player.y;
@@ -2080,6 +2118,80 @@ function buyFromShop(itemId: ShopItemId): void {
   lastPosKey = '';
 }
 
+// ── 夜市金魚池釣魚 ──
+const fishOpen = ref(false);
+const fishPhase = ref<'idle' | 'waiting' | 'bite' | 'caught' | 'early' | 'missed'>('idle');
+const fishCaughtName = ref('');
+let fishTimer: number | undefined;
+let goalFish = false;
+
+function fishPool(): { tx: number; ty: number; w: number; h: number } | undefined {
+  return map.world.props.find((p) => p.kind === 'goldfish');
+}
+
+// 站在池子旁邊（四周一格內）
+function nearFishPool(): boolean {
+  const pool = fishPool();
+  if (!pool) return false;
+  const dx = Math.max(pool.tx - player.x, 0, player.x - (pool.tx + pool.w));
+  const dy = Math.max(pool.ty - player.y, 0, player.y - (pool.ty + pool.h));
+  return Math.hypot(dx, dy) < 1.2;
+}
+
+const fishMessage = computed(() => {
+  if (fishPhase.value === 'waiting') return t.value.seatScene.fishWaiting;
+  if (fishPhase.value === 'bite') return t.value.seatScene.fishBite;
+  if (fishPhase.value === 'early') return t.value.seatScene.fishEarly;
+  if (fishPhase.value === 'missed') return t.value.seatScene.fishMissed;
+  if (fishPhase.value === 'caught') return t.value.seatScene.fishCaught(fishCaughtName.value);
+  return '';
+});
+
+function openFishing(): void {
+  shopStall.value = null;
+  fishOpen.value = true;
+  fishPhase.value = 'idle';
+}
+
+function closeFishing(): void {
+  window.clearTimeout(fishTimer);
+  fishOpen.value = false;
+  fishPhase.value = 'idle';
+  containerRef.value?.focus({ preventScroll: true });
+}
+
+// 拋竿：等 1.5～4 秒魚上鉤，上鉤後 1.2 秒內要拉
+function castLine(): void {
+  if (playerPrefs.value.coins < FISHING_PRICE) return;
+  playerPrefs.value.coins -= FISHING_PRICE;
+  fishPhase.value = 'waiting';
+  window.clearTimeout(fishTimer);
+  fishTimer = window.setTimeout(() => {
+    fishPhase.value = 'bite';
+    fishTimer = window.setTimeout(() => {
+      if (fishPhase.value === 'bite') fishPhase.value = 'missed';
+    }, 1200);
+  }, 1500 + Math.random() * 2500);
+}
+
+function pullLine(): void {
+  window.clearTimeout(fishTimer);
+  if (fishPhase.value === 'waiting') {
+    fishPhase.value = 'early';
+    return;
+  }
+  if (fishPhase.value !== 'bite') return;
+  let roll = Math.random();
+  const fish = FISH.find((f) => (roll -= f.chance) < 0) ?? FISH[0];
+  if (!fish) return;
+  fishCaughtName.value = fish.name[locale.value];
+  fishPhase.value = 'caught';
+  heldItem = { id: fish.id, until: performance.now() / 1000 + HOLD_ITEM_S };
+  say('me', `${fish.emoji}！`, 0.2);
+  // 讓別人馬上看到你提著一袋魚
+  lastPosKey = '';
+}
+
 function heldItemNow(): ShopItemId | null {
   if (heldItem && performance.now() / 1000 > heldItem.until) heldItem = null;
   return heldItem?.id ?? null;
@@ -2094,6 +2206,7 @@ let lastVendorShout = 0;
 function updateVendors(seconds: number): void {
   // 走離攤位就把菜單關掉
   if (shopStall.value !== null && nearestStall() !== shopStall.value) shopStall.value = null;
+  if (fishOpen.value && !nearFishPool()) closeFishing();
   // 夜市在戶外，不受圖書館分區的靜音規則影響；勿擾和專注中照樣不吵你
   if (area.value !== 'nightmarket' || props.disabled || playerPrefs.value.doNotDisturb) return;
   const stalls = map.world.props.filter((p) => p.kind === 'stall');
@@ -2538,6 +2651,25 @@ function drawBubbles(c: CanvasRenderingContext2D, seconds: number, toScreen: (wx
   }
 }
 
+// 釣魚時池子中間的浮標：等的時候輕輕晃，上鉤時往下沉、冒漣漪
+function drawBobber(c: CanvasRenderingContext2D, seconds: number): void {
+  if (fishPhase.value !== 'waiting' && fishPhase.value !== 'bite') return;
+  const pool = fishPool();
+  if (!pool) return;
+  const x = Math.round((pool.tx + pool.w / 2) * TILE);
+  const bite = fishPhase.value === 'bite';
+  const y = Math.round((pool.ty + pool.h / 2) * TILE + (bite ? 2 + Math.round(Math.sin(seconds * 30)) : Math.round(Math.sin(seconds * 3) * 0.6)));
+  c.fillStyle = 'rgba(255,255,255,0.6)';
+  const ring = bite ? 5 + Math.floor((seconds * 12) % 4) : 4;
+  c.fillRect(x - ring, y + 3, ring * 2, 1);
+  c.fillStyle = '#e8572a';
+  c.fillRect(x - 2, y - 3, 4, 3);
+  c.fillStyle = '#ffffff';
+  c.fillRect(x - 2, y, 4, 2);
+  c.fillStyle = '#3a3d45';
+  c.fillRect(x, y - 7, 1, 4);
+}
+
 function render(seconds: number): void {
   const canvas = canvasRef.value;
   if (!ctx || !canvas) return;
@@ -2565,6 +2697,7 @@ function render(seconds: number): void {
   if (me) drawables.push(me);
   drawables.sort((a, b) => a.sortY - b.sortY);
   for (const item of drawables) item.draw(ctx);
+  drawBobber(ctx, seconds);
   const light = lightingNow();
   if (light === 'night') drawNightLighting(ctx, seconds);
   else if (light === 'dusk') {
@@ -2807,6 +2940,15 @@ function handleClick(event: MouseEvent): void {
     }
     return;
   }
+  const pool = fishPool();
+  if (pool && !riding && point.x >= pool.tx && point.x <= pool.tx + pool.w && point.y >= pool.ty - 0.5 && point.y <= pool.ty + pool.h) {
+    if (nearFishPool()) openFishing();
+    else {
+      walkToPoint({ x: pool.tx + pool.w / 2, y: pool.ty + pool.h + 0.6 });
+      goalFish = true;
+    }
+    return;
+  }
   const station = stations().find((s) => point.x >= s.rect.x0 && point.x <= s.rect.x1 && point.y >= s.rect.y0 && point.y <= s.rect.y1);
   if (station) {
     walkToStation(station);
@@ -2933,6 +3075,7 @@ function handleKeyDown(event: KeyboardEvent): void {
       if (station) options.push({ dist: Math.hypot(station.x - player.x, station.y - player.y), act: takeBike });
       const shop = nearestStall();
       if (shop !== null) options.push({ dist: 0.5, act: () => openShop(shop) });
+      if (nearFishPool()) options.push({ dist: 0.5, act: openFishing });
       const best = options.sort((a, b) => a.dist - b.dist)[0];
       // 旁邊什麼都沒有：在圖書館裡就直接躺在地板上
       if (best) best.act();
@@ -3085,6 +3228,7 @@ watchEffect(() => {
 });
 
 onBeforeUnmount(() => {
+  window.clearTimeout(fishTimer);
   cancelAnimationFrame(rafId);
   tvScreen.visible = false;
   tvScreen.onMap = false;
