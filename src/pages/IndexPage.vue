@@ -32,7 +32,7 @@
               :title="t.indexPage.shareLocationHint"
               @click="shareMyLocation"
             >
-              📍<span class="hide-below-sm"> {{ t.indexPage.shareLocation }}</span>
+              📍 <span class="sm:!hidden">{{ t.indexPage.shareLocationShort }}</span><span class="hide-below-sm">{{ t.indexPage.shareLocation }}</span>
             </button>
           </div>
 
