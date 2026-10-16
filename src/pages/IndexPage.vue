@@ -15,9 +15,9 @@
               v-if="sceneLocation !== 'library'"
               type="button"
               class="pixel-btn h-7 min-w-0 shrink whitespace-nowrap px-2 text-[11px]"
-              @click="sceneLocation = 'library'"
+              @click="leaveScene"
             >
-              🚇 {{ t.indexPage.backToLibrary }}
+              {{ sceneLocation === 'home' ? `🗺️ ${t.home.backToMap}` : `🚇 ${t.indexPage.backToLibrary}` }}
             </button>
             <!-- 樓層、分區收成一顆，點開才有分頁，地圖才大（電腦、手機都一樣） -->
             <button
@@ -37,6 +37,7 @@
               {{ librarySocket.currentZone.value?.name }} · {{ librarySocket.currentZone.value?.description }}
             </p>
             <button
+              v-if="sceneLocation !== 'home'"
               type="button"
               class="pixel-btn h-7 shrink-0 whitespace-nowrap px-2 text-[11px]"
               :title="t.indexPage.shareLocationHint"
@@ -77,8 +78,23 @@
           >
             <q-icon :name="sceneFullscreen ? 'fullscreen_exit' : 'fullscreen'" size="20px" />
           </button>
+          <!-- 回自己家：每張地圖左上角都有（沒登入先跳登入） -->
+          <button
+            v-if="useCanvasScene && sceneLocation !== 'home'"
+            type="button"
+            class="pixel-btn absolute left-[3.25rem] top-2 z-20 h-9 whitespace-nowrap px-2.5 text-xs"
+            @click="goHome"
+          >
+            🏠 {{ t.home.goHome }}
+          </button>
+          <HomeScene
+            v-if="useCanvasScene && sceneLocation === 'home'"
+            ref="homeSceneRef"
+            :disabled="store.isRunning"
+            @leave="sceneLocation = homeReturnTo"
+          />
           <F1Scene
-            v-if="useCanvasScene && sceneLocation === 'f1'"
+            v-else-if="useCanvasScene && sceneLocation === 'f1'"
             ref="f1SceneRef"
             :seats="currentSeats.slice(F1_SEAT_START, F1_SEAT_START + F1_SEAT_COUNT)"
             :selected-seat-id="selectedSeatId"
@@ -167,6 +183,7 @@
           </div>
           </Teleport>
         </section>
+        <LoginDialog v-model="loginOpen" :title="t.home.loginTitle" :hint="t.home.loginHint" @logged-in="enterHome" />
       </main>
     </div>
   </div>
@@ -248,6 +265,9 @@ import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vu
 import YouTubeTv from 'src/pages/index/components/YouTubeTv.vue';
 import RiverParkScene from 'src/pages/index/components/RiverParkScene.vue';
 import BeitouScene from 'src/pages/index/components/BeitouScene.vue';
+import HomeScene from 'src/pages/index/components/HomeScene.vue';
+import LoginDialog from 'src/pages/index/components/LoginDialog.vue';
+import { useAccount } from 'src/composables/useAccount';
 import { buildShareLink, forgetScene, takeSavedScene, takeSharedLocation } from 'src/pages/index/shareLocation';
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
@@ -863,7 +883,16 @@ async function handleNotificationsToggle(on: boolean) {
 
 // 場景在哪：圖書館那張大地圖，或從 F1 站過去的 F1 賽車場（獨立地圖）
 // 重新整理時：分享連結優先，不然回到上次所在的獨立地圖
-const sceneLocation = ref<'library' | 'f1' | 'park' | 'beitou'>(sharedLocation?.scene ?? takeSavedScene() ?? 'library');
+const account = useAccount();
+// 重整前在自己家、但已經登出了：回圖書館
+const savedScene = takeSavedScene();
+const sceneLocation = ref<'library' | 'f1' | 'park' | 'beitou' | 'home'>(
+  sharedLocation?.scene ?? (savedScene === 'home' && !account.session.value ? null : savedScene) ?? 'library',
+);
+// 從哪張地圖回家的，出門就回那裡
+const homeReturnTo = ref<'library' | 'f1' | 'park' | 'beitou'>('library');
+const loginOpen = ref(false);
+const homeSceneRef = ref<(SceneHandle & { requestLeave: () => boolean }) | null>(null);
 // 回到圖書館就不用再記獨立地圖
 watch(sceneLocation, (location) => {
   if (location === 'library') forgetScene();
@@ -876,14 +905,15 @@ watch(
   ([location, , canvas], [previousLocation]) => {
     // 從 F1 回來時場景會重建，它只在區域跟預設不同時才回報，所以先歸零
     if (location === 'library' && previousLocation !== 'library') sceneArea.value = 'library';
-    audio.setSoundscape(!canvas || location === 'park' || location === 'beitou' ? null : location === 'f1' ? 'f1' : SOUNDSCAPES[sceneArea.value]);
+    audio.setSoundscape(!canvas || location === 'park' || location === 'beitou' || location === 'home' ? null : location === 'f1' ? 'f1' : SOUNDSCAPES[sceneArea.value]);
   },
 );
 // 開始專注就回到圖書館的位子上
 watch(
   () => store.isRunning,
   (running) => {
-    if (running) sceneLocation.value = isF1Seat(selectedSeatId.value) ? 'f1' : isParkSeat(selectedSeatId.value) ? 'park' : isBeitouSeat(selectedSeatId.value) ? 'beitou' : 'library';
+    // 在自己家的書桌前專注就留在家裡
+    if (running && sceneLocation.value !== 'home') sceneLocation.value = isF1Seat(selectedSeatId.value) ? 'f1' : isParkSeat(selectedSeatId.value) ? 'park' : isBeitouSeat(selectedSeatId.value) ? 'beitou' : 'library';
   },
 );
 
@@ -1083,7 +1113,7 @@ const beitouSceneRef = ref<SceneHandle | null>(null);
 const audioPlayerRef = ref<{ openYouTube: () => void } | null>(null);
 // 回傳 false＝人不在座位上（走在路上、騎車、游泳），不該開始專注；2D 座位格子沒有「人在哪」，照舊用選好的座位
 function claimSeatWhereIAm(): boolean {
-  const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : sceneLocation.value === 'park' ? parkSceneRef.value : sceneLocation.value === 'beitou' ? beitouSceneRef.value : pixelSceneRef.value;
+  const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : sceneLocation.value === 'park' ? parkSceneRef.value : sceneLocation.value === 'beitou' ? beitouSceneRef.value : sceneLocation.value === 'home' ? homeSceneRef.value : pixelSceneRef.value;
   if (!scene) return true;
   const spot = scene.seatForFocus();
   if (spot === 'lying') return true;
@@ -1093,11 +1123,42 @@ function claimSeatWhereIAm(): boolean {
 }
 
 function notifyNotSeated() {
-  $q.notify({ message: t.value.indexPage.notifyNotSeated, color: 'warning', icon: 'event_seat', timeout: 2200, position: 'top' });
+  $q.notify({ message: sceneLocation.value === 'home' ? t.value.home.notSeated : t.value.indexPage.notifyNotSeated, color: 'warning', icon: 'event_seat', timeout: 2200, position: 'top' });
+}
+
+// 🏠 我的家：沒登入先登入；進去前先把自己在地圖上標成「不在這裡」
+function goHome(): void {
+  if (!account.session.value) {
+    loginOpen.value = true;
+    return;
+  }
+  enterHome();
+}
+
+function enterHome(): void {
+  if (sceneLocation.value === 'home') return;
+  librarySocket.sendPosition({ x: 0, y: 0, facing: 'down', moving: false, hidden: true });
+  homeReturnTo.value = sceneLocation.value;
+  mobileNavOpen.value = false;
+  sceneLocation.value = 'home';
+}
+
+// 上方的「回地圖／搭車回去」：在家裡要先問有沒有沒存的（防呆）
+function leaveScene(): void {
+  if (sceneLocation.value === 'home') {
+    if (homeSceneRef.value?.requestLeave() === false) return;
+    sceneLocation.value = homeReturnTo.value;
+    return;
+  }
+  sceneLocation.value = 'library';
 }
 
 // 分享我的位置：複製一條連結，朋友打開就會出現在我旁邊（手機用系統的分享選單）
 async function shareMyLocation() {
+  if (sceneLocation.value === 'home') {
+    $q.notify({ message: t.value.home.noShareAtHome, color: 'warning', position: 'top', timeout: 2200 });
+    return;
+  }
   const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : sceneLocation.value === 'park' ? parkSceneRef.value : sceneLocation.value === 'beitou' ? beitouSceneRef.value : pixelSceneRef.value;
   const at = scene?.positionForShare() ?? { x: 16, y: 5.2 };
   const link = buildShareLink({ floor: currentFloor.value, zoneId: activeZoneId.value, scene: sceneLocation.value, x: at.x, y: at.y, name: displayName.value });
@@ -1125,7 +1186,8 @@ function toggleFocus(how: 'user' | 'auto' = 'user') {
     notifyNotSeated();
     return;
   }
-  if (!selectedSeatId.value && !store.isRunning) {
+  // 在自己家的書桌前：不用圖書館的座位
+  if (!selectedSeatId.value && !store.isRunning && sceneLocation.value !== 'home') {
     $q.notify({
       message: t.value.indexPage.notifyPickSeatFirst,
       color: 'warning',

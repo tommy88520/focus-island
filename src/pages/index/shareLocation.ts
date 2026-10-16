@@ -1,7 +1,8 @@
 // 「分享我的位置」連結：?meet=2-A&scene=library&x=12.4&y=5.1&n=名字
 // 朋友打開就到同一層、同一分區、同一張地圖，站在分享的人旁邊。
 
-export type ShareScene = 'library' | 'f1' | 'park' | 'beitou';
+// home 不能分享（只用在重整後回到自己家）
+export type ShareScene = 'library' | 'f1' | 'park' | 'beitou' | 'home';
 
 export interface SharedLocation {
   floor: number;
@@ -87,7 +88,7 @@ export function takeSavedScene(): SeparateScene | null {
   try {
     const saved = JSON.parse(localStorage.getItem(SCENE_KEY) ?? 'null') as { scene?: unknown; x?: unknown; y?: unknown; seated?: unknown; at?: unknown } | null;
     if (!saved || typeof saved.at !== 'number' || Date.now() - saved.at > SCENE_TTL_MS) return null;
-    if (saved.scene !== 'f1' && saved.scene !== 'park' && saved.scene !== 'beitou') return null;
+    if (saved.scene !== 'f1' && saved.scene !== 'park' && saved.scene !== 'beitou' && saved.scene !== 'home') return null;
     // 抵達時 placeNear 會先往右站一格（分享連結是站在朋友旁邊），這裡先減掉，站回自己原本的位置
     if (!saved.seated && typeof saved.x === 'number' && typeof saved.y === 'number') pendingArrival = { scene: saved.scene, x: saved.x - 1, y: saved.y };
     return saved.scene;
