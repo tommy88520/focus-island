@@ -70,7 +70,7 @@ import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, SEATED_ROWS } from 'src/pages/index/pixel/pixelArt';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
-import { takeArrival } from 'src/pages/index/shareLocation';
+import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 import { pickSeatSpot } from 'src/pages/index/seatPick';
 
 // 看台的座位跟圖書館的一樣是這個分區的座位（同步給所有人），只是畫在賽車場裡
@@ -637,6 +637,7 @@ function frame(time: number): void {
   else updateWalk(dt);
   shownRemotes = viewRemotes(props.remotePlayers, 'f1', dt);
   const r2 = (v: number) => Math.round(v * 100) / 100;
+  rememberScene('f1', positionForShare(), seatedIndex !== null, seconds);
   syncPosition(
     seatedIndex !== null
       ? { x: me.x, y: me.y, facing: me.facing, moving: false, hidden: true, scene: 'f1' }

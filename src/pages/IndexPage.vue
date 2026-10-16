@@ -208,7 +208,7 @@ import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vu
 import YouTubeTv from 'src/pages/index/components/YouTubeTv.vue';
 import RiverParkScene from 'src/pages/index/components/RiverParkScene.vue';
 import BeitouScene from 'src/pages/index/components/BeitouScene.vue';
-import { buildShareLink, takeSharedLocation } from 'src/pages/index/shareLocation';
+import { buildShareLink, forgetScene, takeSavedScene, takeSharedLocation } from 'src/pages/index/shareLocation';
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
 import { enterSceneFullscreen, exitSceneFullscreen, sceneFullscreen, sceneNeedsBarGap, sceneRotated } from 'src/pages/index/composables/sceneFullscreen';
@@ -247,6 +247,8 @@ const LAST_SEAT_KEY = 'focus_island_last_seat_v1';
 const LAST_LOCATION_KEY = 'focus_island_last_location_v1';
 // 朋友分享的位置連結：直接到那一層、那一區、那張地圖，站在他旁邊（圖書館一帶的話把「上次站的位置」改成他旁邊，場景載入時就會站過去）
 const sharedLocation = takeSharedLocation();
+// 朋友的連結帶去圖書館：上次記的獨立地圖作廢
+if (sharedLocation?.scene === 'library') forgetScene();
 if (sharedLocation?.scene === 'library') {
   try {
     localStorage.setItem(
@@ -805,7 +807,12 @@ async function handleNotificationsToggle(on: boolean) {
 }
 
 // 場景在哪：圖書館那張大地圖，或從 F1 站過去的 F1 賽車場（獨立地圖）
-const sceneLocation = ref<'library' | 'f1' | 'park' | 'beitou'>(sharedLocation?.scene ?? 'library');
+// 重新整理時：分享連結優先，不然回到上次所在的獨立地圖
+const sceneLocation = ref<'library' | 'f1' | 'park' | 'beitou'>(sharedLocation?.scene ?? takeSavedScene() ?? 'library');
+// 回到圖書館就不用再記獨立地圖
+watch(sceneLocation, (location) => {
+  if (location === 'library') forgetScene();
+});
 // 人在大地圖的哪一區，決定場景環境音（海浪、車流、夜市人聲…）
 const sceneArea = ref<Area>('library');
 const SOUNDSCAPES: Record<Area, SoundscapeKind | null> = { library: null, beach: 'beach', taipei101: 'city', zoo: 'zoo', nightmarket: 'market' };

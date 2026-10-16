@@ -55,3 +55,43 @@ export function takeArrival(scene: ShareScene): { x: number; y: number } | null 
   pendingArrival = null;
   return { x, y };
 }
+
+// ── 重新整理後回到原本那張獨立地圖（F1／環河公園／北投）、原本站的地方 ──
+type SeparateScene = Exclude<ShareScene, 'library'>;
+const SCENE_KEY = 'focus_island_scene_v1';
+const SCENE_TTL_MS = 12 * 60 * 60_000;
+let lastRemembered = -Infinity;
+
+// 獨立地圖每格叫一次，最多每秒寫一次；坐著就不記位置（重整後那張地圖會自己坐回座位）
+export function rememberScene(scene: SeparateScene, at: { x: number; y: number }, seated: boolean, seconds: number): void {
+  if (seconds - lastRemembered < 1) return;
+  lastRemembered = seconds;
+  try {
+    localStorage.setItem(SCENE_KEY, JSON.stringify({ scene, x: Math.round(at.x * 10) / 10, y: Math.round(at.y * 10) / 10, seated, at: Date.now() }));
+  } catch {
+    // 無痕模式等：記不住就算了
+  }
+}
+
+export function forgetScene(): void {
+  lastRemembered = -Infinity;
+  try {
+    localStorage.removeItem(SCENE_KEY);
+  } catch {
+    // 同上
+  }
+}
+
+// 載入時讀一次：上次人在獨立地圖就回那張，站著的話站回原地
+export function takeSavedScene(): SeparateScene | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SCENE_KEY) ?? 'null') as { scene?: unknown; x?: unknown; y?: unknown; seated?: unknown; at?: unknown } | null;
+    if (!saved || typeof saved.at !== 'number' || Date.now() - saved.at > SCENE_TTL_MS) return null;
+    if (saved.scene !== 'f1' && saved.scene !== 'park' && saved.scene !== 'beitou') return null;
+    // 抵達時 placeNear 會先往右站一格（分享連結是站在朋友旁邊），這裡先減掉，站回自己原本的位置
+    if (!saved.seated && typeof saved.x === 'number' && typeof saved.y === 'number') pendingArrival = { scene: saved.scene, x: saved.x - 1, y: saved.y };
+    return saved.scene;
+  } catch {
+    return null;
+  }
+}

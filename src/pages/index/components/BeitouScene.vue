@@ -54,7 +54,7 @@ import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, SEATED_ROWS, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
-import { takeArrival } from 'src/pages/index/shareLocation';
+import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 import { pickSeatSpot } from 'src/pages/index/seatPick';
 
 type Facing = 'up' | 'down' | 'left' | 'right';
@@ -910,6 +910,7 @@ function frame(time: number): void {
   last = seconds;
   updateWalk(dt);
   shownRemotes = viewRemotes(props.remotePlayers, 'beitou', dt);
+  rememberScene('beitou', positionForShare(), seatedIndex !== null, seconds);
   syncPosition(
     seatedIndex !== null
       ? { x: me.x, y: me.y, facing: me.facing, moving: false, hidden: true, scene: 'beitou' }

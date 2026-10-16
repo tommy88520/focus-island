@@ -109,7 +109,7 @@ import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, paintVehicle, SEATED_ROWS, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
 import { getBaristaFrame, paintBikeRack, paintCafe, paintCafeDeck, paintMenuSign } from 'src/pages/index/pixel/parkCafe';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
-import { takeArrival } from 'src/pages/index/shareLocation';
+import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 import { pickSeatSpot } from 'src/pages/index/seatPick';
 
 type Facing = 'up' | 'down' | 'left' | 'right';
@@ -1100,6 +1100,7 @@ function frame(time: number): void {
   updateWalk(dt);
   shownRemotes = viewRemotes(props.remotePlayers, 'park', dt);
   // 坐下就送 hidden（別人看座位就知道你在哪）
+  rememberScene('park', positionForShare(), seatedIndex !== null, seconds);
   syncPosition(
     seatedIndex !== null
       ? { x: me.x, y: me.y, facing: me.facing, moving: false, hidden: true, scene: 'park' }
