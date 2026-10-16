@@ -2,6 +2,7 @@
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file
 
 import { defineConfig } from '#q-app/wrappers';
+import pkg from './package.json';
 
 export default defineConfig((/* ctx */) => {
   return {
@@ -54,7 +55,8 @@ export default defineConfig((/* ctx */) => {
 
       // publicPath: '/',
       // analyze: true,
-      // env: {},
+      // App 版號：頁面上顯示的是這個，不是 Quasar 的
+      env: { APP_VERSION: pkg.version },
       // rawDefine: {}
       // ignorePublicFolder: true,
       // minify: false,

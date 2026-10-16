@@ -79,7 +79,8 @@ const mode = computed<'tv' | 'mini' | 'minimized' | 'expanded' | 'hidden'>(() =>
   return youtube.minimized.value ? 'minimized' : 'mini';
 });
 const frameStyle = computed(() => {
-  if (mode.value !== 'tv' && mode.value !== 'hidden') return {};
+  // 角落小視窗／放大：明確把電視牆那時的 left/top/裁切清掉，不然會殘留、整個被推到畫面外（10-16 截圖）
+  if (mode.value !== 'tv' && mode.value !== 'hidden') return { left: mode.value === 'expanded' ? '50%' : 'auto', top: mode.value === 'expanded' ? '50%' : 'auto', clipPath: 'none' };
   const { x, y, w, h, clipL, clipT, clipR, clipB } = youtube.tvScreen;
   const style: Record<string, string> = { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` };
   // 電視有一部分在地圖外面（只有手機版會這樣顯示）：只露出地圖裡的那塊

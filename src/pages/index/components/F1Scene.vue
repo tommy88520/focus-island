@@ -3,17 +3,18 @@
   <div class="relative">
     <div
       ref="containerRef"
-      class="scene-box relative h-[calc(100dvh-235px)] sm:h-[calc(100dvh-350px)] min-h-[320px] w-full overflow-hidden rounded-[3px] bg-[#3f7a3a] outline-none lg:h-[calc(100vh-300px)] lg:min-h-[460px]"
+      class="scene-box relative h-[calc(100dvh-235px)] sm:h-[calc(100dvh-262px)] min-h-[320px] w-full overflow-hidden rounded-[3px] bg-[#3f7a3a] outline-none lg:h-[calc(100dvh-262px)] lg:min-h-[460px]"
       style="touch-action: pan-y"
       tabindex="0"
     >
       <canvas ref="canvasRef" class="block h-full w-full" @click="handleClick" />
 
       <!-- 圈速 -->
-      <div class="pixel-panel absolute right-2 top-2 px-3 py-2 text-right">
-        <p class="!mb-0 font-pixel text-[10px] uppercase text-[color:var(--px-accent-dark)] dark:!text-amber-300">🏁 {{ t.f1.title }}</p>
-        <p class="!mb-0 mt-1 font-pixel text-sm font-bold">{{ t.f1.lap }} {{ formatLap(currentLap) }}</p>
-        <p class="!mb-0 font-pixel text-[11px] text-[color:var(--px-muted)]">{{ t.f1.last }} {{ formatLap(lastLap) }} · {{ t.f1.best }} {{ formatLap(bestLap) }}</p>
+      <!-- 手機上縮小：不要標題、字小一點，少擋地圖 -->
+      <div class="pixel-panel absolute right-2 top-2 px-2 py-1 text-right sm:px-3 sm:py-2">
+        <p class="hide-below-sm !mb-0 font-pixel text-[10px] uppercase text-[color:var(--px-accent-dark)] dark:!text-amber-300">🏁 {{ t.f1.title }}</p>
+        <p class="!mb-0 font-pixel text-xs font-bold sm:mt-1 sm:text-sm">{{ t.f1.lap }} {{ formatLap(currentLap) }}</p>
+        <p class="!mb-0 font-pixel text-[10px] text-[color:var(--px-muted)] sm:text-[11px]">{{ t.f1.last }} {{ formatLap(lastLap) }} · {{ t.f1.best }} {{ formatLap(bestLap) }}</p>
       </div>
 
       <!-- 回程的車站 -->
@@ -608,8 +609,10 @@ function render(seconds: number): void {
   const screen = (x: number, y: number) => ({ x: ox + x * T * scale, y: oy + y * T * scale });
   const sp = screen((STATION.x0 + STATION.x1) / 2, STATION.y0 - 0.8);
   pill(ctx, t.value.f1.stationName, sp.x, sp.y, '#fbbf24');
-  const cp = screen(car.x, car.y - 0.8);
-  if (!driving.value) pill(ctx, t.value.f1.yourCar, cp.x, cp.y, '#fbbf24');
+  // 人站在車旁時，車的名牌往上疊在「我」上面，不要互相蓋住；觸控裝置寫「點車上車」
+  const nearCarLabel = Math.hypot(me.x - car.x, me.y - car.y) < 1.6;
+  const cp = screen(car.x, (nearCarLabel ? Math.min(me.y - 1, car.y - 0.8) : car.y - 0.8));
+  if (!driving.value) pill(ctx, isTouch.value ? t.value.f1.yourCarTouch : t.value.f1.yourCar, cp.x, cp.y - (nearCarLabel ? 24 : 0), '#fbbf24');
   const mp = driving.value ? screen(car.x, car.y - 0.8) : screen(me.x, me.y - 1);
   pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
   for (const other of shownRemotes) {

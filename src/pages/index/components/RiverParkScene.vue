@@ -4,7 +4,7 @@
   <div class="relative">
     <div
       ref="containerRef"
-      class="scene-box relative h-[calc(100dvh-235px)] sm:h-[calc(100dvh-350px)] min-h-[320px] w-full overflow-hidden rounded-[3px] outline-none lg:h-[calc(100vh-300px)] lg:min-h-[460px]"
+      class="scene-box relative h-[calc(100dvh-235px)] sm:h-[calc(100dvh-262px)] min-h-[320px] w-full overflow-hidden rounded-[3px] outline-none lg:h-[calc(100dvh-262px)] lg:min-h-[460px]"
       :class="season === 'snow' ? 'bg-[#e9eef4]' : 'bg-[#86bf68]'"
       style="touch-action: pan-y"
       tabindex="0"
@@ -12,15 +12,17 @@
       <canvas ref="canvasRef" class="block h-full w-full" @click="handleClick" />
 
       <!-- 切換季節 -->
-      <div class="pixel-panel absolute right-2 top-2 px-2 py-2">
-        <p class="!mb-1.5 text-center text-[10px] font-black">{{ t.riverPark.title }}</p>
-        <div class="!flex !flex-nowrap gap-1.5">
+      <!-- 手機上拿掉標題、縮小留白，少擋地圖（按鈕一定留字） -->
+      <div class="pixel-panel absolute right-2 top-2 p-1 sm:px-2 sm:py-2">
+        <p class="hide-below-sm !mb-1.5 text-center text-[10px] font-black">{{ t.riverPark.title }}</p>
+        <div class="!flex !flex-nowrap gap-1 sm:gap-1.5">
           <button
             v-for="s in SEASONS"
             :key="s"
             type="button"
-            class="pixel-btn h-8 whitespace-nowrap px-2 text-[11px]"
+            class="pixel-btn h-8 whitespace-nowrap px-1.5 text-[11px] sm:px-2"
             :class="{ 'pixel-btn--active': season === s }"
+            :aria-label="s === 'sakura' ? t.riverPark.sakura : t.riverPark.snow"
             @click="setSeason(s)"
           >
             {{ s === 'sakura' ? t.riverPark.sakura : t.riverPark.snow }}

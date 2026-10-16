@@ -10,12 +10,12 @@
 
     <q-header class="bg-transparent px-2 pt-2 sm:px-4 sm:pt-4" flat>
       <div
-        class="pixel-panel mx-auto flex max-w-[1500px] !flex-nowrap items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4"
+        class="pixel-panel mx-auto flex max-w-[1500px] !flex-nowrap items-center gap-2 px-3 py-1.5 sm:gap-3 sm:px-4"
       >
         <button
           type="button"
           aria-label="menu"
-          class="pixel-btn h-8 w-8 shrink-0 md:!hidden"
+          class="pixel-btn h-8 w-8 shrink-0"
           @click="toggleLeftDrawer"
         >
           <q-icon name="menu" size="20px" />
@@ -29,7 +29,8 @@
           </div>
         </div>
 
-        <nav class="ml-1 flex items-center gap-1 max-md:!hidden">
+        <!-- 頁首只留選單、logo、今日目標；導覽和語言、深淺色、最愛都收進左邊選單，地圖才大 -->
+        <nav class="!hidden">
           <button
             v-for="link in localizedLinksList"
             :key="link.key"
@@ -56,55 +57,14 @@
           </button>
         </nav>
 
-        <div class="ml-auto flex items-center gap-1.5 sm:gap-3">
-          <div
-            v-if="currentRoomInfo.roomID"
-            class="pixel-field flex !flex-nowrap items-center gap-1.5 px-2 py-1 text-[10px] font-black tracking-[0.12em] max-lg:!hidden"
-            :title="displayedRoomInfo.zoneDescription"
-          >
-            <span>{{ displayedRoomInfo.roomID }}</span>
-            <span class="font-bold opacity-70">{{ displayedRoomInfo.roomName }}</span>
+        <div class="ml-auto flex items-center gap-2" :title="t.layout.headerGoalLabel">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-[color:var(--px-muted)] max-sm:!hidden">
+            {{ t.layout.headerGoalLabel }}
+          </span>
+          <div class="flex flex-col items-end">
+            <span class="font-pixel text-[11px] font-bold">{{ store.todayFocusedHoursText }} / {{ playerPrefs.dailyGoalHours }}h</span>
+            <div class="pixel-track mt-0.5 w-20 !h-2 !p-0 sm:w-24"><div :style="{ width: `${goalPercent}%` }"></div></div>
           </div>
-          <div class="flex flex-col items-end max-xl:!hidden">
-            <span class="text-[10px] font-bold uppercase tracking-widest text-[color:var(--px-muted)]">
-              {{ t.layout.headerGoalLabel }}
-            </span>
-            <span class="font-pixel text-xs font-bold">{{ store.todayFocusedHoursText }} / {{ playerPrefs.dailyGoalHours }}h</span>
-            <div class="pixel-track mt-1 w-24 !h-2 !p-0"><div :style="{ width: `${goalPercent}%` }"></div></div>
-          </div>
-          <div class="mx-1 h-8 w-[2px] bg-[color:var(--px-ink)] opacity-20 max-xl:!hidden"></div>
-          <button
-            type="button"
-            class="pixel-btn h-8 min-w-8 px-2 text-[10px] tracking-[0.18em] sm:px-2.5"
-            @click="toggleLanguage"
-          >
-            <span class="inline-flex items-center gap-1">
-              <q-icon name="translate" size="12px" />
-              <span class="hide-below-sm sm:inline">{{ t.layout.languageButton }}</span>
-            </span>
-          </button>
-          <button
-            type="button"
-            class="pixel-btn h-8 min-w-8 px-2 text-[10px] tracking-[0.18em] sm:px-2.5"
-            @click="toggleTheme"
-          >
-            <span class="inline-flex items-center gap-1">
-              <q-icon :name="isDarkMode ? 'dark_mode' : 'light_mode'" size="12px" />
-              <span class="hide-below-sm sm:inline">{{ isDarkMode ? t.layout.darkButton : t.layout.lightButton }}</span>
-            </span>
-          </button>
-          <button
-            type="button"
-            class="pixel-btn h-8 min-w-8 px-2 text-[10px] tracking-[0.18em] sm:px-2.5"
-            :class="{ 'pixel-btn--active': favoriteRoute }"
-            @click="handleFavoriteShortcut"
-          >
-            <span class="inline-flex items-center gap-1">
-              <q-icon name="star" size="12px" />
-              <span class="hide-below-sm sm:inline">{{ t.layout.favoriteButton }}</span>
-            </span>
-          </button>
-          <span class="font-pixel hide-below-sm text-[10px] text-[color:var(--px-muted)] sm:inline-flex">v{{ $q.version }}</span>
         </div>
       </div>
     </q-header>
@@ -157,6 +117,27 @@
             </button>
           </nav>
 
+          <!-- 不常用的開關：語言、深淺色、最愛 -->
+          <div class="mt-4 grid grid-cols-3 gap-2">
+            <button type="button" class="pixel-btn !flex h-auto flex-col gap-0.5 px-1 py-2 text-[11px]" @click="toggleLanguage">
+              <q-icon name="translate" size="16px" />
+              <span>{{ t.layout.languageButton }}</span>
+            </button>
+            <button type="button" class="pixel-btn !flex h-auto flex-col gap-0.5 px-1 py-2 text-[11px]" @click="toggleTheme">
+              <q-icon :name="isDarkMode ? 'dark_mode' : 'light_mode'" size="16px" />
+              <span>{{ isDarkMode ? t.layout.darkButton : t.layout.lightButton }}</span>
+            </button>
+            <button
+              type="button"
+              class="pixel-btn !flex h-auto flex-col gap-0.5 px-1 py-2 text-[11px]"
+              :class="{ 'pixel-btn--active': favoriteRoute }"
+              @click="handleFavoriteShortcut"
+            >
+              <q-icon name="star" size="16px" />
+              <span>{{ t.layout.favoriteButton }}</span>
+            </button>
+          </div>
+
           <div class="mt-auto pt-5 sm:pt-6">
             <div class="pixel-field p-3">
               <p class="text-[10px] font-black uppercase tracking-[0.2em] text-[color:var(--px-muted)]">{{ t.layout.currentRoomLabel }}</p>
@@ -164,6 +145,11 @@
               <p class="mt-1 text-[11px]">{{ displayedRoomInfo.roomName }}</p>
               <p class="mt-1 text-[10px] text-[color:var(--px-muted)]">{{ displayedRoomInfo.zoneDescription }}</p>
             </div>
+            <!-- 跟 ptt 專案一樣接 Ko-fi；之後要做儲值再換 -->
+            <a :href="COFFEE_URL" target="_blank" rel="noreferrer" class="pixel-btn pixel-btn--primary mt-3 !flex h-9 w-full items-center justify-center text-xs no-underline">
+              ☕ {{ t.layout.coffee }}
+            </a>
+            <p class="font-pixel !mb-0 mt-2 text-center text-[10px] text-[color:var(--px-muted)]">Focus Island v{{ APP_VERSION }}</p>
           </div>
         </aside>
       </div>
@@ -187,6 +173,9 @@ import { usePomodoroStore } from 'src/stores/pomodoro';
 import { HAIR_UNLOCK, SHIRT_UNLOCK } from 'src/pages/index/pixel/pixelArt';
 
 const leftDrawerOpen = ref(false);
+// App 自己的版號（package.json，build 時帶進來）
+const APP_VERSION = process.env.APP_VERSION ?? '';
+const COFFEE_URL = 'https://ko-fi.com/tommy88520';
 const store = usePomodoroStore();
 const useAccountSync = useAccount();
 const playerPrefs = usePlayerPrefs();

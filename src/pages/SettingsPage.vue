@@ -179,6 +179,13 @@
           <button type="button" class="ml-1 underline" @click="prefs.blocked = []">{{ t.settingsPage.unblockAll }}</button>
         </p>
       </section>
+
+      <section class="pixel-panel p-5 text-center sm:p-6">
+        <p class="!mb-3 text-xs text-[color:var(--px-muted)]">{{ t.settingsPage.coffeeHint }}</p>
+        <a href="https://ko-fi.com/tommy88520" target="_blank" rel="noreferrer" class="pixel-btn pixel-btn--primary inline-flex h-10 items-center px-5 text-sm no-underline">
+          ☕ {{ t.layout.coffee }}
+        </a>
+      </section>
     </div>
   </div>
 </template>
