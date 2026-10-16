@@ -11,7 +11,7 @@
 
       <button
         type="button"
-        class="absolute right-2 top-2 !flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900/80 text-white shadow-lg ring-1 ring-white/15 transition hover:bg-slate-800"
+        class="absolute right-2 top-2 z-20 !flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900/80 text-white shadow-lg ring-1 ring-white/15 transition hover:bg-slate-800 sm:h-9 sm:w-9"
         :class="{ 'ring-amber-400/70': minimapOpen }"
         :aria-label="t.seatScene.minimap"
         :aria-expanded="minimapOpen"
@@ -220,7 +220,7 @@
         <p class="!mb-2 !text-[11px] font-black">🏁 {{ t.seatScene.f1Prompt }}</p>
         <button type="button" class="pixel-btn pixel-btn--primary h-9 px-4 text-xs" @click="goF1">{{ t.seatScene.f1Go }}</button>
       </div>
-      <div v-show="minimapOpen" class="absolute right-2 top-12 rounded-xl bg-slate-900/85 p-2 shadow-lg ring-1 ring-white/15">
+      <div v-show="minimapOpen" class="absolute right-2 top-14 rounded-xl sm:top-12 bg-slate-900/85 p-2 shadow-lg ring-1 ring-white/15">
         <p class="!mb-1.5 text-center !text-[10px] font-black tracking-wide text-amber-300">
           {{ areaTitle }}
         </p>

@@ -134,6 +134,14 @@ onBeforeUnmount(() => {
   transition: opacity 0.5s;
   box-shadow: 0 0 0 2px #15171f;
 }
+/* 疊在電視牆上的影片不接收點擊：點擊穿過去打到地圖或地圖上的按鈕（手機上影片常常蓋到右上角的小地圖鈕）；
+   要操作影片用放大鈕或工具列 */
+.youtube-tv--tv {
+  pointer-events: none;
+}
+.youtube-tv--tv .youtube-tv__btn {
+  pointer-events: auto;
+}
 /* 藏起來時 iframe 不能拿掉（會重新載入），只把它裁掉 */
 .youtube-tv--hidden {
   z-index: 15;
