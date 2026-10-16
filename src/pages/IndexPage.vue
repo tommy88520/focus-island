@@ -10,8 +10,18 @@
             >
               {{ t.indexPage.floorBadgePrefix }}{{ currentFloor }}
             </div>
+            <!-- 在 F1／公園／北投：換分區會在看不到的地方換房間，所以只給「搭車回去」 -->
+            <button
+              v-if="sceneLocation !== 'library'"
+              type="button"
+              class="pixel-btn h-7 min-w-0 shrink whitespace-nowrap px-2 text-[11px]"
+              @click="sceneLocation = 'library'"
+            >
+              🚇 {{ t.indexPage.backToLibrary }}
+            </button>
             <!-- 樓層、分區收成一顆，點開才有分頁，地圖才大（電腦、手機都一樣） -->
             <button
+              v-else
               type="button"
               class="pixel-btn h-7 min-w-0 shrink !flex-nowrap gap-1 px-2 text-[11px]"
               :aria-expanded="mobileNavOpen"
@@ -37,7 +47,7 @@
           </div>
 
           <FloorTabs
-            :class="{ '!hidden': !mobileNavOpen }"
+            :class="{ '!hidden': !mobileNavOpen || sceneLocation !== 'library' }"
             :floors="floorTabItems"
             :current-floor="currentFloor"
             @update:current-floor="currentFloor = $event"
@@ -46,7 +56,7 @@
 
         <section class="pixel-panel relative p-1.5 sm:p-3">
           <ZoneTabs
-            :class="{ '!hidden': !mobileNavOpen }"
+            :class="{ '!hidden': !mobileNavOpen || sceneLocation !== 'library' }"
             :zones="zoneTabItems"
             :active-zone-id="activeZoneId"
             @update:active-zone-id="activeZoneId = $event"
@@ -77,6 +87,7 @@
             @select="selectSeat"
             :remote-players="librarySocket.remotePlayers.value"
             @position="librarySocket.sendPosition"
+            @whisper="librarySocket.sendWhisper"
             @leave="sceneLocation = 'library'"
             @end-focus="endFocusToLeave"
           />
@@ -90,6 +101,7 @@
             @select="selectSeat"
             :remote-players="librarySocket.remotePlayers.value"
             @position="librarySocket.sendPosition"
+            @whisper="librarySocket.sendWhisper"
             @leave="sceneLocation = 'library'"
             @end-focus="endFocusToLeave"
           />
@@ -103,6 +115,7 @@
             @select="selectSeat"
             :remote-players="librarySocket.remotePlayers.value"
             @position="librarySocket.sendPosition"
+            @whisper="librarySocket.sendWhisper"
             @leave="sceneLocation = 'library'"
             @end-focus="endFocusToLeave"
           />

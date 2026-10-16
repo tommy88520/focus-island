@@ -110,6 +110,15 @@ export const EMOTE_IDS = ['wave', 'cheer', 'coffee', 'thumbs'] as const;
 // 悄悄話：點別人名牌送的固定句子（跟後端 allowedWhispers 對好）
 export const WHISPER_IDS = ['hi', 'focus', 'cheer', 'break', 'thanks', 'night'] as const;
 export type WhisperId = (typeof WHISPER_IDS)[number];
+// 名牌小卡要的資料（站著的人、座位上的人都有這些欄位）
+export interface ProfilePerson {
+  displayName: string;
+  userId?: string | undefined;
+  state?: Reader['state'] | undefined;
+  dnd?: boolean | undefined;
+  todayMin?: number | undefined;
+  streak?: number | undefined;
+}
 export interface IncomingWhisper {
   fromUserId: string;
   name: string;

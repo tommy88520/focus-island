@@ -46,7 +46,7 @@ const translations = {
       darkModeOn: '已切換深色模式',
       lightModeOn: '已切換淺色模式',
       defaultRoomName: '尚未選擇房間',
-      defaultRoomHint: '請先到選位入座頁面選擇分區',
+      defaultRoomHint: '在地圖上走樓梯、搭電梯或捷運就能換地方',
       menuItems: {
         seat: { title: '選位入座', caption: '選擇座位並開始專注' },
         progress: { title: '今日進度', caption: '查看完成與累積時間' },
@@ -112,6 +112,7 @@ const translations = {
       notifyPickSeatFirst: '請先選擇一個座位才能入座',
       notifyNotSeated: '你還沒坐下：走到空位旁邊或點一個空位，再開始專注',
       shareLocation: '分享位置',
+      backToLibrary: '搭車回圖書館',
       shareLocationShort: '分享位置',
       toggleMusic: '音樂',
       shareLocationHint: '複製一條連結，朋友打開就會出現在你旁邊',
@@ -373,7 +374,7 @@ const translations = {
       darkModeOn: 'Switched to dark mode',
       lightModeOn: 'Switched to light mode',
       defaultRoomName: 'No room selected',
-      defaultRoomHint: 'Pick a zone on the Seat In page first',
+      defaultRoomHint: 'Take the stairs, elevator or MRT on the map to move around',
       menuItems: {
         seat: { title: 'Seat In', caption: 'Choose a seat and start focus' },
         progress: { title: 'Progress', caption: 'Track focus sessions today' },
@@ -439,6 +440,7 @@ const translations = {
       notifyPickSeatFirst: 'Please pick a seat before starting focus',
       notifyNotSeated: "You're not at a seat yet — walk up to or click an empty seat, then start focus",
       shareLocation: 'Share spot',
+      backToLibrary: 'Ride back',
       shareLocationShort: 'Share',
       toggleMusic: 'Music',
       shareLocationHint: 'Copy a link — a friend who opens it appears right next to you',

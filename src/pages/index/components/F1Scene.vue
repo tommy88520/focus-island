@@ -9,6 +9,9 @@
     >
       <canvas ref="canvasRef" class="block h-full w-full" @click="handleClick" />
 
+      <!-- 點別人：名牌小卡（看資料、送悄悄話） -->
+      <ProfileCard v-if="profilePerson" :person="profilePerson" @close="profilePerson = null" @whisper="whisperTo" />
+
       <!-- 圈速 -->
       <!-- 手機上縮小：不要標題、字小一點，少擋地圖 -->
       <div class="pixel-panel absolute right-2 top-2 px-2 py-1 text-right sm:px-3 sm:py-2">
@@ -52,9 +55,7 @@
         ></div>
       </div>
     </div>
-    <p class="mt-1.5 px-2 text-center text-[10px] font-bold leading-snug tracking-wide text-slate-500 dark:!text-white/55">
-      {{ isTouch ? t.f1.hintTouch : t.f1.hintDesktop }}
-    </p>
+    <SceneHint :text="isTouch ? t.f1.hintTouch : t.f1.hintDesktop" />
 
     <LeaveFocusDialog v-model="leaveConfirmOpen" @confirm="confirmLeave" @hide="afterFocusEnds = null" />
   </div>
@@ -62,12 +63,14 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import type { MyPosition, Reader, RemotePlayer } from 'src/pages/index/composables/useLibrarySocket';
+import type { MyPosition, Reader, RemotePlayer, ProfilePerson, WhisperId } from 'src/pages/index/composables/useLibrarySocket';
 import { createPositionSync, createRemoteView, remoteColors, remoteLabel, type ShownRemote } from 'src/pages/index/sceneRemotes';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
 import { localPoint } from 'src/pages/index/composables/sceneFullscreen';
+import SceneHint from 'src/pages/index/components/SceneHint.vue';
 import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
+import ProfileCard from 'src/pages/index/components/ProfileCard.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, getAvatarFrame, lookColors, readerColors, SEATED_ROWS } from 'src/pages/index/pixel/pixelArt';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
@@ -83,7 +86,31 @@ const props = defineProps<{
   // 同房間的人（只畫也在賽車場的）
   remotePlayers: Record<string, RemotePlayer>;
 }>();
-const emit = defineEmits<{ leave: []; select: [seatId: string]; 'end-focus': []; position: [position: MyPosition] }>();
+const emit = defineEmits<{ leave: []; select: [seatId: string]; 'end-focus': []; position: [position: MyPosition]; whisper: [to: string, phrase: WhisperId] }>();
+
+// ── 點別人的名牌：站著的人看頭到腳那一塊，坐著的人用座位 ──
+const profilePerson = ref<ProfilePerson | null>(null);
+function pickPerson(x: number, y: number): boolean {
+  const remote = shownRemotes.find((o) => Math.abs(x - o.x) < 0.6 && y > o.y - 1.4 && y < o.y + 0.4);
+  if (remote) {
+    profilePerson.value = { ...remote.remote };
+    return true;
+  }
+  for (let i = 0; i < SEAT_SPOTS.length; i += 1) {
+    const spot = SEAT_SPOTS[i];
+    const seat = props.seats[i];
+    const mate = seat ? props.getMateAtSeat(seat.id) : null;
+    if (spot && mate && Math.abs(x - spot.x) < 0.6 && y > spot.y - 1.4 && y < spot.y + 0.6) {
+      profilePerson.value = { ...mate };
+      return true;
+    }
+  }
+  return false;
+}
+function whisperTo(to: string, phrase: WhisperId): void {
+  if (to) emit('whisper', to, phrase);
+  profilePerson.value = null;
+}
 // 自己的位置（開車時是車子的位置和方向）送給同房間的人；別人的位置平滑地畫出來
 const syncPosition = createPositionSync((pos) => emit('position', pos));
 const viewRemotes = createRemoteView();
@@ -751,6 +778,7 @@ function handleClick(event: MouseEvent): void {
   if (!at || driving.value) return;
   const x = (at.x - view.ox) / view.scale / T;
   const y = (at.y - view.oy) / view.scale / T;
+  if (pickPerson(x, y)) return;
   if (props.disabled) {
     // 點自己的座位不算要離開
     const clicked = pickSeatSpot(SEAT_SPOTS, x, y, (i) => seatState(i) === 'empty');

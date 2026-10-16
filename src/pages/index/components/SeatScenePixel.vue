@@ -21,53 +21,15 @@
         <q-icon :name="minimapOpen ? 'close' : 'map'" size="18px" />
       </button>
       <!-- 點別人的名牌：小卡 -->
-      <div
+      <ProfileCard
         v-if="profileCard && !isLoading"
-        class="pixel-panel absolute left-1/2 top-3 z-10 w-[min(18rem,calc(100%-1.5rem))] -translate-x-1/2 p-3"
-        role="dialog"
-        :aria-label="profileCard.name"
-      >
-        <div class="!flex !flex-nowrap items-start justify-between gap-2">
-          <div class="min-w-0">
-            <p class="!mb-0 truncate text-base font-black">{{ profileCard.dnd ? '🔕 ' : '' }}{{ profileCard.name }}</p>
-            <p class="!mb-0 mt-0.5 text-[11px] font-bold text-[color:var(--px-muted)]">{{ profileStatus }}</p>
-          </div>
-          <button type="button" class="shrink-0 text-[color:var(--px-muted)]" :aria-label="t.seatScene.profileClose" @click="closeProfile">
-            <q-icon name="close" size="18px" />
-          </button>
-        </div>
-        <p v-if="profileCard.todayMin !== undefined || profileCard.streak !== undefined" class="!mb-0 mt-2 font-pixel text-[11px]">
-          <span v-if="profileCard.todayMin !== undefined">⏱ {{ t.seatScene.profileToday(profileCard.todayMin) }}</span>
-          <span v-if="profileCard.streak !== undefined" class="ml-3">🔥 {{ t.seatScene.profileStreak(profileCard.streak) }}</span>
-        </p>
-        <button
-          type="button"
-          class="pixel-btn pixel-btn--primary mt-3 h-8 w-full text-xs"
-          :disabled="profileCard.dnd || isQuietZone || disabled"
-          @click="waveFromProfile"
-        >
-          {{ profileCard.dnd ? t.seatScene.profileDnd : isQuietZone ? t.seatScene.profileQuiet : `👋 ${t.seatScene.profileWave}` }}
-        </button>
-        <!-- 悄悄話：只有他看得到，只能選固定的句子 -->
-        <template v-if="profileCard.userId && !profileCard.userId.startsWith('demo_')">
-          <p class="!mb-1 mt-3 text-[10px] font-black tracking-wide text-[color:var(--px-muted)]">🤫 {{ t.seatScene.whisperTitle }}</p>
-          <div class="grid grid-cols-2 gap-1.5">
-            <button
-              v-for="phrase in WHISPER_IDS"
-              :key="phrase"
-              type="button"
-              class="pixel-btn h-9 px-1 text-[11px]"
-              :disabled="profileCard.blocked"
-              @click="whisperFromProfile(phrase)"
-            >
-              {{ t.seatScene.whispers[phrase] }}
-            </button>
-          </div>
-          <button type="button" class="mt-2 w-full text-center text-[10px] font-bold text-[color:var(--px-muted)] underline" @click="toggleBlock">
-            {{ profileCard.blocked ? t.seatScene.unblock : t.seatScene.block }}
-          </button>
-        </template>
-      </div>
+        :person="profileCard"
+        :wave-label="profileCard.dnd ? t.seatScene.profileDnd : isQuietZone ? t.seatScene.profileQuiet : `👋 ${t.seatScene.profileWave}`"
+        :can-wave="!(profileCard.dnd || isQuietZone || disabled)"
+        @close="closeProfile"
+        @wave="waveFromProfile"
+        @whisper="whisperFromProfile"
+      />
       <!-- 第一次來的新手引導：四步，看完或略過就不再出現 -->
       <div
         v-if="tourStep !== null && !isLoading"
@@ -287,9 +249,7 @@
       </div>
     </div>
 
-    <p class="mt-1.5 px-2 text-center text-[10px] font-bold leading-snug tracking-wide text-slate-500 dark:!text-white/55">
-      {{ isTouch ? t.seatScene.hintTouch : t.seatScene.hintDesktop }}
-    </p>
+    <SceneHint :text="isTouch ? t.seatScene.hintTouch : t.seatScene.hintDesktop" />
 
     <div v-if="isLoading" class="pointer-events-none absolute inset-0 flex items-center justify-center px-4">
       <div class="flex flex-col items-center gap-4">
@@ -313,11 +273,13 @@ import {
   type Reader,
   type RemotePlayer,
   type SeatEmote,
-  WHISPER_IDS,
+  type ProfilePerson,
   type WhisperId,
 } from 'src/pages/index/composables/useLibrarySocket';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
+import ProfileCard from 'src/pages/index/components/ProfileCard.vue';
+import SceneHint from 'src/pages/index/components/SceneHint.vue';
 import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { createNavigation, type Navigation, type Point } from 'src/pages/index/composables/seatNavigation';
@@ -521,49 +483,18 @@ function handleStickUp(): void {
 }
 
 // ── 點別人的名牌 ──
-interface ProfileCard {
-  name: string;
-  userId?: string;
-  blocked: boolean;
-  state?: Reader['state'];
-  dnd: boolean;
-  todayMin?: number;
-  streak?: number;
-}
-const profileCard = ref<ProfileCard | null>(null);
-const profileStatus = computed(() => {
-  const state = profileCard.value?.state;
-  return state === '專注' ? t.value.seatScene.profileFocusing : state === '休息' ? t.value.seatScene.profileResting : t.value.seatScene.profileIdle;
-});
+const profileCard = ref<ProfilePerson | null>(null);
 
-function openProfile(person: { displayName: string; userId?: string; state?: Reader['state']; dnd?: boolean; todayMin?: number; streak?: number }): void {
-  profileCard.value = {
-    name: person.displayName,
-    ...(person.userId ? { userId: person.userId } : {}),
-    blocked: !!person.userId && playerPrefs.value.blocked.includes(person.userId),
-    dnd: person.dnd === true,
-    ...(person.state ? { state: person.state } : {}),
-    ...(person.todayMin === undefined ? {} : { todayMin: person.todayMin }),
-    ...(person.streak === undefined ? {} : { streak: person.streak }),
-  };
+function openProfile(person: ProfilePerson): void {
+  profileCard.value = { ...person };
 }
 
 // 送悄悄話：送出後關小卡、自己頭上冒一下提示
-function whisperFromProfile(phrase: WhisperId): void {
-  const to = profileCard.value?.userId;
+function whisperFromProfile(to: string, phrase: WhisperId): void {
   if (!to) return;
   emit('whisper', to, phrase);
-  say('me', `🤫 ${t.value.seatScene.whisperSent(profileCard.value?.name ?? '')}`, 0.6);
+  say('me', `🤫 ${t.value.seatScene.whisperSent(profileCard.value?.displayName ?? '')}`, 0.6);
   closeProfile();
-}
-
-// 擋掉／解除：擋掉之後收不到他的悄悄話（之後的一起看 YouTube 邀請也一樣）
-function toggleBlock(): void {
-  const card = profileCard.value;
-  if (!card?.userId) return;
-  const list = playerPrefs.value.blocked;
-  playerPrefs.value.blocked = card.blocked ? list.filter((id) => id !== card.userId) : [...list, card.userId];
-  card.blocked = !card.blocked;
 }
 
 function closeProfile(): void {
