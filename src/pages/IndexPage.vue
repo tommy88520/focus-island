@@ -268,6 +268,7 @@ import BeitouScene from 'src/pages/index/components/BeitouScene.vue';
 import HomeScene from 'src/pages/index/components/HomeScene.vue';
 import LoginDialog from 'src/pages/index/components/LoginDialog.vue';
 import { useAccount } from 'src/composables/useAccount';
+import { preloadGoogleIdentity } from 'src/composables/googleIdentity';
 import { buildShareLink, forgetScene, takeSavedScene, takeSharedLocation } from 'src/pages/index/shareLocation';
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
@@ -892,6 +893,8 @@ const sceneLocation = ref<'library' | 'f1' | 'park' | 'beitou' | 'home'>(
 // 從哪張地圖回家的，出門就回那裡
 const homeReturnTo = ref<'library' | 'f1' | 'park' | 'beitou'>('library');
 const loginOpen = ref(false);
+// 沒登入：先在背景載好 Google 登入，點「我的家」時按鈕馬上出來
+if (!account.session.value) onMounted(() => window.setTimeout(preloadGoogleIdentity, 2000));
 const homeSceneRef = ref<(SceneHandle & { requestLeave: () => boolean }) | null>(null);
 // 回到圖書館就不用再記獨立地圖
 watch(sceneLocation, (location) => {
