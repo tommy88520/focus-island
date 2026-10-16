@@ -165,7 +165,7 @@
             v-for="(station, i) in mrtStations"
             :key="station.key"
             type="button"
-            class="mrt-station group relative min-w-0 flex-1 px-0.5 text-center disabled:cursor-default"
+            class="mrt-station group relative min-w-0 flex-1 px-0.5 text-center disabled:cursor-default disabled:!opacity-100"
             :disabled="station.here"
             @click="station.go()"
           >
@@ -182,7 +182,7 @@
               :class="station.here ? 'h-6 w-6 -mt-[3px] border-[color:var(--px-ink)] bg-[color:var(--px-accent)]' : 'h-[18px] w-[18px] bg-white'"
               :style="station.here ? undefined : { borderColor: MRT_LINE_COLORS[station.line] }"
             ></span>
-            <span v-if="station.emoji" class="mt-1 block text-sm leading-none">{{ station.emoji }}</span>
+            <span class="mt-1 block h-3.5 text-sm leading-none">{{ station.emoji }}</span>
             <span
               class="mt-1 block break-words text-[10px] font-black leading-tight sm:text-[11px]"
               :class="station.here ? 'text-[color:var(--px-accent-dark)] dark:!text-amber-300' : 'group-enabled:group-hover:underline'"
