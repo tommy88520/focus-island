@@ -10,10 +10,11 @@
         <!-- 佔位長得跟最後的按鈕一樣（同大小、同字），Google 的按鈕真的畫好才換上，看起來不會閃 -->
         <div
           v-if="!ready"
-          class="absolute inset-y-0 left-[10px] right-[10px] !flex items-center justify-center gap-2 rounded-[4px] border border-[#8e918f] bg-[#131314] text-sm font-medium text-[#e3e3e3]"
-          :class="{ '!bg-white !text-[#1f1f1f] !border-[#747775]': !$q.dark.isActive }"
+          class="absolute inset-y-[2px] left-[10px] right-[10px] !flex !flex-nowrap items-center overflow-hidden rounded-[4px] text-[15px]"
+          :class="$q.dark.isActive ? 'bg-[#131314] text-[#e3e3e3]' : 'border border-[#747775] bg-white text-[#1f1f1f]'"
         >
-          <span class="text-base font-black text-[#4285f4]">G</span>{{ t.home.googleSignIn }}
+          <span class="!flex h-full w-10 shrink-0 items-center justify-center bg-white text-lg font-bold text-[#4285f4]">G</span>
+          <span class="flex-1 text-center">{{ t.home.googleSignIn }}</span>
         </div>
         <div ref="buttonRef" class="absolute inset-0 !flex justify-center" :class="ready ? 'visible' : 'invisible'"></div>
       </div>
