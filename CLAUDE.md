@@ -7,6 +7,7 @@ Quasar（Vue 3 + TS、`<script setup>`）SPA＋Pinia，Tailwind v4 跟 Quasar �
 後端是另一個 repo `COMEANC13-backend`（Go，私人），後端改動去那邊做。
 
 - **接手**：「接手」／`/takeover`；**交接**：「交接」／`/handoff`（`.claude/skills/`）。Claude 的記憶每台機器各自的，跨機器的規則寫這份。
+- 版號：`package.json` 的 version（頁面左側選單顯示），發版 bump＋`git tag vX.Y.Z`。
 - 指令：`npm run dev`、`npm run build`（→ `dist/spa`）、`npm run lint`、`npx vue-tsc --noEmit`（沒有測試）。Node 22.12+。
   環境變數 `VITE_BACKEND_API_URL`、`VITE_BACKEND_WS_URL`（`.env.local`；沒設連 `ws://localhost:8080`）。
 - **部署**：前後端都在維護者自己的機器上（Cloudflare Tunnel）。**push 不會自動上線**，要跑部署腳本——在後端 repo `deploy/home/README.md`

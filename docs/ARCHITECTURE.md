@@ -59,3 +59,8 @@
 ## Whispers (10-16)
 - Profile card → 6 preset phrases (`WHISPER_IDS` ↔ backend `allowedWhispers`), `WHISPER {to, phrase, username}`; backend rate-limits (3 s) and delivers only to the recipient's tabs in the room. Receiver shows a notify unless `whispersOff`, DND, or sender in `prefs.blocked`. Watch lives after `useLibrarySocket()` in IndexPage (TDZ bit us once).
 
+## Layout & versioning (v1.0, 10-16)
+- Header (`MainLayout.vue`) is slim on every screen: menu, logo, daily goal. Nav, language, theme, favorite, ☕ Ko-fi and `Focus Island v{APP_VERSION}` live in the left drawer. `APP_VERSION` comes from `package.json` via `quasar.config.ts` `build.env` (bump + `git tag` per release).
+- IndexPage: floor/zone tabs are collapsed behind one chip (`mobileNavOpen`, all sizes); in F1/park/beitou the chip becomes "ride back" and tabs are hidden. Scene height `100dvh-235px` (mobile) / `100dvh-262px` (sm+).
+- `ProfileCard.vue` is the shared name card (main map + separate scenes; wave only on the main map). `SceneHint.vue` is the under-map hint (one line on mobile, tap to expand).
+
