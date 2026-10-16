@@ -1,7 +1,7 @@
 // F1 賽車場、環河公園、北投溫泉這些獨立地圖共用：送自己的位置、把別人收到的位置平滑地畫出來。
 // 位置訊息帶 scene（'f1'／'park'／'beitou'），主地圖只畫沒有 scene 的人，獨立地圖各自只畫自己那張的人。
 import type { MyPosition, RemotePlayer } from 'src/pages/index/composables/useLibrarySocket';
-import { avatarColorsFor, lookColors, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
+import { readerColors, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
 
 export type SceneId = 'f1' | 'park' | 'beitou';
 
@@ -56,7 +56,7 @@ export function createRemoteView() {
 }
 
 export function remoteColors(remote: RemotePlayer): AvatarColors {
-  return remote.hair !== undefined && remote.shirt !== undefined ? lookColors(remote.hair, remote.shirt) : avatarColorsFor(remote.displayName);
+  return readerColors(remote);
 }
 
 export function remoteLabel(shown: ShownRemote): string {

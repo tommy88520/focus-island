@@ -44,6 +44,8 @@ export interface Reader {
   // 自己挑的角色顏色（調色盤編號）；沒挑過就依名字決定
   hair?: number;
   shirt?: number;
+  body?: number;
+  acc?: number;
   // 開了勿擾：不想被打招呼
   dnd?: boolean;
   // 名牌小卡：今天專注幾分鐘、連續幾天
@@ -52,15 +54,19 @@ export interface Reader {
 }
 
 // 從 JOIN／MOVE／SYNC_ALL 的 payload 讀出外觀與勿擾
-function readerExtras(payload: Record<string, unknown> | undefined): Pick<Reader, 'hair' | 'shirt' | 'dnd' | 'todayMin' | 'streak'> {
+function readerExtras(payload: Record<string, unknown> | undefined): Pick<Reader, 'hair' | 'shirt' | 'body' | 'acc' | 'dnd' | 'todayMin' | 'streak'> {
   const int = (v: unknown) => (Number.isInteger(v) && (v as number) >= 0 ? (v as number) : undefined);
   const hair = int(payload?.hair);
   const shirt = int(payload?.shirt);
+  const body = int(payload?.body);
+  const acc = int(payload?.acc);
   const todayMin = int(payload?.todayMin);
   const streak = int(payload?.streak);
   return {
     ...(hair === undefined ? {} : { hair }),
     ...(shirt === undefined ? {} : { shirt }),
+    ...(body ? { body } : {}),
+    ...(acc ? { acc } : {}),
     ...(payload?.dnd === true ? { dnd: true } : {}),
     ...(todayMin === undefined ? {} : { todayMin }),
     ...(streak === undefined ? {} : { streak }),
@@ -139,6 +145,8 @@ export interface RemotePlayer {
   angle?: number;
   hair?: number;
   shirt?: number;
+  body?: number;
+  acc?: number;
   dnd?: boolean;
   todayMin?: number;
   streak?: number;
@@ -506,6 +514,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
   const myLook = () => ({
     hair: playerPrefs.value.hair,
     shirt: playerPrefs.value.shirt,
+    body: playerPrefs.value.body,
+    acc: playerPrefs.value.acc,
     dnd: playerPrefs.value.doNotDisturb,
     todayMin: Math.floor(pomodoro.todayFocusedSeconds / 60),
     streak: pomodoro.currentStreak,

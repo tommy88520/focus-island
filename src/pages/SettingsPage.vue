@@ -95,6 +95,57 @@
                 </button>
               </div>
             </div>
+            <div>
+              <p class="!mb-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-[color:var(--px-muted)]">{{ t.settingsPage.bodyLabel }}</p>
+              <div class="!flex !flex-nowrap gap-2">
+                <button
+                  v-for="(label, i) in t.settingsPage.bodyOptions"
+                  :key="label"
+                  type="button"
+                  class="pixel-btn h-9 px-3 text-xs"
+                  :class="{ 'pixel-btn--active': prefs.body === i }"
+                  :aria-pressed="prefs.body === i"
+                  @click="prefs.body = i"
+                >
+                  {{ label }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 配件：用專注幣買，手機一排三個 -->
+        <div class="mt-5">
+          <div class="!flex !flex-nowrap items-baseline justify-between gap-2">
+            <p class="!mb-0 text-[10px] font-black uppercase tracking-[0.2em] text-[color:var(--px-muted)]">{{ t.settingsPage.accLabel }}</p>
+            <span class="text-xs font-black">🪙 {{ prefs.coins }}</span>
+          </div>
+          <p class="!mb-2 mt-0.5 text-[11px] text-[color:var(--px-muted)]">{{ t.settingsPage.accHint }}</p>
+          <div class="grid grid-cols-3 gap-2 sm:grid-cols-7">
+            <button
+              type="button"
+              class="pixel-btn !flex h-auto min-h-16 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[11px]"
+              :class="{ 'pixel-btn--active': !prefs.acc }"
+              :aria-pressed="!prefs.acc"
+              @click="prefs.acc = 0"
+            >
+              <span class="text-lg leading-none">🚫</span>
+              <span class="font-black">{{ t.settingsPage.accNone }}</span>
+            </button>
+            <button
+              v-for="item in ACCESSORIES"
+              :key="item.id"
+              type="button"
+              class="pixel-btn !flex h-auto min-h-16 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[11px]"
+              :class="{ 'pixel-btn--active': prefs.acc === item.id }"
+              :aria-pressed="prefs.acc === item.id"
+              @click="pickAccessory(item.id)"
+            >
+              <span class="text-lg leading-none">{{ item.emoji }}</span>
+              <span class="font-black leading-tight">{{ item.name[locale] }}</span>
+              <span class="text-[10px]" :class="prefs.acc === item.id ? 'font-black' : 'text-[color:var(--px-muted)]'">
+                {{ prefs.acc === item.id ? t.settingsPage.accWearing : prefs.ownedAcc.includes(item.id) ? t.settingsPage.accOwned : `🪙 ${item.price}` }}
+              </span>
+            </button>
           </div>
         </div>
       </section>
@@ -131,7 +182,7 @@ import { GOOGLE_CLIENT_ID, useAccount } from 'src/composables/useAccount';
 import { renderGoogleButton } from 'src/composables/googleIdentity';
 import { useLocale } from 'src/composables/useLocale';
 import { DAILY_GOAL_OPTIONS, usePlayerPrefs } from 'src/composables/usePlayerPrefs';
-import { AVATAR_SIZE, HAIR_UNLOCK, LOOK_HAIRS, LOOK_SHIRTS, SHIRT_UNLOCK, getAvatarFrame, lookColors } from 'src/pages/index/pixel/pixelArt';
+import { ACCESSORIES, AVATAR_SIZE, HAIR_UNLOCK, LOOK_HAIRS, LOOK_SHIRTS, SHIRT_UNLOCK, getAvatarFrame, lookColors } from 'src/pages/index/pixel/pixelArt';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 
 const { t, locale } = useLocale();
@@ -149,12 +200,32 @@ const previewRef = ref<HTMLCanvasElement | null>(null);
 const PREVIEW_SCALE = 4;
 const previewStyle = { width: `${AVATAR_SIZE.w * PREVIEW_SCALE}px`, height: `${AVATAR_SIZE.h * PREVIEW_SCALE}px` };
 
+// 點配件：買過就戴上（再點一次拿下），沒買過就問要不要用專注幣買
+function pickAccessory(id: number): void {
+  const item = ACCESSORIES.find((a) => a.id === id);
+  if (!item) return;
+  if (prefs.value.ownedAcc.includes(id)) {
+    prefs.value.acc = prefs.value.acc === id ? 0 : id;
+    return;
+  }
+  const name = item.name[locale.value];
+  if (prefs.value.coins < item.price) {
+    $q.notify({ message: t.value.settingsPage.accNotEnough(item.price, prefs.value.coins), color: 'warning', icon: 'savings', position: 'top', timeout: 2500 });
+    return;
+  }
+  if (!window.confirm(t.value.settingsPage.accBuyConfirm(name, item.price))) return;
+  prefs.value.coins -= item.price;
+  prefs.value.ownedAcc = [...prefs.value.ownedAcc, id];
+  prefs.value.acc = id;
+  $q.notify({ message: t.value.settingsPage.accBought(name), color: 'positive', icon: 'celebration', position: 'top', timeout: 2200 });
+}
+
 // 預覽：畫在原尺寸的 canvas 上，再用 CSS 整數倍放大
 function drawPreview(): void {
   const ctx = previewRef.value?.getContext('2d');
   if (!ctx) return;
   ctx.clearRect(0, 0, AVATAR_SIZE.w, AVATAR_SIZE.h);
-  ctx.drawImage(getAvatarFrame(lookColors(prefs.value.hair, prefs.value.shirt), 'down', 'idle'), 0, 0);
+  ctx.drawImage(getAvatarFrame(lookColors(prefs.value.hair, prefs.value.shirt, prefs.value), 'down', 'idle'), 0, 0);
 }
 
 onMounted(() => {
@@ -179,5 +250,5 @@ onMounted(() => {
 function confirmDelete(): void {
   if (window.confirm(t.value.settingsPage.accountDeleteConfirm)) void account.deleteAccount();
 }
-watch(() => [prefs.value.hair, prefs.value.shirt], drawPreview);
+watch(() => [prefs.value.hair, prefs.value.shirt, prefs.value.body, prefs.value.acc], drawPreview);
 </script>

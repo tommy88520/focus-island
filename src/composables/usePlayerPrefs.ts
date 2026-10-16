@@ -11,6 +11,11 @@ export interface PlayerPrefs {
   // 調色盤編號（pixelArt 的 LOOK_HAIRS／LOOK_SHIRTS）
   hair: number;
   shirt: number;
+  // 0 男生、1 女生（長髮、裙子、海灘穿比基尼）
+  body: number;
+  // 戴著的配件（pixelArt 的 ACCESSORIES，0 = 不戴）、買過的配件
+  acc: number;
+  ownedAcc: number[];
   // 勿擾：別人的招呼不會出現在你的畫面上，你的名牌旁會有 🔕
   doNotDisturb: boolean;
   // 一起專注：番茄鐘跟著時鐘走（整點、半點開始）
@@ -32,7 +37,7 @@ export function applyCoinFloor(p: PlayerPrefs): PlayerPrefs {
   return p.coinFloor300 ? p : { ...p, coins: Math.max(p.coins, COIN_FLOOR), coinFloor300: true };
 }
 
-const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, doNotDisturb: false, groupFocus: false, notifications: false, sceneClock: true, coins: COIN_FLOOR, coinFloor300: true };
+const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, body: 0, acc: 0, ownedAcc: [], doNotDisturb: false, groupFocus: false, notifications: false, sceneClock: true, coins: COIN_FLOOR, coinFloor300: true };
 
 function load(): PlayerPrefs {
   try {
@@ -42,6 +47,9 @@ function load(): PlayerPrefs {
       dailyGoalHours: int(parsed.dailyGoalHours, DEFAULTS.dailyGoalHours) || DEFAULTS.dailyGoalHours,
       hair: int(parsed.hair, DEFAULTS.hair),
       shirt: int(parsed.shirt, DEFAULTS.shirt),
+      body: parsed.body === 1 ? 1 : 0,
+      acc: int(parsed.acc, 0),
+      ownedAcc: Array.isArray(parsed.ownedAcc) ? parsed.ownedAcc.filter((v): v is number => Number.isInteger(v) && v > 0) : [],
       doNotDisturb: parsed.doNotDisturb === true,
       groupFocus: parsed.groupFocus === true,
       notifications: parsed.notifications === true,

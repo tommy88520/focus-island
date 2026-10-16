@@ -68,7 +68,7 @@ import { useLocale } from 'src/composables/useLocale';
 import { localPoint } from 'src/pages/index/composables/sceneFullscreen';
 import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
-import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, SEATED_ROWS } from 'src/pages/index/pixel/pixelArt';
+import { AVATAR_SIZE, getAvatarFrame, lookColors, readerColors, SEATED_ROWS } from 'src/pages/index/pixel/pixelArt';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 import { pickSeatSpot } from 'src/pages/index/seatPick';
@@ -519,14 +519,14 @@ function drawSeat(c: CanvasRenderingContext2D, i: number, seconds: number): void
   }
   if (!occupied) return;
   const mate = props.seats[i] ? props.getMateAtSeat(props.seats[i]?.id ?? '') : null;
-  const colors = state === 'me' ? lookColors(prefs.value.hair, prefs.value.shirt) : mate ? avatarColorsFor(mate.displayName) : { hair: '#6b7280', hairLight: '#8b93a1', shirt: '#94a3b8', shirtShade: '#6f7d91' };
+  const colors = state === 'me' ? lookColors(prefs.value.hair, prefs.value.shirt, prefs.value) : mate ? readerColors(mate) : { hair: '#6b7280', hairLight: '#8b93a1', shirt: '#94a3b8', shirtShade: '#6f7d91' };
   const sprite = getAvatarFrame(colors, 'up', 'idle');
   c.drawImage(sprite, 0, 0, AVATAR_SIZE.w, SEATED_ROWS, x - AVATAR_SIZE.w / 2, y + 2 - SEATED_ROWS, AVATAR_SIZE.w, SEATED_ROWS);
   px(c, '#d72d2d', x - 6, y - 1, 12, 5);
 }
 
 function drawMe(c: CanvasRenderingContext2D): void {
-  const colors = lookColors(prefs.value.hair, prefs.value.shirt);
+  const colors = lookColors(prefs.value.hair, prefs.value.shirt, prefs.value);
   const frame = me.moving ? (Math.floor(me.walkClock / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
   const sprite = getAvatarFrame(colors, me.facing, frame);
   px(c, 'rgba(0,0,0,0.18)', Math.round(me.x * T - 5), Math.round(me.y * T + 3), 10, 2);

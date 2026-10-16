@@ -856,7 +856,21 @@ export interface AvatarColors {
   shirtShade: string;
   // 海灘上換泳裝：顏色沿用 shirt
   outfit?: Outfit;
+  // 1 = 女生（長髮、裙子）；沒有或 0 = 男生
+  body?: number;
+  // 配件編號（ACCESSORIES），0 或沒有 = 不戴
+  acc?: number;
 }
+
+// 配件：用專注幣買（設定頁），戴著別人看得到。編號會同步給別人，只能往後加
+export const ACCESSORIES: { id: number; emoji: string; price: number; name: { 'zh-TW': string; 'en-US': string } }[] = [
+  { id: 1, emoji: '👓', price: 60, name: { 'zh-TW': '圓框眼鏡', 'en-US': 'Round glasses' } },
+  { id: 2, emoji: '🧢', price: 80, name: { 'zh-TW': '棒球帽', 'en-US': 'Baseball cap' } },
+  { id: 3, emoji: '🧶', price: 80, name: { 'zh-TW': '毛帽', 'en-US': 'Beanie' } },
+  { id: 4, emoji: '🌸', price: 50, name: { 'zh-TW': '花髮夾', 'en-US': 'Flower clip' } },
+  { id: 5, emoji: '🎧', price: 120, name: { 'zh-TW': '耳機', 'en-US': 'Headphones' } },
+  { id: 6, emoji: '👑', price: 500, name: { 'zh-TW': '皇冠', 'en-US': 'Crown' } },
+];
 
 const AVATAR_W = 16;
 const AVATAR_H = 20;
@@ -934,18 +948,138 @@ function swimwear(body: string[], legs: string[], outfit: Outfit): string[] {
   return [...body.map((row) => row.replace(/[Tt]/g, 'S')), ...legs.map((row) => row.replace(/P/g, 'T').replace(/F/g, 'S'))];
 }
 
-function avatarRows(facing: Facing, frame: Frame, outfit?: Outfit): string[] {
+// 在字元圖上改一格（x 超出範圍就不管）
+function setPx(rows: string[], x: number, y: number, ch: string): void {
+  const row = rows[y];
+  if (!row || x < 0 || x >= row.length) return;
+  rows[y] = row.slice(0, x) + ch + row.slice(x + 1);
+}
+
+// 女生：長髮垂到肩膀（正面兩側、背面蓋住上背、側面在後腦那邊）
+function longHair(rows: string[], facing: Facing): void {
+  if (facing === 'down') {
+    for (let y = 7; y <= 14; y += 1) {
+      setPx(rows, 1, y, 'o');
+      setPx(rows, 2, y, 'H');
+      setPx(rows, 13, y, 'H');
+      setPx(rows, 14, y, 'o');
+    }
+    setPx(rows, 2, 15, 'o');
+    setPx(rows, 13, 15, 'o');
+  } else if (facing === 'up') {
+    for (let y = 11; y <= 15; y += 1) {
+      setPx(rows, 2, y, 'o');
+      for (let x = 3; x <= 12; x += 1) setPx(rows, x, y, y === 13 && (x === 6 || x === 9) ? 'h' : 'H');
+      setPx(rows, 13, y, 'o');
+    }
+    for (let x = 3; x <= 12; x += 1) setPx(rows, x, 16, 'o');
+  } else {
+    for (let y = 9; y <= 14; y += 1) {
+      setPx(rows, 1, y, 'o');
+      setPx(rows, 2, y, 'H');
+      setPx(rows, 3, y, 'H');
+      setPx(rows, 4, y, y >= 13 ? 'o' : 'H');
+    }
+    setPx(rows, 2, 15, 'o');
+    setPx(rows, 3, 15, 'o');
+  }
+}
+
+// 女生：裙子（褲子最上面一列換成比較寬的裙擺，下面是腿）
+function skirt(legs: string[], front: boolean): string[] {
+  return legs.map((row, i) => (i === 0 ? (front ? '...otttttttto...' : '....otttttto....') : row.replace(/P/g, 'S')));
+}
+
+// 配件：畫在頭上（字元對到 getAvatarFrame 的調色盤）
+function accessory(rows: string[], facing: Facing, acc: number): void {
+  const side = facing === 'left' || facing === 'right';
+  const fill = (y: number, x0: number, x1: number, ch: string) => {
+    for (let x = x0; x <= x1; x += 1) setPx(rows, x, y, ch);
+  };
+  if (acc === 1) {
+    // 圓框眼鏡（背面看不到）
+    if (facing === 'down') {
+      fill(8, 4, 11, 'g');
+      setPx(rows, 5, 8, 'G');
+      setPx(rows, 10, 8, 'G');
+      setPx(rows, 4, 9, 'g');
+      setPx(rows, 6, 9, 'g');
+      setPx(rows, 9, 9, 'g');
+      setPx(rows, 11, 9, 'g');
+    } else if (side) {
+      fill(8, 7, 12, 'g');
+      setPx(rows, 11, 8, 'G');
+      setPx(rows, 10, 9, 'g');
+      setPx(rows, 12, 9, 'g');
+    }
+  } else if (acc === 2) {
+    // 棒球帽：紅色帽身＋帽簷（正面在額頭、側面往前伸）
+    fill(1, 5, 10, 'o');
+    for (let y = 2; y <= 4; y += 1) fill(y, y === 2 ? 4 : 3, y === 2 ? 11 : 12, y === 2 ? 'c' : 'C');
+    if (facing === 'down') fill(5, 2, 13, 'c');
+    else if (side) {
+      fill(5, 3, 14, 'c');
+      setPx(rows, 15, 5, 'o');
+    } else fill(5, 3, 12, 'C');
+  } else if (acc === 3) {
+    // 毛帽：藍色、上面一顆毛球、下緣反摺
+    fill(0, 7, 8, 'W');
+    for (let y = 1; y <= 4; y += 1) fill(y, y === 1 ? 5 : y === 2 ? 4 : 3, y === 1 ? 10 : y === 2 ? 11 : 12, 'B');
+    fill(5, 2, 13, 'D');
+  } else if (acc === 4) {
+    // 花髮夾：正面右上、側面在後腦
+    const x = facing === 'down' ? 11 : side ? 4 : 10;
+    setPx(rows, x, 3, 'R');
+    setPx(rows, x + 1, 3, 'R');
+    setPx(rows, x, 4, 'R');
+    setPx(rows, x + 1, 4, 'Y');
+    setPx(rows, x + 2, 4, 'R');
+    setPx(rows, x + 1, 5, 'R');
+  } else if (acc === 5) {
+    // 耳機：頭頂一條、兩邊耳罩（側面只看到一邊）
+    fill(1, 5, 10, 'K');
+    setPx(rows, 4, 2, 'K');
+    setPx(rows, 11, 2, 'K');
+    if (side) {
+      for (let y = 6; y <= 9; y += 1) fill(y, 4, 6, y === 6 || y === 9 ? 'K' : 'Z');
+      setPx(rows, 5, 7, 'K');
+    } else {
+      for (let y = 6; y <= 9; y += 1) {
+        fill(y, 1, 2, y === 6 || y === 9 ? 'K' : 'Z');
+        fill(y, 13, 14, y === 6 || y === 9 ? 'K' : 'Z');
+      }
+    }
+  } else if (acc === 6) {
+    // 皇冠
+    setPx(rows, 4, 0, 'Y');
+    setPx(rows, 7, 0, 'Y');
+    setPx(rows, 8, 0, 'Y');
+    setPx(rows, 11, 0, 'Y');
+    fill(1, 4, 11, 'Y');
+    setPx(rows, 7, 1, 'R');
+    setPx(rows, 8, 1, 'R');
+    fill(2, 4, 11, 'y');
+  }
+}
+
+function avatarRows(facing: Facing, frame: Frame, outfit?: Outfit, body?: number, acc?: number): string[] {
   const head = facing === 'down' ? HEAD_DOWN : facing === 'up' ? HEAD_UP : HEAD_RIGHT;
   const front = facing === 'down' || facing === 'up';
-  const body = front ? BODY_FRONT : BODY_SIDE;
+  const bodyRows = front ? BODY_FRONT : BODY_SIDE;
   const legs = front ? LEGS_FRONT[frame] : LEGS_SIDE[frame];
-  return [...head, ...(outfit ? swimwear(body, legs, outfit) : [...body, ...legs])];
+  const girl = body === 1;
+  const rows = [...head, ...(outfit ? swimwear(bodyRows, legs, outfit) : [...bodyRows, ...(girl ? skirt(legs, front) : legs)])];
+  // 面向左是翻轉面向右的圖，所以這裡都用面向右來畫
+  const drawFacing = facing === 'left' ? 'right' : facing;
+  if (girl) longHair(rows, drawFacing);
+  if (acc) accessory(rows, drawFacing, acc);
+  return rows;
 }
 
 const avatarCache = new Map<string, HTMLCanvasElement>();
 
 export function getAvatarFrame(colors: AvatarColors, facing: Facing, frame: Frame): HTMLCanvasElement {
-  const key = `${colors.hair}|${colors.shirt}|${colors.outfit ?? ''}|${facing}|${frame}`;
+  const key = `${colors.hair}|${colors.shirt}|${colors.outfit ?? ''}|${colors.body ?? 0}|${colors.acc ?? 0}|${facing}|${frame}`;
   const cached = avatarCache.get(key);
   if (cached) return cached;
   const palette: Record<string, string> = {
@@ -960,13 +1094,26 @@ export function getAvatarFrame(colors: AvatarColors, facing: Facing, frame: Fram
     t: colors.shirtShade,
     P: '#3d4a63',
     F: '#2b2135',
+    // 配件
+    g: '#2b2135',
+    G: '#bfe3f5',
+    C: '#e25a4a',
+    c: '#b8402f',
+    B: '#4f8fd9',
+    D: '#2f6db3',
+    W: '#ffffff',
+    R: '#f472b6',
+    Y: '#f6c945',
+    y: '#c99a1f',
+    K: '#3a3d45',
+    Z: '#a7b0c0',
   };
   const canvas = document.createElement('canvas');
   canvas.width = AVATAR_W;
   canvas.height = AVATAR_H;
   const ctx = canvas.getContext('2d');
   if (ctx) {
-    const rows = avatarRows(facing, frame, colors.outfit);
+    const rows = avatarRows(facing, frame, colors.outfit, colors.body, colors.acc);
     rows.forEach((row, y) => {
       for (let x = 0; x < row.length; x += 1) {
         const ch = row[x] ?? '.';
@@ -1014,10 +1161,23 @@ export const LOOK_SHIRTS: [string, string][] = [
 ];
 export const SHIRT_UNLOCK = [0, 0, 0, 0, 2, 4, 6, 3, 10, 20, 40];
 
-export function lookColors(hair: number, shirt: number): AvatarColors {
+// extra：性別、配件（自己的偏好、別人送來的外觀都有這兩個欄位）
+export function lookColors(hair: number, shirt: number, extra?: { body?: number | undefined; acc?: number | undefined }): AvatarColors {
   const [h, hl] = LOOK_HAIRS[hair] ?? LOOK_HAIRS[0] ?? ['#4a2f23', '#6b4636'];
   const [s, ss] = LOOK_SHIRTS[shirt] ?? LOOK_SHIRTS[0] ?? ['#fbbf24', '#d99a0b'];
-  return { hair: h, hairLight: hl, shirt: s, shirtShade: ss };
+  return {
+    hair: h,
+    hairLight: hl,
+    shirt: s,
+    shirtShade: ss,
+    ...(extra?.body === 1 ? { body: 1 } : {}),
+    ...(extra?.acc && ACCESSORIES.some((a) => a.id === extra.acc) ? { acc: extra.acc } : {}),
+  };
+}
+
+// 別人（或座位上的人）的外觀：挑過顏色就照挑的，不然依名字決定
+export function readerColors(r: { displayName: string; hair?: number | undefined; shirt?: number | undefined; body?: number | undefined; acc?: number | undefined }): AvatarColors {
+  return r.hair !== undefined && r.shirt !== undefined ? lookColors(r.hair, r.shirt, r) : avatarColorsFor(r.displayName);
 }
 
 // 沒自己挑過顏色的人，外觀依名字決定，同一個人每次看到都一樣

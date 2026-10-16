@@ -357,8 +357,7 @@ import {
   paintUmbrella,
   paintWaves,
   type AvatarColors,
-  tvScreenRect,
-} from 'src/pages/index/pixel/pixelArt';
+  tvScreenRect, readerColors } from 'src/pages/index/pixel/pixelArt';
 import {
   MUSHROOM_POUF,
   NIGHT_TINT,
@@ -620,10 +619,10 @@ const MINIMAP_WIDTH = 148;
 const BEACH_STROLL_SPEED = 1.1;
 // 走到海灘就換上海灘褲
 const playerPrefs = usePlayerPrefs();
-// 自己的外觀跟著設定頁走；到海灘換上海灘褲
+// 自己的外觀跟著設定頁走；到海灘換泳裝（女生比基尼、男生海灘褲）
 const myAvatar = (beach = false): AvatarColors => ({
-  ...lookColors(playerPrefs.value.hair, playerPrefs.value.shirt),
-  ...(beach ? { outfit: 'trunks' as const } : {}),
+  ...lookColors(playerPrefs.value.hair, playerPrefs.value.shirt, playerPrefs.value),
+  ...(beach ? { outfit: playerPrefs.value.body === 1 ? ('bikini' as const) : ('trunks' as const) } : {}),
 });
 const MINIMAP_PROP_COLORS: Partial<Record<PropKind, string>> = {
   table: '#8a5e36',
@@ -941,7 +940,7 @@ function syncSeatStates(): void {
       node.colors = myAvatar();
     } else if (state === 'mate' && mate) {
       node.label = mate.displayName;
-      node.colors = mate.hair !== undefined && mate.shirt !== undefined ? lookColors(mate.hair, mate.shirt) : avatarColorsFor(mate.displayName);
+      node.colors = readerColors(mate);
     } else {
       node.label = '';
       node.colors = TAKEN_AVATAR;
@@ -1784,8 +1783,8 @@ function updateRemotePlayers(): void {
 }
 
 function remoteColors(remote: RemotePlayer, y: number): AvatarColors {
-  const base = remote.hair !== undefined && remote.shirt !== undefined ? lookColors(remote.hair, remote.shirt) : avatarColorsFor(remote.displayName);
-  return areaAt(map, remote.x, y) === 'beach' ? { ...base, outfit: 'trunks' } : base;
+  const base = readerColors(remote);
+  return areaAt(map, remote.x, y) === 'beach' ? { ...base, outfit: remote.body === 1 ? 'bikini' : 'trunks' } : base;
 }
 
 function remoteHeadOffset(remote: RemotePlayer): number {

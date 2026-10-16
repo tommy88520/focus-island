@@ -104,7 +104,13 @@ export function useAccount() {
     const merged: CloudData = {
       v: 1,
       // 雲端那份是補到 300 之前存的話（沒有 coinFloor300），合併後再補一次
-      prefs: applyCoinFloor({ ...local.prefs, ...cloud.prefs, coinFloor300: cloud.prefs.coinFloor300 === true }),
+      prefs: applyCoinFloor({
+        ...local.prefs,
+        ...cloud.prefs,
+        coinFloor300: cloud.prefs.coinFloor300 === true,
+        // 買過的配件兩邊合起來（登入前在這台買的不會不見）
+        ownedAcc: [...new Set([...(local.prefs.ownedAcc ?? []), ...(cloud.prefs.ownedAcc ?? [])])],
+      }),
       progress: mergeProgress(local.progress, cloud.progress),
       ...(cloud.displayName || local.displayName ? { displayName: cloud.displayName || local.displayName } : {}),
     };
