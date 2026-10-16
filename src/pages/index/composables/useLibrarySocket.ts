@@ -510,6 +510,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
   const remotePlayers = ref<Record<string, RemotePlayer>>({});
   // 有新的人進房：場景要再送一次自己的位置，對方才看得到站著的你
   const peerJoinedAt = ref(0);
+  let lastConnectedRoom = '';
 
   // 最後一次要送的位置：連線還沒好時先記著，連上就補送；有人進房、或分頁在背景（畫面迴圈停了）時由這裡重送
   let lastPos: MyPosition | null = null;
@@ -625,8 +626,10 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
               });
             });
             readers.value = synchronizedReaders;
-            // 剛連上（或換房間）：舊房間的人不要留在地圖上
-            remotePlayers.value = {};
+            // 同一個房間斷線重連：還在房間裡（快照有他）的人留在地圖上，不然對方在背景、沒馬上回報位置的話會突然不見；
+            // 快照裡沒有的（斷線這段時間走掉的）拿掉。換房間的話 reconnectRoomSession 已經清空了
+            const stillHere = new Set(Object.keys(msg.data));
+            remotePlayers.value = Object.fromEntries(Object.entries(remotePlayers.value).filter(([key]) => stillHere.has(key)));
             const nextSeatMap: SeatSnapshotMap = {};
             synchronizedReaders.forEach((reader) => {
               if (!reader.seatId) return;
@@ -900,6 +903,9 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
   async function reconnectRoomSession() {
     const version = ++connectionVersion;
     stopWebSocketConnection(true);
+    // 換房間：上一個房間的人不要留在地圖上（同一個房間重連就保留，見 SYNC_ALL）
+    if (roomID.value !== lastConnectedRoom) remotePlayers.value = {};
+    lastConnectedRoom = roomID.value;
     selectedSeatId.value = null;
     seatSnapshotMap.value = {};
 
