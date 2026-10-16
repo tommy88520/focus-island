@@ -6,11 +6,11 @@
       <p class="!mb-1 text-base font-black">{{ title }}</p>
       <p class="!mb-4 text-xs text-[color:var(--px-muted)]">{{ hint }}</p>
       <!-- 登入鈕的位置先留好（固定大小），按鈕載入好之前顯示一條灰色佔位，出現時淡入，視窗不會跳 -->
-      <div class="relative mx-auto h-[44px] w-[240px]">
+      <div class="relative mx-auto h-[44px] w-[260px]">
         <!-- 佔位長得跟最後的按鈕一樣（同大小、同字），Google 的按鈕真的畫好才換上，看起來不會閃 -->
         <div
-          v-show="!ready"
-          class="absolute inset-0 !flex items-center justify-center gap-2 rounded-[4px] border border-[#8e918f] bg-[#131314] text-sm font-medium text-[#e3e3e3]"
+          v-if="!ready"
+          class="absolute inset-y-0 left-[10px] right-[10px] !flex items-center justify-center gap-2 rounded-[4px] border border-[#8e918f] bg-[#131314] text-sm font-medium text-[#e3e3e3]"
           :class="{ '!bg-white !text-[#1f1f1f] !border-[#747775]': !$q.dark.isActive }"
         >
           <span class="text-base font-black text-[#4285f4]">G</span>{{ t.home.googleSignIn }}
