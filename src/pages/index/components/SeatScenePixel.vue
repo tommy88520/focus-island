@@ -2162,6 +2162,17 @@ function fishPool(): { tx: number; ty: number; w: number; h: number } | undefine
   return map.world.props.find((p) => p.kind === 'goldfish');
 }
 
+// 釣魚池的老闆：站在池子右邊，戴斗笠
+function fishOwnerSpot(): { x: number; y: number } | null {
+  const pool = fishPool();
+  return pool ? { x: pool.tx + pool.w + 0.6, y: pool.ty + 1.2 } : null;
+}
+const FISH_OWNER_COLORS: AvatarColors = { hair: '#3b2a20', hairLight: '#5a4130', shirt: '#2f6fb5', shirtShade: '#25598f' };
+
+function fishOwnerSay(text: string): void {
+  if (!playerPrefs.value.doNotDisturb) say('fisher', text);
+}
+
 // 站在池子旁邊（四周一格內）
 function nearFishPool(): boolean {
   const pool = fishPool();
@@ -2184,6 +2195,7 @@ function openFishing(): void {
   shopStall.value = null;
   fishOpen.value = true;
   fishPhase.value = 'idle';
+  fishOwnerSay(t.value.seatScene.fishOwnerGreet);
 }
 
 function closeFishing(): void {
@@ -2198,11 +2210,15 @@ function castLine(): void {
   if (playerPrefs.value.coins < FISHING_PRICE) return;
   playerPrefs.value.coins -= FISHING_PRICE;
   fishPhase.value = 'waiting';
+  fishOwnerSay(t.value.seatScene.fishOwnerCast);
   window.clearTimeout(fishTimer);
   fishTimer = window.setTimeout(() => {
     fishPhase.value = 'bite';
+    fishOwnerSay(t.value.seatScene.fishOwnerBite);
     fishTimer = window.setTimeout(() => {
-      if (fishPhase.value === 'bite') fishPhase.value = 'missed';
+      if (fishPhase.value !== 'bite') return;
+      fishPhase.value = 'missed';
+      fishOwnerSay(t.value.seatScene.fishOwnerMissed);
     }, 1200);
   }, 1500 + Math.random() * 2500);
 }
@@ -2211,6 +2227,7 @@ function pullLine(): void {
   window.clearTimeout(fishTimer);
   if (fishPhase.value === 'waiting') {
     fishPhase.value = 'early';
+    fishOwnerSay(t.value.seatScene.fishOwnerEarly);
     return;
   }
   if (fishPhase.value !== 'bite') return;
@@ -2219,6 +2236,7 @@ function pullLine(): void {
   if (!fish) return;
   fishCaughtName.value = fish.name[locale.value];
   fishPhase.value = 'caught';
+  fishOwnerSay(t.value.seatScene.fishOwnerCaught[fish.id as 'goldfish' | 'tropicalFish' | 'pufferfish']);
   heldItem = { id: fish.id, until: performance.now() / 1000 + HOLD_ITEM_S };
   say('me', `${fish.emoji}！`, 0.2);
   // 讓別人馬上看到你提著一袋魚
@@ -2235,6 +2253,7 @@ const VENDOR_GREET_COOLDOWN_S = 25;
 const VENDOR_SHOUT_EVERY_S = 9;
 const vendorLastGreet = new Map<number, number>();
 let lastVendorShout = 0;
+let fishOwnerLastGreet = -Infinity;
 
 function updateVendors(seconds: number): void {
   // 走離攤位就把菜單關掉
@@ -2242,6 +2261,13 @@ function updateVendors(seconds: number): void {
   if (fishOpen.value && !nearFishPool()) closeFishing();
   // 夜市在戶外，不受圖書館分區的靜音規則影響；勿擾和專注中照樣不吵你
   if (area.value !== 'nightmarket' || props.disabled || playerPrefs.value.doNotDisturb) return;
+  const owner = fishOwnerSpot();
+  if (owner && Math.hypot(owner.x - player.x, owner.y - player.y) < 2.2 && !fishOpen.value && seconds - fishOwnerLastGreet > VENDOR_GREET_COOLDOWN_S) {
+    fishOwnerLastGreet = seconds;
+    say('fisher', t.value.seatScene.fishOwnerGreet);
+    lastVendorShout = seconds;
+    return;
+  }
   const stalls = map.world.props.filter((p) => p.kind === 'stall');
   for (const stall of stalls) {
     const i = stall.variant ?? 0;
@@ -2255,6 +2281,11 @@ function updateVendors(seconds: number): void {
   }
   if (seconds - lastVendorShout > VENDOR_SHOUT_EVERY_S) {
     lastVendorShout = seconds;
+    // 偶爾換釣魚池老闆吆喝
+    if (Math.random() < 1 / (STALLS.length + 1)) {
+      say('fisher', t.value.seatScene.fishOwnerShout);
+      return;
+    }
     const stall = stalls[Math.floor(Math.random() * stalls.length)];
     const i = stall?.variant ?? 0;
     if (stall) say(`vendor:${i}`, STALLS[i]?.call[locale.value] ?? '');
@@ -2265,6 +2296,28 @@ function updateVendors(seconds: number): void {
 function outdoorDrawables(seconds: number): Drawable[] {
   const night = lightingNow() !== 'day';
   const list: Drawable[] = [];
+  const owner = fishOwnerSpot();
+  if (owner) {
+    list.push({
+      sortY: owner.y + 0.35,
+      draw: (c) => {
+        const x = owner.x * TILE;
+        const y = owner.y * TILE + 5;
+        // 小板凳＋老闆（等你拋竿時會看著池子）
+        c.fillStyle = '#7a5236';
+        c.fillRect(Math.round(x - 5), Math.round(y - 4), 10, 4);
+        drawAvatar(c, FISH_OWNER_COLORS, fishPhase.value === 'waiting' || fishPhase.value === 'bite' ? 'left' : 'down', 'idle', x, y - 2, true);
+        // 斗笠
+        c.fillStyle = '#d9b97f';
+        c.fillRect(Math.round(x - 8), Math.round(y - 20), 16, 2);
+        c.fillRect(Math.round(x - 5), Math.round(y - 22), 10, 2);
+        c.fillRect(Math.round(x - 2), Math.round(y - 24), 4, 2);
+        // 手上的釣竿
+        c.fillStyle = '#3a3d45';
+        for (let i = 0; i < 8; i += 1) c.fillRect(Math.round(x - 6 - i * 2), Math.round(y - 10 - i), 2, 1);
+      },
+    });
+  }
   for (const prop of map.world.props) {
     if (prop.kind === 'stall') {
       // 攤位：背板 → 老闆 → 屋頂和檯面（擋住老闆的下半身）
@@ -2676,6 +2729,12 @@ function drawBubbles(c: CanvasRenderingContext2D, seconds: number, toScreen: (wx
         anchor = toScreen((stall.tx + stall.w / 2) * TILE, stall.ty * TILE - 20);
         anchor.y -= LABEL_FONT_PX + 10;
       }
+    } else if (key === 'fisher') {
+      const owner = fishOwnerSpot();
+      if (owner) {
+        anchor = toScreen(owner.x * TILE, owner.y * TILE - 22);
+        anchor.y -= LABEL_FONT_PX + 10;
+      }
     } else if (key.startsWith('npc:')) {
       const goer = map.beachgoers[Number(key.slice(4))];
       if (goer) anchor = toScreen(beachgoerPose(goer, seconds).x * TILE, goer.y * TILE - AVATAR_SIZE.h - 2);
@@ -2762,6 +2821,12 @@ function render(seconds: number): void {
   for (const sign of map.world.signs) {
     const p = toScreen(sign.x * TILE, sign.y * TILE);
     drawPill(ctx, sign.text[locale.value], p.x, p.y, '#fbbf24');
+  }
+  // 釣魚池的招牌
+  const ownerSpot = fishOwnerSpot();
+  if (ownerSpot) {
+    const op = toScreen(ownerSpot.x * TILE, ownerSpot.y * TILE - 24);
+    drawPill(ctx, t.value.seatScene.fishOwnerName, op.x, op.y, '#38bdf8');
   }
   // 夜市攤位的招牌（掛在屋頂上）
   for (const stall of map.world.props) {
