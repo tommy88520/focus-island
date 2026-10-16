@@ -1,9 +1,9 @@
-// F1 賽車場、環河公園這兩張獨立地圖共用：送自己的位置、把別人收到的位置平滑地畫出來。
-// 位置訊息帶 scene（'f1'／'park'），主地圖只畫沒有 scene 的人，這兩張各自只畫自己那張的人。
+// F1 賽車場、環河公園、北投溫泉這些獨立地圖共用：送自己的位置、把別人收到的位置平滑地畫出來。
+// 位置訊息帶 scene（'f1'／'park'／'beitou'），主地圖只畫沒有 scene 的人，獨立地圖各自只畫自己那張的人。
 import type { MyPosition, RemotePlayer } from 'src/pages/index/composables/useLibrarySocket';
 import { avatarColorsFor, lookColors, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
 
-export type SceneId = 'f1' | 'park';
+export type SceneId = 'f1' | 'park' | 'beitou';
 
 // 走動時最多每 0.15 秒送一次、停下來那則一定送、站著不動每 20 秒補一次（跟主地圖一樣）
 export function createPositionSync(send: (pos: MyPosition) => void) {

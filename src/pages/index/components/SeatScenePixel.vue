@@ -170,6 +170,9 @@
           <button type="button" class="pixel-btn pixel-btn--primary h-9 whitespace-nowrap px-2 text-xs" @click="goPark">
             {{ t.seatScene.mrtPark }}
           </button>
+          <button type="button" class="pixel-btn pixel-btn--primary h-9 whitespace-nowrap px-2 text-xs" @click="goBeitou">
+            {{ t.seatScene.mrtBeitou }}
+          </button>
         </div>
       </div>
       <!-- 夜市攤位：跟老闆買東西（用專注幣） -->
@@ -404,6 +407,7 @@ const emit = defineEmits<{
   'go-f1': [];
   // 在捷運站搭車去環河公園
   'go-park': [];
+  'go-beitou': [];
   // 走進另一個區域（圖書館／沙灘／101／動物園／夜市），父層用來切換場景環境音
   area: [area: Area];
   // 瀏覽器拿不到 2D canvas 時通知父層退回 2D 座位格子
@@ -966,6 +970,14 @@ function goPark(): void {
   emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
   savePosition(performance.now() / 1000, true);
   emit('go-park');
+}
+
+// 去北投溫泉：同上
+function goBeitou(): void {
+  mrtOpen.value = false;
+  emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
+  savePosition(performance.now() / 1000, true);
+  emit('go-beitou');
 }
 
 // 電梯也能換到同一層的其他分區：從那一區的電梯口出來

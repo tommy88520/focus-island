@@ -19,7 +19,7 @@ import { fetchWebSocketTokenAction } from 'src/pages/index/actions/webSocketToke
 
 const DEFAULT_FLOOR_CAPACITY = 288;
 const TOKEN_RETRY_DELAYS_MS = [2000, 5000, 10000];
-const DEFAULT_ZONE_CAPACITY = 88;
+const DEFAULT_ZONE_CAPACITY = 104;
 const FLOOR_POLL_INTERVAL_ACTIVE_MS = 8000;
 const FLOOR_POLL_INTERVAL_BACKGROUND_MS = 30000;
 const WS_HEARTBEAT_INTERVAL_MS = 25000;
@@ -134,7 +134,7 @@ export interface RemotePlayer {
   // 手上拿著的夜市小吃
   item?: ShopItemId;
   // 在 F1 賽車場／環河公園（沒有的話在主地圖）；在 F1 開車時 car＝true、angle 是車頭方向
-  scene?: 'f1' | 'park';
+  scene?: 'f1' | 'park' | 'beitou';
   car?: boolean;
   angle?: number;
   hair?: number;
@@ -155,7 +155,7 @@ export interface MyPosition {
   vehicle?: RemoteVehicle | 'f1';
   lying?: boolean;
   pose?: 'floor';
-  scene?: 'f1' | 'park';
+  scene?: 'f1' | 'park' | 'beitou';
   angle?: number;
   item?: ShopItemId;
   hidden?: boolean;
@@ -846,7 +846,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 ...(['bike', 'cart', 'boat'].includes(pos.vehicle) ? { vehicle: pos.vehicle as RemoteVehicle } : {}),
                 ...(pos.lying === true ? { lying: true } : {}),
                 ...(pos.pose === 'floor' ? { floor: true } : {}),
-                ...(pos.scene === 'f1' || pos.scene === 'park' ? { scene: pos.scene as 'f1' | 'park' } : {}),
+                ...(pos.scene === 'f1' || pos.scene === 'park' || pos.scene === 'beitou' ? { scene: pos.scene as 'f1' | 'park' | 'beitou' } : {}),
                 ...(pos.vehicle === 'f1' ? { car: true } : {}),
                 ...(typeof pos.angle === 'number' && Number.isFinite(pos.angle) ? { angle: pos.angle } : {}),
                 ...(typeof pos.item === 'string' && pos.item in SHOP_ITEM_EMOJI ? { item: pos.item as ShopItemId } : {}),

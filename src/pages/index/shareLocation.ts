@@ -1,7 +1,7 @@
 // 「分享我的位置」連結：?meet=2-A&scene=library&x=12.4&y=5.1&n=名字
 // 朋友打開就到同一層、同一分區、同一張地圖，站在分享的人旁邊。
 
-export type ShareScene = 'library' | 'f1' | 'park';
+export type ShareScene = 'library' | 'f1' | 'park' | 'beitou';
 
 export interface SharedLocation {
   floor: number;
@@ -42,7 +42,7 @@ export function takeSharedLocation(): SharedLocation | null {
 
   const matched = meet.match(/^(\d{1,2})-([A-Za-z])$/);
   if (!matched || !Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > 100 || Math.abs(y) > 100) return null;
-  const scene: ShareScene = sceneRaw === 'f1' || sceneRaw === 'park' ? sceneRaw : 'library';
+  const scene: ShareScene = sceneRaw === 'f1' || sceneRaw === 'park' || sceneRaw === 'beitou' ? sceneRaw : 'library';
   const location = { floor: Number(matched[1]), zoneId: (matched[2] ?? 'A').toUpperCase(), scene, x, y, name };
   if (scene !== 'library') pendingArrival = { scene, x, y };
   return location;

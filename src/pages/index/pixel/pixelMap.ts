@@ -151,7 +151,10 @@ export const F1_SEAT_COUNT = 22;
 // 環河公園是最後一段（編號 73–88），往後加座位就接在它後面
 export const PARK_SEAT_START = F1_SEAT_START + F1_SEAT_COUNT;
 export const PARK_SEAT_COUNT = 16;
-export const SEATS_PER_ZONE = PARK_SEAT_START + PARK_SEAT_COUNT;
+// 北投溫泉（獨立地圖）：圖書館門口長椅 4、泡腳池 4、露天溫泉 8
+export const BEITOU_SEAT_START = PARK_SEAT_START + PARK_SEAT_COUNT;
+export const BEITOU_SEAT_COUNT = 16;
+export const SEATS_PER_ZONE = BEITOU_SEAT_START + BEITOU_SEAT_COUNT;
 const DECK_ROWS = 2;
 const SAND_ROWS = 8;
 const SEA_ROWS = 4;

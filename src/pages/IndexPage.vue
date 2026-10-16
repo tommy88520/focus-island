@@ -81,6 +81,19 @@
             @leave="sceneLocation = 'library'"
             @end-focus="endFocusToLeave"
           />
+          <BeitouScene
+            v-else-if="useCanvasScene && sceneLocation === 'beitou'"
+            ref="beitouSceneRef"
+            :seats="currentSeats.slice(BEITOU_SEAT_START, BEITOU_SEAT_START + BEITOU_SEAT_COUNT)"
+            :selected-seat-id="selectedSeatId"
+            :disabled="store.isRunning"
+            :get-mate-at-seat="librarySocket.getMateAtSeat"
+            @select="selectSeat"
+            :remote-players="librarySocket.remotePlayers.value"
+            @position="librarySocket.sendPosition"
+            @leave="sceneLocation = 'library'"
+            @end-focus="endFocusToLeave"
+          />
           <SeatScenePixel
             v-else-if="useCanvasScene"
             ref="pixelSceneRef"
@@ -106,6 +119,7 @@
             @change-zone="activeZoneId = $event"
             @go-f1="sceneLocation = 'f1'"
             @go-park="sceneLocation = 'park'"
+            @go-beitou="sceneLocation = 'beitou'"
             @open-tv="audioPlayerRef?.openYouTube()"
             @end-focus="endFocusToLeave"
             @area="sceneArea = $event"
@@ -193,13 +207,14 @@ import { useAmbientAudio, type SoundscapeKind } from 'src/pages/index/composable
 import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vue';
 import YouTubeTv from 'src/pages/index/components/YouTubeTv.vue';
 import RiverParkScene from 'src/pages/index/components/RiverParkScene.vue';
+import BeitouScene from 'src/pages/index/components/BeitouScene.vue';
 import { buildShareLink, takeSharedLocation } from 'src/pages/index/shareLocation';
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
 import { enterSceneFullscreen, exitSceneFullscreen, sceneFullscreen, sceneNeedsBarGap, sceneRotated } from 'src/pages/index/composables/sceneFullscreen';
 import SeatScenePixel from 'src/pages/index/components/SeatScenePixel.vue';
 import F1Scene from 'src/pages/index/components/F1Scene.vue';
-import { F1_SEAT_COUNT, F1_SEAT_START, LIBRARY_SEATS, PARK_SEAT_COUNT, PARK_SEAT_START, SEATS_PER_ZONE, type Area } from 'src/pages/index/pixel/pixelMap';
+import { BEITOU_SEAT_COUNT, BEITOU_SEAT_START, F1_SEAT_COUNT, F1_SEAT_START, LIBRARY_SEATS, PARK_SEAT_COUNT, PARK_SEAT_START, SEATS_PER_ZONE, type Area } from 'src/pages/index/pixel/pixelMap';
 import SeatGrid, { type Seat } from 'src/pages/index/components/SeatGrid.vue';
 import FocusClockPanel from 'src/pages/index/components/FocusClockPanel.vue';
 import { useLibrarySocket, buildSeatId } from 'src/pages/index/composables/useLibrarySocket';
@@ -790,7 +805,7 @@ async function handleNotificationsToggle(on: boolean) {
 }
 
 // 場景在哪：圖書館那張大地圖，或從 F1 站過去的 F1 賽車場（獨立地圖）
-const sceneLocation = ref<'library' | 'f1' | 'park'>(sharedLocation?.scene ?? 'library');
+const sceneLocation = ref<'library' | 'f1' | 'park' | 'beitou'>(sharedLocation?.scene ?? 'library');
 // 人在大地圖的哪一區，決定場景環境音（海浪、車流、夜市人聲…）
 const sceneArea = ref<Area>('library');
 const SOUNDSCAPES: Record<Area, SoundscapeKind | null> = { library: null, beach: 'beach', taipei101: 'city', zoo: 'zoo', nightmarket: 'market' };
@@ -799,14 +814,14 @@ watch(
   ([location, , canvas], [previousLocation]) => {
     // 從 F1 回來時場景會重建，它只在區域跟預設不同時才回報，所以先歸零
     if (location === 'library' && previousLocation !== 'library') sceneArea.value = 'library';
-    audio.setSoundscape(!canvas || location === 'park' ? null : location === 'f1' ? 'f1' : SOUNDSCAPES[sceneArea.value]);
+    audio.setSoundscape(!canvas || location === 'park' || location === 'beitou' ? null : location === 'f1' ? 'f1' : SOUNDSCAPES[sceneArea.value]);
   },
 );
 // 開始專注就回到圖書館的位子上
 watch(
   () => store.isRunning,
   (running) => {
-    if (running) sceneLocation.value = isF1Seat(selectedSeatId.value) ? 'f1' : isParkSeat(selectedSeatId.value) ? 'park' : 'library';
+    if (running) sceneLocation.value = isF1Seat(selectedSeatId.value) ? 'f1' : isParkSeat(selectedSeatId.value) ? 'park' : isBeitouSeat(selectedSeatId.value) ? 'beitou' : 'library';
   },
 );
 
@@ -816,10 +831,16 @@ function isF1Seat(seatId: string | null): boolean {
   return Number.isFinite(n) && n > F1_SEAT_START && n <= F1_SEAT_START + F1_SEAT_COUNT;
 }
 
-// 座位編號落在最後那段的是環河公園的座位
+// 座位編號落在環河公園那段的是環河公園的座位
 function isParkSeat(seatId: string | null): boolean {
   const n = Number(seatId?.split('-').pop());
   return Number.isFinite(n) && n > PARK_SEAT_START && n <= PARK_SEAT_START + PARK_SEAT_COUNT;
+}
+
+// 座位編號落在最後那段的是北投溫泉的座位
+function isBeitouSeat(seatId: string | null): boolean {
+  const n = Number(seatId?.split('-').pop());
+  return Number.isFinite(n) && n > BEITOU_SEAT_START && n <= BEITOU_SEAT_START + BEITOU_SEAT_COUNT;
 }
 
 // 上次坐的是 F1 看台／環河公園：一進來就回到那裡坐好
@@ -828,6 +849,7 @@ watch(
   (id) => {
     if (isF1Seat(id)) sceneLocation.value = 'f1';
     else if (isParkSeat(id)) sceneLocation.value = 'park';
+    else if (isBeitouSeat(id)) sceneLocation.value = 'beitou';
   },
 );
 
@@ -994,11 +1016,12 @@ interface SceneHandle {
 }
 const f1SceneRef = ref<SceneHandle | null>(null);
 const parkSceneRef = ref<SceneHandle | null>(null);
+const beitouSceneRef = ref<SceneHandle | null>(null);
 // 點牆上的電視時打開音樂設定裡的 YouTube 網址欄
 const audioPlayerRef = ref<{ openYouTube: () => void } | null>(null);
 // 回傳 false＝人不在座位上（走在路上、騎車、游泳），不該開始專注；2D 座位格子沒有「人在哪」，照舊用選好的座位
 function claimSeatWhereIAm(): boolean {
-  const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : sceneLocation.value === 'park' ? parkSceneRef.value : pixelSceneRef.value;
+  const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : sceneLocation.value === 'park' ? parkSceneRef.value : sceneLocation.value === 'beitou' ? beitouSceneRef.value : pixelSceneRef.value;
   if (!scene) return true;
   const spot = scene.seatForFocus();
   if (spot === 'lying') return true;
@@ -1013,7 +1036,7 @@ function notifyNotSeated() {
 
 // 分享我的位置：複製一條連結，朋友打開就會出現在我旁邊（手機用系統的分享選單）
 async function shareMyLocation() {
-  const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : sceneLocation.value === 'park' ? parkSceneRef.value : pixelSceneRef.value;
+  const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : sceneLocation.value === 'park' ? parkSceneRef.value : sceneLocation.value === 'beitou' ? beitouSceneRef.value : pixelSceneRef.value;
   const at = scene?.positionForShare() ?? { x: 16, y: 5.2 };
   const link = buildShareLink({ floor: currentFloor.value, zoneId: activeZoneId.value, scene: sceneLocation.value, x: at.x, y: at.y, name: displayName.value });
   const isTouch = window.matchMedia('(pointer: coarse)').matches;
