@@ -124,3 +124,8 @@ body.body--dark {
   border: 2px solid var(--px-ink);
   border-radius: 4px;
 }
+
+// 下拉重新整理用自己的（components/PullToRefresh.vue），關掉瀏覽器內建的，免得重整兩次
+html {
+  overscroll-behavior-y: none;
+}

@@ -289,6 +289,7 @@ const translations = {
       hintDesktop: 'WASD／方向鍵移動 · 點地面走過去、點長椅坐下專注 · 直接走進溫泉或泡腳池就能泡 · 空白鍵／E 坐下或起來 · 走紅橋過北投溪',
       hintTouch: '點地面走過去 · 點長椅坐下 · 點溫泉、泡腳池就下去泡 · 走紅橋過溪',
     },
+    pullToRefresh: { pull: '往下拉重新整理', release: '放開重新整理', loading: '重新整理中…' },
     floorTabs: {
       floorLabel: (floor: number) => `${floor}樓`,
     },
@@ -592,6 +593,7 @@ const translations = {
       hintDesktop: 'WASD / arrows to move · click the ground to walk, a bench to sit and focus · walk into a hot spring or the foot bath to soak · Space / E to sit or stand · cross the creek on the red bridges',
       hintTouch: 'Tap the ground to walk · tap a bench to sit · tap a hot spring or the foot bath to soak · cross by the red bridges',
     },
+    pullToRefresh: { pull: 'Pull to refresh', release: 'Release to refresh', loading: 'Refreshing…' },
     floorTabs: {
       floorLabel: (floor: number) => `F${floor}`,
     },
