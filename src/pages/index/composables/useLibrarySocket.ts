@@ -533,6 +533,13 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     if (lastPos && !lastPos.hidden) writePosition({ ...lastPos, moving: false });
   }
 
+  // 從別的 App／分頁切回來：馬上報到一次，別人畫面上的 💤 就會消失
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') resendPosition();
+    });
+  }
+
   function sendEmote(emote: EmoteId) {
     if (socket?.readyState !== WebSocket.OPEN) return;
     socket.send(JSON.stringify({ type: 'EMOTE', userId: userId.value, sessionId, payload: { emote } }));

@@ -707,8 +707,11 @@ let goalVehicle: VehicleState | null = null;
 // ── 同房間其他人的位置 ──
 const POS_SEND_INTERVAL_S = 0.15;
 const POS_KEEPALIVE_S = 20;
-// 這麼久沒收到位置就當作人走了
-const REMOTE_STALE_MS = 45_000;
+// 人走了（斷線、換房間）後端會送 LEAVE、重新連線會整個重抓，所以不靠「多久沒消息」來移除人：
+// 對方切到別的 App／分頁時瀏覽器會暫停他的計時器，常常一分鐘以上沒送位置，人其實還在。
+// 這裡只是保險（萬一漏了 LEAVE）；超過 REMOTE_AWAY_MS 名牌加 💤
+const REMOTE_STALE_MS = 10 * 60_000;
+const REMOTE_AWAY_MS = 60_000;
 // 畫面上的位置慢慢追上收到的位置，看起來才不會一格一格跳
 const remoteShown = new Map<string, { x: number; y: number; moving: boolean; facing: Facing }>();
 // 別人的位置大約每 0.15 秒收到一次，網路一快一慢：收到的點排成一條路線，畫面固定晚 REMOTE_DELAY_MS 沿著路線內插，走起來才會等速、不會一頓一頓
@@ -2620,7 +2623,8 @@ function render(seconds: number): void {
     const shown = remoteShown.get(remote.key);
     if (!shown) continue;
     const p = toScreen(shown.x * TILE, shown.y * TILE + remoteHeadOffset(remote));
-    drawPill(ctx, `${remote.dnd ? '🔕 ' : ''}${remote.displayName}`, p.x, p.y, COLOR_MATE);
+    const away = Date.now() - remote.at > REMOTE_AWAY_MS;
+    drawPill(ctx, `${away ? '💤 ' : ''}${remote.dnd ? '🔕 ' : ''}${remote.displayName}`, p.x, p.y, COLOR_MATE);
   }
   // 手上拿的夜市小吃（畫在螢幕座標，emoji 才清楚）
   ctx.font = `${Math.round(view.scale * 6)}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
