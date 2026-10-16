@@ -157,26 +157,39 @@
         </div>
         <p v-if="!isTouch" class="!mb-0 mt-2 text-[10px] text-white/50">{{ t.seatScene.elevatorKeys }}</p>
       </div>
-      <!-- 捷運站：選要去哪個分區（同一層樓） -->
-      <div v-if="mrtOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
-        <p class="!mb-2 !text-[11px] font-black tracking-wide">🚇 {{ t.seatScene.mrtPrompt }}</p>
-        <div class="!flex !flex-nowrap justify-center gap-2">
+      <!-- 捷運站：路線圖。紅線是同一層的各分區，轉乘綠線到環河公園、北投溫泉；點一站就搭過去 -->
+      <div v-if="mrtOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(28rem,calc(100%-1rem))] -translate-x-1/2 px-2 pb-2.5 pt-3">
+        <p class="!mb-2.5 text-center !text-[11px] font-black tracking-wide">🚇 {{ t.seatScene.mrtPrompt }}</p>
+        <div class="!flex !flex-nowrap items-start">
           <button
-            v-for="zone in zones"
-            :key="zone.id"
+            v-for="(station, i) in mrtStations"
+            :key="station.key"
             type="button"
-            class="pixel-btn h-9 whitespace-nowrap px-2 text-xs"
-            :class="{ 'pixel-btn--active': zone.id === currentZoneId }"
-            :disabled="zone.id === currentZoneId"
-            @click="rideMrt(zone.id)"
+            class="mrt-station group relative min-w-0 flex-1 px-0.5 text-center disabled:cursor-default"
+            :disabled="station.here"
+            @click="station.go()"
           >
-            {{ zone.name }}
-          </button>
-          <button type="button" class="pixel-btn pixel-btn--primary h-9 whitespace-nowrap px-2 text-xs" @click="goPark">
-            {{ t.seatScene.mrtPark }}
-          </button>
-          <button type="button" class="pixel-btn pixel-btn--primary h-9 whitespace-nowrap px-2 text-xs" @click="goBeitou">
-            {{ t.seatScene.mrtBeitou }}
+            <!-- 這一站左右兩半的路線（顏色跟著那一段） -->
+            <span v-if="i > 0" class="absolute left-0 right-1/2 top-[9px] h-[6px]" :style="{ background: MRT_LINE_COLORS[station.line] }"></span>
+            <span
+              v-if="i < mrtStations.length - 1"
+              class="absolute left-1/2 right-0 top-[9px] h-[6px]"
+              :style="{ background: MRT_LINE_COLORS[mrtStations[i + 1]?.line ?? station.line] }"
+            ></span>
+            <!-- 站點：轉乘站畫成膠囊，現在這站放大變黃 -->
+            <span
+              class="relative mx-auto block rounded-full border-[3px] transition-transform group-enabled:group-hover:scale-125"
+              :class="station.here ? 'h-6 w-6 -mt-[3px] border-[color:var(--px-ink)] bg-[color:var(--px-accent)]' : 'h-[18px] w-[18px] bg-white'"
+              :style="station.here ? undefined : { borderColor: MRT_LINE_COLORS[station.line] }"
+            ></span>
+            <span v-if="station.emoji" class="mt-1 block text-sm leading-none">{{ station.emoji }}</span>
+            <span
+              class="mt-1 block break-words text-[10px] font-black leading-tight sm:text-[11px]"
+              :class="station.here ? 'text-[color:var(--px-accent-dark)] dark:!text-amber-300' : 'group-enabled:group-hover:underline'"
+            >
+              {{ station.name }}
+            </span>
+            <span v-if="station.here" class="mt-0.5 block text-[9px] font-bold text-[color:var(--px-muted)]">{{ t.seatScene.mrtHere }}</span>
           </button>
         </div>
       </div>
@@ -562,6 +575,20 @@ function nextTourStep(): void {
 const elevatorOpen = ref(false);
 // 走到 101 旁的捷運站口會跳出分區選單
 const mrtOpen = ref(false);
+// 捷運路線圖上的站：紅線是這層樓的分區，綠線通往獨立地圖
+const MRT_LINE_COLORS = { red: '#e3002c', green: '#008659' } as const;
+const mrtStations = computed(() => [
+  ...props.zones.map((zone) => ({
+    key: zone.id,
+    name: zone.name,
+    emoji: '',
+    line: 'red' as const,
+    here: zone.id === currentZoneId.value,
+    go: () => rideMrt(zone.id),
+  })),
+  { key: 'park', name: t.value.riverPark.title, emoji: '🌸', line: 'green' as const, here: false, go: goPark },
+  { key: 'beitou', name: t.value.beitou.title, emoji: '♨️', line: 'green' as const, here: false, go: goBeitou },
+]);
 const f1Open = ref(false);
 // 剛從 F1 賽車場回來時站在 F1 站口：先走開再走回來才會再跳出面板
 let f1Lock = false;
