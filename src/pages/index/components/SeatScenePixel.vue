@@ -48,6 +48,25 @@
         >
           {{ profileCard.dnd ? t.seatScene.profileDnd : isQuietZone ? t.seatScene.profileQuiet : `👋 ${t.seatScene.profileWave}` }}
         </button>
+        <!-- 悄悄話：只有他看得到，只能選固定的句子 -->
+        <template v-if="profileCard.userId && !profileCard.userId.startsWith('demo_')">
+          <p class="!mb-1 mt-3 text-[10px] font-black tracking-wide text-[color:var(--px-muted)]">🤫 {{ t.seatScene.whisperTitle }}</p>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button
+              v-for="phrase in WHISPER_IDS"
+              :key="phrase"
+              type="button"
+              class="pixel-btn h-9 px-1 text-[11px]"
+              :disabled="profileCard.blocked"
+              @click="whisperFromProfile(phrase)"
+            >
+              {{ t.seatScene.whispers[phrase] }}
+            </button>
+          </div>
+          <button type="button" class="mt-2 w-full text-center text-[10px] font-bold text-[color:var(--px-muted)] underline" @click="toggleBlock">
+            {{ profileCard.blocked ? t.seatScene.unblock : t.seatScene.block }}
+          </button>
+        </template>
       </div>
       <!-- 第一次來的新手引導：四步，看完或略過就不再出現 -->
       <div
@@ -294,6 +313,8 @@ import {
   type Reader,
   type RemotePlayer,
   type SeatEmote,
+  WHISPER_IDS,
+  type WhisperId,
 } from 'src/pages/index/composables/useLibrarySocket';
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
@@ -425,6 +446,7 @@ const emit = defineEmits<{
   // 在捷運站搭車去環河公園
   'go-park': [];
   'go-beitou': [];
+  whisper: [to: string, phrase: WhisperId];
   // 走進另一個區域（圖書館／沙灘／101／動物園／夜市），父層用來切換場景環境音
   area: [area: Area];
   // 瀏覽器拿不到 2D canvas 時通知父層退回 2D 座位格子
@@ -501,6 +523,8 @@ function handleStickUp(): void {
 // ── 點別人的名牌 ──
 interface ProfileCard {
   name: string;
+  userId?: string;
+  blocked: boolean;
   state?: Reader['state'];
   dnd: boolean;
   todayMin?: number;
@@ -512,14 +536,34 @@ const profileStatus = computed(() => {
   return state === '專注' ? t.value.seatScene.profileFocusing : state === '休息' ? t.value.seatScene.profileResting : t.value.seatScene.profileIdle;
 });
 
-function openProfile(person: { displayName: string; state?: Reader['state']; dnd?: boolean; todayMin?: number; streak?: number }): void {
+function openProfile(person: { displayName: string; userId?: string; state?: Reader['state']; dnd?: boolean; todayMin?: number; streak?: number }): void {
   profileCard.value = {
     name: person.displayName,
+    ...(person.userId ? { userId: person.userId } : {}),
+    blocked: !!person.userId && playerPrefs.value.blocked.includes(person.userId),
     dnd: person.dnd === true,
     ...(person.state ? { state: person.state } : {}),
     ...(person.todayMin === undefined ? {} : { todayMin: person.todayMin }),
     ...(person.streak === undefined ? {} : { streak: person.streak }),
   };
+}
+
+// 送悄悄話：送出後關小卡、自己頭上冒一下提示
+function whisperFromProfile(phrase: WhisperId): void {
+  const to = profileCard.value?.userId;
+  if (!to) return;
+  emit('whisper', to, phrase);
+  say('me', `🤫 ${t.value.seatScene.whisperSent(profileCard.value?.name ?? '')}`, 0.6);
+  closeProfile();
+}
+
+// 擋掉／解除：擋掉之後收不到他的悄悄話（之後的一起看 YouTube 邀請也一樣）
+function toggleBlock(): void {
+  const card = profileCard.value;
+  if (!card?.userId) return;
+  const list = playerPrefs.value.blocked;
+  playerPrefs.value.blocked = card.blocked ? list.filter((id) => id !== card.userId) : [...list, card.userId];
+  card.blocked = !card.blocked;
 }
 
 function closeProfile(): void {

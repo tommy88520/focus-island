@@ -132,6 +132,7 @@
             @go-f1="sceneLocation = 'f1'"
             @go-park="sceneLocation = 'park'"
             @go-beitou="sceneLocation = 'beitou'"
+            @whisper="librarySocket.sendWhisper"
             @open-tv="mobileAudioOpen = true; audioPlayerRef?.openYouTube()"
             @end-focus="endFocusToLeave"
             @area="sceneArea = $event"
@@ -303,6 +304,14 @@ const dockCollapsed = ref(true);
 // 手機版：樓層／分區分頁、音樂列平常收起來，讓地圖最大
 const mobileNavOpen = ref(false);
 const mobileAudioOpen = ref(false);
+// 收到悄悄話：關掉了、開勿擾、或封鎖了這個人就不顯示
+watch(
+  () => librarySocket.lastWhisper.value,
+  (w) => {
+    if (!w || playerPrefs.value.whispersOff || playerPrefs.value.doNotDisturb || playerPrefs.value.blocked.includes(w.fromUserId)) return;
+    $q.notify({ message: t.value.seatScene.whisperFrom(w.name, t.value.seatScene.whispers[w.phrase]), color: 'deep-purple-6', position: 'top', timeout: 4000 });
+  },
+);
 // 選好分區就收起來
 watch(activeZoneId, () => {
   mobileNavOpen.value = false;

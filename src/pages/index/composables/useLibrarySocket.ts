@@ -107,6 +107,15 @@ const zoneLocaleMap: Record<string, { name: Record<LocaleKey, string>; descripti
 
 // 場景裡打招呼用的表情，跟後端 allowedEmotes 同一份清單
 export const EMOTE_IDS = ['wave', 'cheer', 'coffee', 'thumbs'] as const;
+// 悄悄話：點別人名牌送的固定句子（跟後端 allowedWhispers 對好）
+export const WHISPER_IDS = ['hi', 'focus', 'cheer', 'break', 'thanks', 'night'] as const;
+export type WhisperId = (typeof WHISPER_IDS)[number];
+export interface IncomingWhisper {
+  fromUserId: string;
+  name: string;
+  phrase: WhisperId;
+  at: number;
+}
 export type EmoteId = (typeof EMOTE_IDS)[number];
 
 export function isEmoteId(value: unknown): value is EmoteId {
@@ -523,6 +532,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
 
   // 別人在房間裡打的招呼（自己送的不會收到這裡）；場景用座位位置畫泡泡
   const lastEmote = ref<SeatEmote | null>(null);
+  const lastWhisper = ref<IncomingWhisper | null>(null);
   const remotePlayers = ref<Record<string, RemotePlayer>>({});
   // 有新的人進房：場景要再送一次自己的位置，對方才看得到站著的你
   const peerJoinedAt = ref(0);
@@ -556,6 +566,12 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') resendPosition();
     });
+  }
+
+  // 悄悄話：只送給 to 這個人（後端擋頻率、只收固定句子）
+  function sendWhisper(to: string, phrase: WhisperId) {
+    if (socket?.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({ type: 'WHISPER', userId: userId.value, sessionId, payload: { to, phrase, username: displayName.value } }));
   }
 
   function sendEmote(emote: EmoteId) {
@@ -804,6 +820,14 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
             break;
           }
 
+          case 'WHISPER': {
+            const phrase: unknown = msg.payload?.phrase;
+            if (typeof msg.userId !== 'string' || !(WHISPER_IDS as readonly unknown[]).includes(phrase)) break;
+            const name = typeof msg.payload?.username === 'string' && msg.payload.username ? msg.payload.username : msg.userId;
+            lastWhisper.value = { fromUserId: msg.userId, name, phrase: phrase as WhisperId, at: Date.now() };
+            break;
+          }
+
           case 'EMOTE': {
             if (msg.sessionId === sessionId) break;
             const emote: unknown = msg.payload?.emote;
@@ -1010,6 +1034,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     readers,
     seatSnapshotMap,
     lastEmote,
+    lastWhisper,
+    sendWhisper,
     remotePlayers,
     seatedItems,
     peerJoinedAt,
