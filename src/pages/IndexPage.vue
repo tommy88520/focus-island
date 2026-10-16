@@ -303,6 +303,10 @@ const dockCollapsed = ref(true);
 // 手機版：樓層／分區分頁、音樂列平常收起來，讓地圖最大
 const mobileNavOpen = ref(false);
 const mobileAudioOpen = ref(false);
+// 選好分區就收起來
+watch(activeZoneId, () => {
+  mobileNavOpen.value = false;
+});
 function toggleSceneFullscreen() {
   if (sceneFullscreen.value) void exitSceneFullscreen();
   else if (sceneShellRef.value) void enterSceneFullscreen(sceneShellRef.value);
