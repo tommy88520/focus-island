@@ -51,3 +51,11 @@
 - **Map full screen** (`composables/sceneFullscreen.ts`, button top-left of the map): the scene shell is teleported to `body` (z 3000), the page is pinned (body fixed, scroll reset after rotating — the iPhone home-screen app pushes the page down 62px in landscape and touches miss). Browser Fullscreen API + `orientation.lock('landscape')` when available (Android); otherwise a portrait phone gets the map rotated 90° (`sceneRotated`; `localPoint` maps taps/joystick back). The rotated Safari case leaves a 72px strip for Safari's bottom bar; landscape and home-screen app don't. The timer/music dock is teleported into the rotor and collapses to a `⏱ 25:00` button (YouTubeTv is not moved: its iframe would reload). Joysticks cancel touch events (iOS ignores `touch-action: none`). Safari's own toolbar can't be hidden by the page.
 - **Stale service worker**: the Vercel build used to be a PWA. `public/sw.js` replaces any old worker (clear caches, unregister, reload tabs); `build:pwa` (what Vercel runs) now ships the plain SPA plus that file.
 - **Tab title / share image**: idle title is the site name, `⏳ mm:ss 專注中` while focusing; `public/og-image.png` (1200×630 pixel scene) is the og/twitter image (`utils/seo.ts`, `index.html`).
+
+## Look: gender & accessories (10-16)
+- `PlayerPrefs.body` (0 boy / 1 girl) and `acc` (`ACCESSORIES` id, 0 = none), `ownedAcc` (bought with coins in Settings; cloud merge unions it). Sent with JOIN/MOVE/POS via `myLook()`; backend clamps like hair/shirt.
+- `pixelArt.avatarRows` applies `longHair` + `skirt` for girls and `accessory()` overlays per facing (left = mirrored right). Girls wear the bikini at the beach. Use `readerColors(r)` for anyone else's look.
+
+## Whispers (10-16)
+- Profile card → 6 preset phrases (`WHISPER_IDS` ↔ backend `allowedWhispers`), `WHISPER {to, phrase, username}`; backend rate-limits (3 s) and delivers only to the recipient's tabs in the room. Receiver shows a notify unless `whispersOff`, DND, or sender in `prefs.blocked`. Watch lives after `useLibrarySocket()` in IndexPage (TDZ bit us once).
+
