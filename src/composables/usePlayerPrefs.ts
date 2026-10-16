@@ -21,9 +21,18 @@ export interface PlayerPrefs {
   sceneClock: boolean;
   // 專注幣：每專注 1 分鐘 +1，可以在夜市買東西
   coins: number;
+  // 2026-10-16 起基礎專注幣改成 300：舊的人第一次載入時補到 300（補過就記著，之後花掉不會再補）
+  coinFloor300: boolean;
 }
 
-const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, doNotDisturb: false, groupFocus: false, notifications: false, sceneClock: true, coins: 50 };
+const COIN_FLOOR = 300;
+
+// 還沒補過的補到 300。雲端同步合併完也要再跑一次（雲端那份可能是補之前的）
+export function applyCoinFloor(p: PlayerPrefs): PlayerPrefs {
+  return p.coinFloor300 ? p : { ...p, coins: Math.max(p.coins, COIN_FLOOR), coinFloor300: true };
+}
+
+const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, doNotDisturb: false, groupFocus: false, notifications: false, sceneClock: true, coins: COIN_FLOOR, coinFloor300: true };
 
 function load(): PlayerPrefs {
   try {
@@ -38,13 +47,14 @@ function load(): PlayerPrefs {
       notifications: parsed.notifications === true,
       sceneClock: parsed.sceneClock !== false,
       coins: Number.isInteger(parsed.coins) && (parsed.coins as number) >= 0 ? (parsed.coins as number) : DEFAULTS.coins,
+      coinFloor300: parsed.coinFloor300 === true,
     };
   } catch {
     return { ...DEFAULTS };
   }
 }
 
-const prefs = ref<PlayerPrefs>(load());
+const prefs = ref<PlayerPrefs>(applyCoinFloor(load()));
 
 watch(
   prefs,

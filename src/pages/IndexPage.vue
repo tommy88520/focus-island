@@ -96,6 +96,7 @@
             :get-mate-at-seat="librarySocket.getMateAtSeat"
             :remote-emote="librarySocket.lastEmote.value"
             :remote-players="librarySocket.remotePlayers.value"
+            :seated-items="librarySocket.seatedItems.value"
             :peer-joined-at="librarySocket.peerJoinedAt.value"
             :raining="audio.isAudioPlaying.value && audio.selectedAudioTrack.value === 'rain'"
             @select="selectSeat"

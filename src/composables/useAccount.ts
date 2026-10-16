@@ -4,7 +4,7 @@
 
 import { ref, watch } from 'vue';
 import { backendApiUrl, backendWsUrl } from 'src/utils/backendUrl';
-import { usePlayerPrefs, type PlayerPrefs } from 'src/composables/usePlayerPrefs';
+import { usePlayerPrefs, type PlayerPrefs, applyCoinFloor } from 'src/composables/usePlayerPrefs';
 import { usePomodoroStore, type DailyHistoryEntry, type SyncedProgress } from 'src/stores/pomodoro';
 
 // 公開的 OAuth Client ID（本來就會出現在網頁裡，不是密碼）
@@ -103,7 +103,8 @@ export function useAccount() {
     if (!isCloudData(cloud)) return local;
     const merged: CloudData = {
       v: 1,
-      prefs: { ...local.prefs, ...cloud.prefs },
+      // 雲端那份是補到 300 之前存的話（沒有 coinFloor300），合併後再補一次
+      prefs: applyCoinFloor({ ...local.prefs, ...cloud.prefs, coinFloor300: cloud.prefs.coinFloor300 === true }),
       progress: mergeProgress(local.progress, cloud.progress),
       ...(cloud.displayName || local.displayName ? { displayName: cloud.displayName || local.displayName } : {}),
     };

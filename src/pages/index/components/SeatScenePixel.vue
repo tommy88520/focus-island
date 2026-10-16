@@ -162,17 +162,25 @@
           </button>
         </div>
         <p class="!mb-2 mt-1 text-[11px] font-bold text-[color:var(--px-muted)]">🪙 {{ t.seatScene.coinsLeft(playerPrefs.coins) }}</p>
-        <button
-          v-if="STALLS[shopStall]"
-          type="button"
-          class="pixel-btn pixel-btn--primary h-10 w-full justify-between px-3 text-xs"
-          :disabled="playerPrefs.coins < (STALLS[shopStall]?.item.price ?? 0)"
-          @click="buyFromShop"
+        <div class="space-y-1.5">
+          <button
+            v-for="item in STALLS[shopStall]?.items ?? []"
+            :key="item.id"
+            type="button"
+            class="pixel-btn pixel-btn--primary h-10 w-full justify-between px-3 text-xs"
+            :disabled="playerPrefs.coins < item.price"
+            @click="buyFromShop(item.id)"
+          >
+            <span>{{ item.emoji }} {{ item.name[locale] }}</span>
+            <span>🪙 {{ item.price }}</span>
+          </button>
+        </div>
+        <p
+          v-if="(STALLS[shopStall]?.items ?? []).every((item) => playerPrefs.coins < item.price)"
+          class="!mb-0 mt-2 text-[11px] text-[color:var(--px-muted)]"
         >
-          <span>{{ STALLS[shopStall]?.item.emoji }} {{ STALLS[shopStall]?.item.name[locale] }}</span>
-          <span>🪙 {{ STALLS[shopStall]?.item.price }}</span>
-        </button>
-        <p v-if="playerPrefs.coins < (STALLS[shopStall]?.item.price ?? 0)" class="!mb-0 mt-2 text-[11px] text-[color:var(--px-muted)]">{{ t.seatScene.notEnoughCoins }}</p>
+          {{ t.seatScene.notEnoughCoins }}
+        </p>
       </div>
       <!-- F1 站：搭車去另一張獨立的 F1 賽車場地圖 -->
       <div v-if="f1Open" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
@@ -324,6 +332,8 @@ const props = defineProps<{
   remoteEmote: SeatEmote | null;
   // 同房間其他人站著／騎車時的位置
   remotePlayers: Record<string, RemotePlayer>;
+  // 坐著的人手上拿的夜市小吃（key 跟 remotePlayers 一樣）
+  seatedItems: Record<string, { item: ShopItemId; until: number }>;
   // 有人剛進房：要再送一次自己的位置
   peerJoinedAt: number;
   // 正在播雨聲：場景跟著下雨
@@ -2057,14 +2067,14 @@ function closeShop(): void {
   containerRef.value?.focus({ preventScroll: true });
 }
 
-function buyFromShop(): void {
+function buyFromShop(itemId: ShopItemId): void {
   const i = shopStall.value;
-  const stall = i === null ? undefined : STALLS[i];
-  if (i === null || !stall || playerPrefs.value.coins < stall.item.price) return;
-  playerPrefs.value.coins -= stall.item.price;
-  heldItem = { id: stall.item.id, until: performance.now() / 1000 + HOLD_ITEM_S };
+  const item = i === null ? undefined : STALLS[i]?.items.find((it) => it.id === itemId);
+  if (i === null || !item || playerPrefs.value.coins < item.price) return;
+  playerPrefs.value.coins -= item.price;
+  heldItem = { id: item.id, until: performance.now() / 1000 + HOLD_ITEM_S };
   say(`vendor:${i}`, t.value.seatScene.vendorThanks);
-  say('me', `${stall.item.emoji} ${t.value.seatScene.yummy}`, 0.6);
+  say('me', `${item.emoji} ${t.value.seatScene.yummy}`, 0.6);
   closeShop();
   // 讓別人馬上看到你手上拿著東西
   lastPosKey = '';
@@ -2631,16 +2641,29 @@ function render(seconds: number): void {
   ctx.font = `${Math.round(view.scale * 6)}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  // 坐著：拿在座位旁；騎車：拿在把手上方；站著：拿在手上
   const mine = heldItemNow();
-  if (mine && player.state !== 'seated' && !riding) {
-    const p = toScreen(player.x * TILE + 7, player.y * TILE - 4);
+  if (mine) {
+    const mySeat = player.state === 'seated' ? seatNodes.find((n) => n.seatId === player.seatId) : undefined;
+    const p = mySeat
+      ? toScreen(mySeat.slot.tx * TILE + 14, mySeat.slot.ty * TILE - 2)
+      : toScreen(player.x * TILE + 7, player.y * TILE + (riding ? -9 : -4));
     ctx.fillText(SHOP_ITEM_EMOJI[mine], p.x, p.y);
   }
   for (const remote of Object.values(props.remotePlayers)) {
     const shown = remoteShown.get(remote.key);
-    if (!shown || !remote.item || remote.vehicle) continue;
-    const p = toScreen(shown.x * TILE + 7, shown.y * TILE - 4);
+    if (!shown || !remote.item) continue;
+    const p = toScreen(shown.x * TILE + 7, shown.y * TILE + (remote.vehicle ? -9 : -4));
     ctx.fillText(SHOP_ITEM_EMOJI[remote.item], p.x, p.y);
+  }
+  // 別人坐下時位置訊息是 hidden（人改畫在座位上），手上的東西另外記著畫在座位旁
+  const nowMs = Date.now();
+  for (const node of seatNodes) {
+    if (node.state !== 'mate' || !node.mateKey) continue;
+    const held = props.seatedItems[node.mateKey];
+    if (!held || nowMs > held.until) continue;
+    const p = toScreen(node.slot.tx * TILE + 14, node.slot.ty * TILE - 2);
+    ctx.fillText(SHOP_ITEM_EMOJI[held.item], p.x, p.y);
   }
   drawBubbles(ctx, seconds, toScreen);
   renderMinimap(seconds);

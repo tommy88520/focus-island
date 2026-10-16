@@ -75,7 +75,26 @@ export interface OutdoorWorld {
 export const BACK_DOOR: [number, number] = [29, 31];
 
 // 夜市北邊八個攤位：招牌、老闆的叫賣、賣的東西（價格是專注幣；順序跟 stall 的 variant 一樣）
-export type ShopItemId = 'icecreamRoll' | 'sausage' | 'taroBall' | 'chicken' | 'boba' | 'tofu' | 'plush' | 'oyster';
+export type ShopItemId =
+  | 'icecreamRoll'
+  | 'mangoIce'
+  | 'sausage'
+  | 'bigSausage'
+  | 'corn'
+  | 'taroBall'
+  | 'tofuPudding'
+  | 'chicken'
+  | 'saltyChicken'
+  | 'sweetPotatoBall'
+  | 'boba'
+  | 'papayaMilk'
+  | 'lemonTea'
+  | 'tofu'
+  | 'luwei'
+  | 'plush'
+  | 'balloon'
+  | 'oyster'
+  | 'misua';
 
 export interface ShopItem {
   id: ShopItemId;
@@ -84,54 +103,82 @@ export interface ShopItem {
   name: { 'zh-TW': string; 'en-US': string };
 }
 
+// 新增小吃要先加進後端 allowedShopItems（位置訊息會帶手上拿的東西），不然整則位置會被丟掉
 export const STALLS: {
   name: { 'zh-TW': string; 'en-US': string };
   call: { 'zh-TW': string; 'en-US': string };
-  item: ShopItem;
+  items: ShopItem[];
 }[] = [
   {
     name: { 'zh-TW': '花生捲冰淇淋', 'en-US': 'Peanut ice cream roll' },
     call: { 'zh-TW': '花生捲冰淇淋，加香菜嗎？', 'en-US': 'Ice cream roll! Cilantro?' },
-    item: { id: 'icecreamRoll', emoji: '🍦', price: 35, name: { 'zh-TW': '花生捲冰淇淋（加香菜）', 'en-US': 'Peanut ice cream roll' } },
+    items: [
+      { id: 'icecreamRoll', emoji: '🍦', price: 35, name: { 'zh-TW': '花生捲冰淇淋（加香菜）', 'en-US': 'Peanut ice cream roll' } },
+      { id: 'mangoIce', emoji: '🍧', price: 55, name: { 'zh-TW': '芒果雪花冰', 'en-US': 'Mango shaved snow' } },
+    ],
   },
   {
     name: { 'zh-TW': '烤香腸', 'en-US': 'Grilled sausage' },
     call: { 'zh-TW': '香腸剛烤好！配大蒜！', 'en-US': 'Fresh sausages! With garlic!' },
-    item: { id: 'sausage', emoji: '🌭', price: 30, name: { 'zh-TW': '烤香腸配大蒜', 'en-US': 'Grilled sausage with garlic' } },
+    items: [
+      { id: 'sausage', emoji: '🌭', price: 30, name: { 'zh-TW': '烤香腸配大蒜', 'en-US': 'Grilled sausage with garlic' } },
+      { id: 'bigSausage', emoji: '🥖', price: 50, name: { 'zh-TW': '大腸包小腸', 'en-US': 'Sausage in sticky-rice sausage' } },
+      { id: 'corn', emoji: '🌽', price: 40, name: { 'zh-TW': '烤玉米', 'en-US': 'Grilled corn' } },
+    ],
   },
   {
     name: { 'zh-TW': '芋圓王', 'en-US': 'Taro ball king' },
     call: { 'zh-TW': '芋圓王，冰的熱的都有～', 'en-US': 'Taro balls, hot or iced~' },
-    item: { id: 'taroBall', emoji: '🍡', price: 40, name: { 'zh-TW': '綜合芋圓（冰）', 'en-US': 'Mixed taro balls (iced)' } },
+    items: [
+      { id: 'taroBall', emoji: '🍡', price: 40, name: { 'zh-TW': '綜合芋圓（冰）', 'en-US': 'Mixed taro balls (iced)' } },
+      { id: 'tofuPudding', emoji: '🍮', price: 35, name: { 'zh-TW': '花生豆花', 'en-US': 'Peanut tofu pudding' } },
+    ],
   },
   {
     name: { 'zh-TW': '豪大雞排', 'en-US': 'Fried chicken' },
     call: { 'zh-TW': '雞排要切不要辣？', 'en-US': 'Chicken cutlet, sliced?' },
-    item: { id: 'chicken', emoji: '🍗', price: 45, name: { 'zh-TW': '大雞排（要切）', 'en-US': 'Giant chicken cutlet' } },
+    items: [
+      { id: 'chicken', emoji: '🍗', price: 45, name: { 'zh-TW': '大雞排（要切）', 'en-US': 'Giant chicken cutlet' } },
+      { id: 'saltyChicken', emoji: '🍤', price: 50, name: { 'zh-TW': '鹽酥雞加九層塔', 'en-US': 'Popcorn chicken with basil' } },
+      { id: 'sweetPotatoBall', emoji: '🍠', price: 30, name: { 'zh-TW': 'QQ 地瓜球', 'en-US': 'Chewy sweet potato balls' } },
+    ],
   },
   {
     name: { 'zh-TW': '珍珠奶茶', 'en-US': 'Bubble tea' },
     call: { 'zh-TW': '珍奶半糖少冰！', 'en-US': 'Bubble tea, half sugar!' },
-    item: { id: 'boba', emoji: '🧋', price: 40, name: { 'zh-TW': '珍珠奶茶（半糖少冰）', 'en-US': 'Bubble tea (half sugar)' } },
+    items: [
+      { id: 'boba', emoji: '🧋', price: 40, name: { 'zh-TW': '珍珠奶茶（半糖少冰）', 'en-US': 'Bubble tea (half sugar)' } },
+      { id: 'papayaMilk', emoji: '🥛', price: 45, name: { 'zh-TW': '木瓜牛奶', 'en-US': 'Papaya milk' } },
+      { id: 'lemonTea', emoji: '🍋', price: 35, name: { 'zh-TW': '檸檬愛玉', 'en-US': 'Lemon aiyu jelly' } },
+    ],
   },
   {
     name: { 'zh-TW': '臭豆腐', 'en-US': 'Stinky tofu' },
     call: { 'zh-TW': '臭豆腐，泡菜加多一點！', 'en-US': 'Stinky tofu, extra kimchi!' },
-    item: { id: 'tofu', emoji: '🍢', price: 35, name: { 'zh-TW': '酥炸臭豆腐', 'en-US': 'Crispy stinky tofu' } },
+    items: [
+      { id: 'tofu', emoji: '🍢', price: 35, name: { 'zh-TW': '酥炸臭豆腐', 'en-US': 'Crispy stinky tofu' } },
+      { id: 'luwei', emoji: '🥘', price: 60, name: { 'zh-TW': '麻辣滷味', 'en-US': 'Spicy braised snacks' } },
+    ],
   },
   {
     name: { 'zh-TW': '射氣球', 'en-US': 'Balloon darts' },
     call: { 'zh-TW': '射中三個送娃娃喔！', 'en-US': 'Pop three, win a plushie!' },
-    item: { id: 'plush', emoji: '🧸', price: 50, name: { 'zh-TW': '玩一次（保證送娃娃）', 'en-US': 'One round (plushie guaranteed)' } },
+    items: [
+      { id: 'plush', emoji: '🧸', price: 50, name: { 'zh-TW': '玩一次（保證送娃娃）', 'en-US': 'One round (plushie guaranteed)' } },
+      { id: 'balloon', emoji: '🎈', price: 20, name: { 'zh-TW': '買一顆氣球', 'en-US': 'A balloon' } },
+    ],
   },
   {
     name: { 'zh-TW': '蚵仔煎', 'en-US': 'Oyster omelette' },
     call: { 'zh-TW': '蚵仔煎，現煎的！', 'en-US': 'Oyster omelette, made fresh!' },
-    item: { id: 'oyster', emoji: '🍳', price: 45, name: { 'zh-TW': '蚵仔煎', 'en-US': 'Oyster omelette' } },
+    items: [
+      { id: 'oyster', emoji: '🍳', price: 45, name: { 'zh-TW': '蚵仔煎', 'en-US': 'Oyster omelette' } },
+      { id: 'misua', emoji: '🍜', price: 50, name: { 'zh-TW': '大腸蚵仔麵線', 'en-US': 'Oyster and intestine vermicelli' } },
+    ],
   },
 ];
 
-export const SHOP_ITEM_EMOJI: Record<ShopItemId, string> = Object.fromEntries(STALLS.map((s) => [s.item.id, s.item.emoji])) as Record<ShopItemId, string>;
+export const SHOP_ITEM_EMOJI: Record<ShopItemId, string> = Object.fromEntries(STALLS.flatMap((s) => s.items.map((item) => [item.id, item.emoji]))) as Record<ShopItemId, string>;
 
 export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, worldBottom: number): OutdoorWorld {
   const x0 = -WORLD_LEFT;

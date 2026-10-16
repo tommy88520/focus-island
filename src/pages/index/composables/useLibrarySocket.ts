@@ -516,6 +516,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
   const remotePlayers = ref<Record<string, RemotePlayer>>({});
   // 有新的人進房：場景要再送一次自己的位置，對方才看得到站著的你
   const peerJoinedAt = ref(0);
+  const seatedItems = ref<Record<string, { item: ShopItemId; until: number }>>({});
   let lastConnectedRoom = '';
 
   // 最後一次要送的位置：連線還沒好時先記著，連上就補送；有人進房、或分頁在背景（畫面迴圈停了）時由這裡重送
@@ -774,6 +775,11 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
               seatSnapshotMap.value[vacatedSeatId] = { status: 'AVAILABLE' };
             }
             readers.value = readers.value.filter((r) => (r.sessionId || r.userId) !== leaveKey);
+            if (seatedItems.value[leaveKey]) {
+              const items = { ...seatedItems.value };
+              delete items[leaveKey];
+              seatedItems.value = items;
+            }
             if (remotePlayers.value[leaveKey]) {
               const rest = { ...remotePlayers.value };
               delete rest[leaveKey];
@@ -811,10 +817,21 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
               const rest = { ...remotePlayers.value };
               delete rest[key];
               remotePlayers.value = rest;
+              // 坐下了：人改畫在座位上，手上的小吃另外記著（拿著的時間跟送的人那邊一樣是 3 分鐘）
+              const items = { ...seatedItems.value };
+              if (typeof pos.item === 'string' && pos.item in SHOP_ITEM_EMOJI) items[key] = { item: pos.item as ShopItemId, until: Date.now() + 180_000 };
+              else delete items[key];
+              seatedItems.value = items;
               break;
             }
             const facings = ['up', 'down', 'left', 'right'];
             if (typeof pos.x !== 'number' || typeof pos.y !== 'number' || !facings.includes(pos.facing)) break;
+            // 站起來了：手上的東西改跟著人畫
+            if (seatedItems.value[key]) {
+              const items = { ...seatedItems.value };
+              delete items[key];
+              seatedItems.value = items;
+            }
             const reader = readers.value.find((r) => (r.sessionId || r.userId) === key);
             remotePlayers.value = {
               ...remotePlayers.value,
@@ -984,6 +1001,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     seatSnapshotMap,
     lastEmote,
     remotePlayers,
+    seatedItems,
     peerJoinedAt,
     roomID,
     floorZones,
