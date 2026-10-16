@@ -1,12 +1,13 @@
 <template>
-  <!-- 要登入才能用的功能（自己的家）。沒登入時這個視窗一直掛在頁面上、平常藏著：
+  <!-- 要登入才能用的功能（自己的家）。沒登入時這個視窗一直掛在頁面上、平常透明（不用 visibility:hidden，Google 才會先把按鈕排好大小）：
        Google 的登入鈕在頁面載入後就先畫好，打開視窗時按鈕已經在了，不會「空的 → 佔位 → 真按鈕」換來換去。
        （q-dialog 每次打開都重建內容，iframe 會重新載入，所以不用它） -->
   <Teleport to="body">
     <div
       class="fixed inset-0 z-[6000] !flex items-center justify-center bg-black/50 px-4 transition-opacity duration-200"
-      :class="modelValue ? 'visible opacity-100' : 'pointer-events-none invisible opacity-0'"
+      :class="modelValue ? 'opacity-100' : 'pointer-events-none opacity-0'"
       :aria-hidden="!modelValue"
+      :inert="!modelValue"
       @click.self="close"
     >
       <div class="pixel-panel w-[min(22rem,calc(100vw-2rem))] p-5 text-center" role="dialog" aria-modal="true" :aria-label="title">
