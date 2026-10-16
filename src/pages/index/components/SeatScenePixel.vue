@@ -2680,8 +2680,21 @@ function reportTvScreen(canvas: HTMLCanvasElement): void {
   const w = screen.w * view.scale;
   const h = screen.h * view.scale;
   // 全螢幕轉 90 度時影片疊不準：交給角落的小視窗
-  const visible = !sceneRotated.value && !minimapOpen.value && x >= rect.left && y >= rect.top && x + w <= rect.right && y + h <= rect.bottom;
-  Object.assign(tvScreen, { visible, loading: props.isLoading, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
+  const onMap = !sceneRotated.value && !minimapOpen.value;
+  const visible = onMap && x >= rect.left && y >= rect.top && x + w <= rect.right && y + h <= rect.bottom;
+  Object.assign(tvScreen, {
+    visible,
+    onMap,
+    loading: props.isLoading,
+    x: Math.round(x),
+    y: Math.round(y),
+    w: Math.round(w),
+    h: Math.round(h),
+    clipL: rect.left,
+    clipT: rect.top,
+    clipR: rect.right,
+    clipB: rect.bottom,
+  });
 }
 
 function animate(time: number): void {
@@ -3074,6 +3087,7 @@ watchEffect(() => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(rafId);
   tvScreen.visible = false;
+  tvScreen.onMap = false;
   tvScreen.loading = false;
   window.removeEventListener('pagehide', handlePageHide);
   window.removeEventListener('keydown', handleKeyDown);

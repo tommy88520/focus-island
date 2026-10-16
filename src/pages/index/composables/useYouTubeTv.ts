@@ -107,7 +107,8 @@ const started = ref(false);
 // YouTubeTv 現在有沒有顯示出來（顯示時牆上就不用再提示「可以放 YouTube」）
 const showing = ref(false);
 // 電視螢幕在視窗上的位置（CSS px，viewport 座標）；visible=整台電視都在畫面裡，loading=地圖正在切樓層／分區
-const tvScreen = reactive({ visible: false, loading: false, x: 0, y: 0, w: 0, h: 0 });
+// onMap＝在主地圖上、沒開小地圖、沒轉 90 度（手機版影片一直貼在電視牆上，超出地圖的部分用 clip 裁掉）；clip* 是地圖畫布的範圍
+const tvScreen = reactive({ visible: false, loading: false, onMap: false, x: 0, y: 0, w: 0, h: 0, clipL: 0, clipT: 0, clipR: 0, clipB: 0 });
 // 右下角小視窗縮成一條標題列（只影響角落，走回電視前面照樣顯示在電視上）
 const minimized = ref(false);
 

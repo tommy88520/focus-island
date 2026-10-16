@@ -35,6 +35,7 @@
         v-if="mode === 'tv'"
         type="button"
         class="youtube-tv__btn youtube-tv__expand"
+        :class="{ 'youtube-tv__expand--inside': compact }"
         aria-label="expand"
         @click="toggleExpanded"
       >
@@ -61,17 +62,31 @@ const active = computed(
 watchEffect(() => {
   youtube.showing.value = active.value;
 });
+// 手機（或很窄的畫面）：螢幕已經很小，看不到電視也不跳角落小視窗——影片一直貼在電視牆上跟著地圖動，
+// 超出地圖的部分裁掉；電視整個不在畫面裡、開小地圖、去 F1／公園就藏起來，聲音照樣播
+const compactQuery = typeof window !== 'undefined' ? window.matchMedia('(pointer: coarse), (max-width: 767px)') : null;
+const compact = ref(compactQuery?.matches ?? false);
+function onCompactChange(event: MediaQueryListEvent) {
+  compact.value = event.matches;
+}
+
 const mode = computed<'tv' | 'mini' | 'minimized' | 'expanded' | 'hidden'>(() => {
   if (youtube.expanded.value) return 'expanded';
   // 切樓層／分區時地圖淡出顯示載入中，影片不要懸浮在上面
   if (youtube.tvScreen.loading) return 'hidden';
   if (youtube.tvScreen.visible) return 'tv';
+  if (compact.value) return youtube.tvScreen.onMap ? 'tv' : 'hidden';
   return youtube.minimized.value ? 'minimized' : 'mini';
 });
 const frameStyle = computed(() => {
   if (mode.value !== 'tv' && mode.value !== 'hidden') return {};
-  const { x, y, w, h } = youtube.tvScreen;
-  return { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` };
+  const { x, y, w, h, clipL, clipT, clipR, clipB } = youtube.tvScreen;
+  const style: Record<string, string> = { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` };
+  // 電視有一部分在地圖外面（只有手機版會這樣顯示）：只露出地圖裡的那塊
+  if (mode.value === 'tv' && !youtube.tvScreen.visible) {
+    style.clipPath = `inset(${Math.max(0, clipT - y)}px ${Math.max(0, x + w - clipR)}px ${Math.max(0, y + h - clipB)}px ${Math.max(0, clipL - x)}px)`;
+  }
+  return style;
 });
 
 function toggleExpanded() {
@@ -94,11 +109,13 @@ function handleWindowBlur() {
 }
 
 onMounted(() => {
+  compactQuery?.addEventListener('change', onCompactChange);
   youtube.attachHost(hostRef.value);
   window.addEventListener('blur', handleWindowBlur);
 });
 
 onBeforeUnmount(() => {
+  compactQuery?.removeEventListener('change', onCompactChange);
   window.removeEventListener('blur', handleWindowBlur);
   youtube.attachHost(null);
 });
@@ -206,5 +223,11 @@ onBeforeUnmount(() => {
   position: absolute;
   top: -12px;
   right: -12px;
+}
+/* 手機版影片可能被裁掉一部分：放大鈕放在影片左上角裡面，才不會跟著被裁掉 */
+.youtube-tv__expand--inside {
+  top: 4px;
+  right: auto;
+  left: 4px;
 }
 </style>
