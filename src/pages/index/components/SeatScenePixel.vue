@@ -2892,13 +2892,13 @@ function render(seconds: number): void {
     const p = mySeat
       ? toScreen(mySeat.slot.tx * TILE + 14, mySeat.slot.ty * TILE - 2)
       : toScreen(player.x * TILE + 7, player.y * TILE + (riding ? -9 : -4));
-    ctx.fillText(SHOP_ITEM_EMOJI[mine], p.x, p.y);
+    drawHeldItem(ctx, mine, p.x, p.y);
   }
   for (const remote of Object.values(props.remotePlayers)) {
     const shown = remoteShown.get(remote.key);
     if (!shown || !remote.item) continue;
     const p = toScreen(shown.x * TILE + 7, shown.y * TILE + (remote.vehicle ? -9 : -4));
-    ctx.fillText(SHOP_ITEM_EMOJI[remote.item], p.x, p.y);
+    drawHeldItem(ctx, remote.item, p.x, p.y);
   }
   // 別人坐下時位置訊息是 hidden（人改畫在座位上），手上的東西另外記著畫在座位旁
   const nowMs = Date.now();
@@ -2907,7 +2907,7 @@ function render(seconds: number): void {
     const held = props.seatedItems[node.mateKey];
     if (!held || nowMs > held.until) continue;
     const p = toScreen(node.slot.tx * TILE + 14, node.slot.ty * TILE - 2);
-    ctx.fillText(SHOP_ITEM_EMOJI[held.item], p.x, p.y);
+    drawHeldItem(ctx, held.item, p.x, p.y);
   }
   drawBubbles(ctx, seconds, toScreen);
   renderMinimap(seconds);
@@ -2967,6 +2967,26 @@ function toWorld(event: MouseEvent): { x: number; y: number } | null {
     x: (at.x - view.ox) / view.scale / TILE,
     y: (at.y - view.oy) / view.scale / TILE,
   };
+}
+
+// 手上的小吃（螢幕座標）：花生捲冰淇淋上面再插一撮香菜
+function drawHeldItem(ctx: CanvasRenderingContext2D, item: ShopItemId, x: number, y: number): void {
+  ctx.fillText(SHOP_ITEM_EMOJI[item], x, y);
+  if (item !== 'icecreamRoll') return;
+  const u = Math.max(1, Math.round(view.scale / 1.5));
+  const top = Math.round(y - view.scale * 3.4) + u;
+  const cx = Math.round(x);
+  ctx.fillStyle = '#2f7d32';
+  ctx.fillRect(cx - u, top - u * 2, u, u * 3);
+  ctx.fillRect(cx + u, top - u * 3, u, u * 3);
+  ctx.fillStyle = '#4caf50';
+  ctx.fillRect(cx - u * 3, top - u * 3, u * 2, u * 2);
+  ctx.fillRect(cx, top - u * 4, u * 2, u * 2);
+  ctx.fillRect(cx + u * 2, top - u * 2, u * 2, u * 2);
+  ctx.fillStyle = '#7bd47f';
+  ctx.fillRect(cx - u * 3, top - u * 3, u, u);
+  ctx.fillRect(cx, top - u * 4, u, u);
+  ctx.fillRect(cx + u * 2, top - u * 2, u, u);
 }
 
 // 點到座位的格子，或坐著的人頭（座位上面那格）都算點座位；沒點正也算附近最近的空位（大約半格內）
