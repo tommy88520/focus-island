@@ -165,7 +165,7 @@ const translations = {
     },
     seatScene: {
       hintDesktop: 'WASD／方向鍵移動 · 空白鍵入座 · 點地板或座位走過去 · E 上下車、借還 YouBike、躺下、跟老闆買東西 · L 躺在地板上 · H／1–4 打招呼（森林區靜音） · 往海裡走可以游泳 · M 開小地圖',
-      hintTouch: '點地板走過去 · 點座位入座 · 點 YouBike 站借車 · 點夜市老闆買東西 · 點躺椅或懶骨頭躺下 · 點自己躺在地板上 · 左下角打招呼 · 走樓梯或搭電梯換樓層、左右出口換分區 · 南邊的出口通往海灘，點海裡就游過去',
+      hintTouch: '點地板走過去 · 點座位入座 · 點 YouBike 站借車 · 點夜市老闆買東西 · 點躺椅或懶骨頭躺下 · 點自己躺在地板上 · 右下角打招呼 · 走樓梯或搭電梯換樓層、左右出口換分區 · 南邊的出口通往海灘，點海裡就游過去',
       stairUp: (floor: number) => `↑ ${floor}F`,
       stairDown: (floor: number) => `↓ ${floor}F`,
       minimap: '小地圖',
@@ -229,10 +229,10 @@ const translations = {
         '按 H 或 1–4 跟大家打招呼，按 M 打開小地圖。祝專注愉快！',
       ],
       tourTouch: [
-        '拖動右下角的搖桿走路，或直接點地板走過去。',
+        '拖動左下角的搖桿走路，或直接點地板走過去。',
         '點一個空位子坐下，再按下方的「入座」開始番茄鐘。',
         '點腳踏車、躺椅、懶骨頭就能騎或躺；走樓梯、搭電梯或從左右出口換地方。南邊出去是海灘。',
-        '左下角可以跟大家打招呼，右上角是小地圖。祝專注愉快！',
+        '下方的表情按鈕可以跟大家打招呼，右上角是小地圖。祝專注愉快！',
       ],
       getOff: '下車',
       emotes: { wave: '哈囉', cheer: '加油', coffee: '休息一下', thumbs: '讚' },
@@ -254,7 +254,7 @@ const translations = {
       vipSeats: '看台 · 點座位坐下專注',
       getOut: '下車',
       hintDesktop: 'WASD／方向鍵移動 · 走到黃色賽車旁按 E 上車 · 點 VIP 看台座位坐下專注 · 開車時方向鍵指哪就往哪開 · 從左往右通過起終點線開始計時',
-      hintTouch: '用右下角搖桿移動 · 點黃色賽車上車 · 開車時搖桿指哪就往哪開',
+      hintTouch: '用左下角搖桿移動 · 點黃色賽車上車 · 開車時搖桿指哪就往哪開',
     },
     riverPark: {
       title: '環河公園',
@@ -467,7 +467,7 @@ const translations = {
     },
     seatScene: {
       hintDesktop: 'WASD / arrows to move · Space to sit · click the floor or a seat to walk there · E to ride, rent/return a YouBike, lie down or buy food · L to lie on the floor · H / 1–4 to say hi (not in the forest) · walk into the sea to swim · M for the minimap',
-      hintTouch: 'Tap the floor to walk · tap a seat to sit · tap a YouBike station to rent a bike · tap a night-market vendor to buy food · tap a lounger or beanbag to lie down · tap yourself to lie on the floor · say hi from the bottom-left · take the stairs or the elevator to change floor, the side exits to change zone · the south exit leads to the beach, tap the sea to swim',
+      hintTouch: 'Tap the floor to walk · tap a seat to sit · tap a YouBike station to rent a bike · tap a night-market vendor to buy food · tap a lounger or beanbag to lie down · tap yourself to lie on the floor · say hi from the bottom-right · take the stairs or the elevator to change floor, the side exits to change zone · the south exit leads to the beach, tap the sea to swim',
       stairUp: (floor: number) => `↑ ${floor}F`,
       stairDown: (floor: number) => `↓ ${floor}F`,
       minimap: 'Minimap',
@@ -531,10 +531,10 @@ const translations = {
         'Press H or 1–4 to say hi and M for the minimap. Happy focusing!',
       ],
       tourTouch: [
-        'Drag the joystick at the bottom-right to walk, or tap the floor.',
+        'Drag the joystick at the bottom-left to walk, or tap the floor.',
         'Tap an empty seat to sit, then press Start Focus below.',
         'Tap a bike, lounger or beanbag to use it. Stairs, the elevator and the side exits take you elsewhere; the south exit leads to the beach.',
-        'Say hi from the bottom-left, and the minimap is top-right. Happy focusing!',
+        'Say hi with the emote buttons at the bottom, and the minimap is top-right. Happy focusing!',
       ],
       getOff: 'Get off',
       emotes: { wave: 'Hello', cheer: 'You got this', coffee: 'Break time', thumbs: 'Nice' },

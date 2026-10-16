@@ -71,7 +71,7 @@
       <div
         v-if="isTouch && !isLoading && !disabled"
         ref="stickRef"
-        class="pixel-panel absolute bottom-8 right-8 h-24 w-24 !rounded-full opacity-80"
+        class="pixel-panel absolute bottom-8 left-8 h-24 w-24 !rounded-full opacity-80"
         style="touch-action: none"
         :aria-label="t.seatScene.joystick"
         @touchstart.prevent
@@ -97,7 +97,12 @@
         {{ t.seatScene.getOff }}
       </button>
       <!-- 打招呼：按鈕或數字鍵 1–4（H 也是揮手）；附近的人會回話 -->
-      <div v-if="!isLoading && !isQuietZone && !disabled" class="absolute bottom-2 left-2 !flex !flex-nowrap gap-1.5">
+      <!-- 手機：搖桿在左下，打招呼這些功能鍵改到右下直排（跟大部分手遊一樣） -->
+      <div
+        v-if="!isLoading && !isQuietZone && !disabled"
+        class="absolute !flex !flex-nowrap gap-1.5"
+        :class="isTouch ? 'bottom-3 right-3 !flex-col' : 'bottom-2 left-2'"
+      >
         <button
           v-for="(emote, i) in EMOTE_IDS"
           :key="emote"

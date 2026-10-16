@@ -20,7 +20,7 @@
       <div
         v-if="isTouch"
         ref="stickRef"
-        class="pixel-panel absolute bottom-8 right-8 h-24 w-24 !rounded-full opacity-80"
+        class="pixel-panel absolute bottom-8 left-8 h-24 w-24 !rounded-full opacity-80"
         style="touch-action: none"
         @touchstart.prevent
         @touchmove.prevent
