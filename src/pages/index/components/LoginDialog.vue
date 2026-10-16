@@ -1,6 +1,6 @@
 <template>
   <!-- 要登入才能用的功能（自己的家）：說明為什麼要登入，直接放 Google 登入鈕 -->
-  <q-dialog :model-value="modelValue" @update:model-value="emit('update:modelValue', $event)" @show="renderButton">
+  <q-dialog :model-value="modelValue" transition-show="fade" transition-hide="fade" @update:model-value="emit('update:modelValue', $event)" @show="renderButton">
     <div class="pixel-panel w-[min(22rem,calc(100vw-2rem))] p-5 text-center">
       <p class="!mb-1 text-3xl">🏠</p>
       <p class="!mb-1 text-base font-black">{{ title }}</p>
