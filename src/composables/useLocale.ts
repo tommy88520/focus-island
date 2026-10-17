@@ -380,6 +380,7 @@ const translations = {
       backHome: '回我家',
       loadFailed: '進不去他家（可能已經不是好友了）',
       owner: '屋主',
+      visitHint: '來好友家逛逛：可以坐他的書桌、躺他的床專注 · 上方「回我家」回去',
     },
     floorTabs: {
       floorLabel: (floor: number) => `${floor}樓`,
@@ -775,6 +776,7 @@ const translations = {
       backHome: 'My home',
       loadFailed: "Couldn't visit (maybe you're no longer friends)",
       owner: 'Owner',
+      visitHint: "Visiting a friend: sit at their desk or lie on their bed to focus · 'My home' (top) to go back",
     },
     floorTabs: {
       floorLabel: (floor: number) => `F${floor}`,

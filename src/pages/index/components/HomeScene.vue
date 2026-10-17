@@ -55,7 +55,7 @@
       <!-- 衣櫃：換裝（草稿，儲存才換上） -->
       <div
         v-if="panel === 'wardrobe' && lookDraft"
-        class="pixel-panel absolute inset-x-2 bottom-2 top-2 z-10 overflow-y-auto p-3 sm:left-1/2 sm:right-auto sm:w-[34rem] sm:-translate-x-1/2"
+        class="pixel-panel absolute inset-x-2 bottom-2 top-2 z-30 overflow-y-auto p-3 sm:left-1/2 sm:right-auto sm:w-[34rem] sm:-translate-x-1/2"
       >
         <div class="!flex !flex-nowrap items-center justify-between gap-2">
           <p class="!mb-0 text-sm font-black">{{ t.home.wardrobe }}</p>
@@ -123,7 +123,7 @@
         ></div>
       </div>
     </div>
-    <SceneHint :text="isTouch ? t.home.hintTouch : t.home.hintDesktop" />
+    <SceneHint :text="visit ? t.friends.visitHint : isTouch ? t.home.hintTouch : t.home.hintDesktop" />
 
     <!-- 防呆：還沒儲存就要離開 -->
     <q-dialog v-model="unsavedOpen">

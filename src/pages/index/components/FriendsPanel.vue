@@ -1,6 +1,6 @@
 <template>
   <!-- 好友（在自己家裡打開）：我的好友碼、用碼加好友、別人的邀請、好友清單（去他家） -->
-  <div class="pixel-panel absolute inset-x-2 bottom-2 top-2 z-10 !flex flex-col overflow-hidden p-3 sm:left-1/2 sm:right-auto sm:w-[26rem] sm:-translate-x-1/2">
+  <div class="pixel-panel absolute inset-x-2 bottom-2 top-2 z-30 !flex flex-col overflow-hidden p-3 sm:left-1/2 sm:right-auto sm:w-[26rem] sm:-translate-x-1/2">
     <div class="!flex !flex-nowrap items-center justify-between gap-2">
       <p class="!mb-0 text-sm font-black">👥 {{ t.friends.title }}</p>
       <button type="button" class="text-[color:var(--px-muted)]" :aria-label="t.seatScene.profileClose" @click="emit('close')">
