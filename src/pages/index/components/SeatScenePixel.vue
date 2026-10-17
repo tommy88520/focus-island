@@ -251,14 +251,6 @@
 
     <SceneHint :text="isTouch ? t.seatScene.hintTouch : t.seatScene.hintDesktop" />
 
-    <div v-if="isLoading" class="pointer-events-none absolute inset-0 flex items-center justify-center px-4">
-      <div class="flex flex-col items-center gap-4">
-        <div class="h-12 w-12 animate-spin rounded-full border-4 border-amber-400/20 border-t-amber-400"></div>
-        <p class="text-[10px] font-black uppercase tracking-[0.4em] text-amber-400/80">
-          {{ t.seatGrid.syncingFloor(currentFloor) }}
-        </p>
-      </div>
-    </div>
 
     <LeaveFocusDialog v-model="leaveConfirmOpen" @confirm="confirmLeave" @hide="afterFocusEnds = null" />
   </div>
@@ -280,6 +272,7 @@ import {
 import type { Seat } from 'src/pages/index/components/SeatGrid.vue';
 import { useLocale } from 'src/composables/useLocale';
 import ProfileCard from 'src/pages/index/components/ProfileCard.vue';
+import { playTransition } from 'src/pages/index/sceneTransition';
 import SceneHint from 'src/pages/index/components/SceneHint.vue';
 import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
@@ -955,6 +948,7 @@ function rideMrt(zoneId: string): void {
   pendingSpawn = { point: { x: trigger.x, y: trigger.y + 0.3 }, floor: props.currentFloor };
   savedPosition = null;
   restoredStanding = false;
+  playTransition('mrt', props.zones.find((z) => z.id === zoneId)?.name ?? '', { line: 'red' });
   emit('change-zone', zoneId);
 }
 
@@ -997,6 +991,7 @@ function rideElevatorToZone(zoneId: string): void {
   pendingSpawn = { point: { x: trigger.x, y: trigger.y + 0.2 }, floor: props.currentFloor };
   savedPosition = null;
   restoredStanding = false;
+  playTransition('elevator', props.zones.find((z) => z.id === zoneId)?.name ?? '');
   emit('change-zone', zoneId);
 }
 
@@ -1008,6 +1003,7 @@ function rideElevator(floor: number): void {
   pendingSpawn = { point: { x: trigger.x, y: trigger.y + 0.2 }, floor };
   savedPosition = null;
   restoredStanding = false;
+  playTransition('elevator', `${floor}F`, { up: floor > props.currentFloor });
   emit('change-floor', floor);
 }
 
@@ -1631,6 +1627,7 @@ function updatePlayer(dt: number): void {
       pendingSpawn = { point: { x: trigger.x, y: trigger.y + 0.2 }, floor: stair.target };
       savedPosition = null;
       restoredStanding = false;
+      playTransition('stairs', '', { up: stair.target > props.currentFloor });
       emit('change-floor', stair.target);
     }
   }

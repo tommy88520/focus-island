@@ -386,6 +386,15 @@ const translations = {
       loginToAdd: '登入後就能加他好友',
       visitHint: '來好友家逛逛：可以坐他的書桌、躺他的床專注 · 上方「回我家」回去',
     },
+    transition: {
+      mrt: (to: string) => (to ? `🚇 搭捷運往 ${to}` : '🚇 搭捷運'),
+      elevator: (floor: string) => `🛗 搭電梯到 ${floor}`,
+      stairsUp: '🪜 上樓中',
+      stairsDown: '🪜 下樓中',
+      home: '🏠 回家',
+      goOut: '🗺️ 出門',
+      loading: '🏝️ 載入中',
+    },
     floorTabs: {
       floorLabel: (floor: number) => `${floor}樓`,
     },
@@ -785,6 +794,15 @@ const translations = {
       isFriend: 'Friends',
       loginToAdd: 'Sign in to add them as a friend',
       visitHint: "Visiting a friend: sit at their desk or lie on their bed to focus · 'My home' (top) to go back",
+    },
+    transition: {
+      mrt: (to: string) => (to ? `🚇 Riding to ${to}` : '🚇 Riding the MRT'),
+      elevator: (floor: string) => `🛗 Going to ${floor}`,
+      stairsUp: '🪜 Going upstairs',
+      stairsDown: '🪜 Going downstairs',
+      home: '🏠 Heading home',
+      goOut: '🗺️ Heading out',
+      loading: '🏝️ Loading',
     },
     floorTabs: {
       floorLabel: (floor: number) => `F${floor}`,

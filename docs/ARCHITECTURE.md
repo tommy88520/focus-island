@@ -78,3 +78,8 @@
 - `composables/useFriends.ts` (shared state: my code, friends, incoming, outgoing; `loadHome`). `FriendsPanel.vue` opens from "👥 Friends" in your own home (red badge = incoming requests; list refreshed 3 s after load when signed in). `FriendAvatar.vue` draws their look.
 - Visiting: IndexPage `visitHome` → `HomeScene :visit` (remounted via key). Read-only: no wardrobe/bookshelf/decorating, garden + villa from the friend, owner NPC on the rug with a name pill, quilt in their colours; you can sit at their desk / lie on their bed to focus. Header button becomes "🏠 My home"; leaving the scene clears the visit. Own-home presets (starter/villa garden) never run while visiting.
 
+## Transitions (v1.4.0, 10-18)
+- `sceneTransition.ts` (`playTransition(kind, label, {line, up})`) + `SceneTransition.vue` mounted inside `.scene-rotor` (covers the map, follows fullscreen). Kinds: `mrt` (train in a tunnel, line colour red/green/orange), `elevator` (doors + floor display), `stairs` (footsteps), `home` (house, door opens), `loading` (island on waves). Plays ≥1.3 s and stays while `isLoading`.
+- Triggers: SeatScenePixel `rideMrt` / `rideElevator` / `rideElevatorToZone` / stairs; IndexPage `watch(sceneLocation)` picks mrt/home for scene switches unless something just fired; any `isLoading` without a pending transition shows `loading`. The old spinner in SeatScenePixel is gone.
+- Villa desk (`drawVillaDesk` / `drawVillaChair` in HomeScene): oak desk with brass edge, glowing monitor, banker's lamp, mug with steam, succulent, notebook, office chair.
+

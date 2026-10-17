@@ -681,7 +681,102 @@ function paintGround(): HTMLCanvasElement {
   return canvas;
 }
 
-function drawFurniture(c: CanvasRenderingContext2D, lit: boolean, colors: AvatarColors): void {
+// villa 的書桌：白橡木桌面＋黃銅邊、螢幕（會發光）、鍵盤、綠色銀行家檯燈、冒煙的馬克杯、小盆栽、攤開的筆記本，配一張有坐墊的辦公椅
+function drawVillaDesk(c: CanvasRenderingContext2D, lit: boolean, seconds: number): void {
+  const d = DESK;
+  const x = d.x0 * T;
+  const y = d.y0 * T;
+  const w = (d.x1 - d.x0) * T;
+  const h = (d.y1 - d.y0) * T;
+  // 影子、桌腳
+  px(c, 'rgba(0,0,0,0.2)', x + 2, y + h + 2, w, 4);
+  px(c, '#b89a6e', x + 2, y + h - 2, 3, 6);
+  px(c, '#b89a6e', x + w - 5, y + h - 2, 3, 6);
+  // 桌面：白橡木＋木紋＋前緣黃銅條
+  px(c, '#d9bf94', x, y, w, h);
+  px(c, '#e8d3ad', x, y, w, 3);
+  for (let i = 0; i < 4; i += 1) px(c, '#cdb085', x + 4 + i * 11, y + 5 + (i % 2) * 4, 8, 1);
+  px(c, '#c9a227', x, y + h - 3, w, 2);
+  px(c, '#e6c65a', x, y + h - 3, w, 1);
+  // 螢幕：細黑框、發光的畫面（藍綠漸層＋幾行字）、銀色腳座
+  const mx = x + w / 2 - 11;
+  px(c, '#c9ccd3', mx + 9, y - 1, 4, 4);
+  px(c, '#a7abb4', mx + 6, y + 2, 10, 2);
+  px(c, '#1f2229', mx, y - 15, 22, 15);
+  const g = c.createLinearGradient(0, y - 14, 0, y - 2);
+  g.addColorStop(0, lit ? '#9fd8f0' : '#7cc4e4');
+  g.addColorStop(1, lit ? '#c7a6f0' : '#a88ad8');
+  c.fillStyle = g;
+  c.fillRect(mx + 1, y - 14, 20, 12);
+  px(c, 'rgba(255,255,255,0.85)', mx + 3, y - 12, 9, 1);
+  px(c, 'rgba(255,255,255,0.6)', mx + 3, y - 10, 13, 1);
+  px(c, 'rgba(255,255,255,0.6)', mx + 3, y - 8, 7, 1);
+  // 游標閃
+  if (Math.floor(seconds * 2) % 2 === 0) px(c, '#ffffff', mx + 11, y - 8, 1, 1);
+  if (lit) {
+    c.fillStyle = 'rgba(160, 210, 255, 0.18)';
+    c.fillRect(mx - 4, y - 18, 30, 26);
+  }
+  // 鍵盤、滑鼠
+  px(c, '#f2f2f4', mx + 2, y + 4, 16, 4);
+  for (let i = 0; i < 7; i += 1) px(c, '#d6d8de', mx + 3 + i * 2, y + 5, 1, 1);
+  px(c, '#f2f2f4', mx + 20, y + 5, 3, 3);
+  // 左邊：綠色銀行家檯燈（黃銅桿、綠燈罩）
+  const lx = x + 5;
+  px(c, '#c9a227', lx, y + 1, 7, 2);
+  px(c, '#c9a227', lx + 3, y - 7, 1, 8);
+  px(c, '#1f6b46', lx - 1, y - 10, 10, 4);
+  px(c, '#2f8a5c', lx, y - 10, 8, 1);
+  px(c, lit ? '#fff2b8' : '#e8d9a0', lx, y - 6, 8, 1);
+  if (lit) {
+    const lg = c.createRadialGradient(lx + 4, y - 4, 0, lx + 4, y - 4, 22);
+    lg.addColorStop(0, 'rgba(255, 230, 150, 0.45)');
+    lg.addColorStop(1, 'rgba(255, 230, 150, 0)');
+    c.fillStyle = lg;
+    c.fillRect(lx - 18, y - 26, 44, 44);
+  }
+  // 攤開的筆記本＋筆
+  px(c, '#fbf8f1', lx + 1, y + 5, 12, 6);
+  px(c, '#e7e1d4', lx + 7, y + 5, 1, 6);
+  px(c, '#c9c2b2', lx + 2, y + 7, 4, 1);
+  px(c, '#c9c2b2', lx + 9, y + 7, 3, 1);
+  px(c, '#3a3d45', lx + 13, y + 4, 1, 6);
+  // 右邊：馬克杯（冒煙）＋小多肉
+  const rx = x + w - 13;
+  px(c, '#ffffff', rx, y + 2, 5, 5);
+  px(c, '#e25a7a', rx, y + 3, 5, 1);
+  px(c, '#ffffff', rx + 5, y + 3, 1, 3);
+  const k = (seconds * 0.8) % 1;
+  px(c, `rgba(255,255,255,${0.6 * (1 - k)})`, rx + 1 + Math.round(Math.sin(seconds * 3)), y - 1 - Math.round(k * 6), 1, 2);
+  px(c, `rgba(255,255,255,${0.6 * (1 - ((k + 0.5) % 1))})`, rx + 3 + Math.round(Math.cos(seconds * 3)), y - 1 - Math.round(((k + 0.5) % 1) * 6), 1, 2);
+  px(c, '#d97a4a', rx + 7, y - 1, 5, 4);
+  px(c, '#4f9a4a', rx + 7, y - 5, 2, 4);
+  px(c, '#6fb85e', rx + 9, y - 6, 2, 5);
+  px(c, '#4f9a4a', rx + 11, y - 4, 1, 3);
+  // 辦公椅（坐著時畫在人後面的椅背，見 drawPerson）
+  if (!seated.value) drawVillaChair(c);
+}
+
+function drawVillaChair(c: CanvasRenderingContext2D): void {
+  const cx = CHAIR.x * T;
+  const cy = CHAIR.y * T;
+  px(c, 'rgba(0,0,0,0.2)', cx - 6, cy + 4, 12, 3);
+  // 五爪腳
+  px(c, '#3a3d45', cx - 6, cy + 4, 12, 1);
+  px(c, '#3a3d45', cx - 1, cy, 2, 4);
+  // 坐墊（奶油色）＋椅背
+  c.fillStyle = '#e9dfcf';
+  c.beginPath();
+  c.roundRect(cx - 7, cy - 4, 14, 6, 3);
+  c.fill();
+  c.fillStyle = '#d8ccb8';
+  c.beginPath();
+  c.roundRect(cx - 6, cy - 12, 12, 8, 3);
+  c.fill();
+  px(c, '#f4ede2', cx - 4, cy - 11, 8, 1);
+}
+
+function drawFurniture(c: CanvasRenderingContext2D, lit: boolean, colors: AvatarColors, seconds = 0): void {
   if (VILLA) drawVillaBed(c, colors);
   else {
     // 床：被子用自己衣服的顏色
@@ -693,8 +788,11 @@ function drawFurniture(c: CanvasRenderingContext2D, lit: boolean, colors: Avatar
     px(c, colors.shirtShade, b.x0 * T + 3, b.y0 * T + 17, (b.x1 - b.x0) * T - 6, 2);
   }
   if (VILLA) drawBathroom(c, lit);
-  // 書桌＋檯燈＋椅子
+  // 書桌＋檯燈＋椅子（villa 是另一套精緻的）
   const d = DESK;
+  if (VILLA) {
+    drawVillaDesk(c, lit, seconds);
+  } else {
   px(c, 'rgba(0,0,0,0.18)', d.x0 * T + 2, d.y1 * T, (d.x1 - d.x0) * T, 3);
   px(c, '#8a5c3a', d.x0 * T, d.y0 * T, (d.x1 - d.x0) * T, (d.y1 - d.y0) * T);
   px(c, '#a8754a', d.x0 * T, d.y0 * T, (d.x1 - d.x0) * T, 3);
@@ -704,6 +802,7 @@ function drawFurniture(c: CanvasRenderingContext2D, lit: boolean, colors: Avatar
   if (!seated.value) {
     px(c, '#6b4a2f', CHAIR.x * T - 6, CHAIR.y * T - 6, 12, 10);
     px(c, '#8a5c3a', CHAIR.x * T - 6, CHAIR.y * T - 6, 12, 2);
+  }
   }
   // 書架
   const s = SHELF;
@@ -853,7 +952,14 @@ function drawPerson(c: CanvasRenderingContext2D, colors: AvatarColors): void {
   if (lying.value) return;
   if (seated.value) {
     c.drawImage(getAvatarFrame(colors, 'up', 'idle'), 0, 0, AVATAR_SIZE.w, SEATED_ROWS, Math.round(CHAIR.x * T - AVATAR_SIZE.w / 2), Math.round(CHAIR.y * T + 2 - SEATED_ROWS), AVATAR_SIZE.w, SEATED_ROWS);
-    px(c, '#6b4a2f', CHAIR.x * T - 6, CHAIR.y * T - 2, 12, 6);
+    if (VILLA) {
+      // 辦公椅的椅背擋在人前面（背對我們坐）
+      c.fillStyle = '#d8ccb8';
+      c.beginPath();
+      c.roundRect(CHAIR.x * T - 6, CHAIR.y * T - 6, 12, 9, 3);
+      c.fill();
+      px(c, '#3a3d45', CHAIR.x * T - 6, CHAIR.y * T + 4, 12, 1);
+    } else px(c, '#6b4a2f', CHAIR.x * T - 6, CHAIR.y * T - 2, 12, 6);
     return;
   }
   const frame = me.moving ? (Math.floor(me.walkClock / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
@@ -928,7 +1034,7 @@ function render(seconds: number): void {
   // 去別人家：被子是屋主的顏色，屋主站在地毯上
   const ownerLook = props.visit?.profile.look;
   const ownerColors = ownerLook ? lookColors(ownerLook.hair, ownerLook.shirt, ownerLook) : null;
-  drawFurniture(c, lit, ownerColors ?? colors);
+  drawFurniture(c, lit, ownerColors ?? colors, seconds);
   const items: { y: number; draw: () => void }[] = [];
   for (const p of placements.value) {
     const item = GARDEN_ITEM_BY_ID[p.id];
