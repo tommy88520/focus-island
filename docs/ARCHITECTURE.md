@@ -73,3 +73,8 @@
 - Backend `users.perks` (admin-only JSON, e.g. `{"homeTheme":"villa"}`) comes back as `perks` from `/me` and login; `useAccount().perks` (cached in `focus_island_perks_v1`, cleared on logout). Grant with SQL on the home Mac until there's an admin UI: `update users set perks='{"homeTheme":"villa"}' where id=N;`.
 - `HomeScene` `theme="villa"` (remounted via `:key`): bathroom (tub, toilet, sink+mirror, towel; walls with a doorway, routing via the bath door), double bed with two pillows you can lie in (`lying` counts as focusing like the desk), herringbone parquet, cream rug, white stepping-stone path. First visit replaces the garden once with `VILLA_GARDEN` (sakura row left, rose row right, no lamps; `prefs.villaGarden`). New garden item `rose`.
 
+## Friends & visiting (v1.3.0, 10-17)
+- Backend `friend_handler.go` (see backend CLAUDE.md "Friends"): 6-char friend codes, `friendships` table, `GET /friends/:code/home` only for accepted friends (garden/look/name from the friend's synced data, theme from perks).
+- `composables/useFriends.ts` (shared state: my code, friends, incoming, outgoing; `loadHome`). `FriendsPanel.vue` opens from "👥 Friends" in your own home (red badge = incoming requests; list refreshed 3 s after load when signed in). `FriendAvatar.vue` draws their look.
+- Visiting: IndexPage `visitHome` → `HomeScene :visit` (remounted via key). Read-only: no wardrobe/bookshelf/decorating, garden + villa from the friend, owner NPC on the rug with a name pill, quilt in their colours; you can sit at their desk / lie on their bed to focus. Header button becomes "🏠 My home"; leaving the scene clears the visit. Own-home presets (starter/villa garden) never run while visiting.
+
