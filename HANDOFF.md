@@ -1,9 +1,9 @@
-# 交接（2026-10-16——v1.1.0 自己的家）
+# 交接（2026-10-17——v1.2.0 villa 客製化）
 
 > 固定 7 段、整份改寫、**≤4KB**。細節、使用者原話在 `docs/HANDOFF_ARCHIVE.md`（grep）。步驟見 `.claude/skills/`。
 
 ## 1. 版本
-- **v1.1.0**：自己的家＋花園（tag v1.1.0），已部署在家機、網站 200。版號在 `package.json`，發版要 bump＋`git tag`（v1.0.0 有 tag）。
+- **v1.2.0**：villa 客製化（後端 `users.perks`，`0d8bb35`），已部署在家機、網站 200。版號在 `package.json`，發版要 bump＋`git tag`（v1.0.0 有 tag）。
 - 後端最後一次程式改動 `e840f62`（悄悄話 WHISPER），已部署。
 - **push 不會自動上線**，要跑部署腳本（`CLAUDE.md`「部署」）。換電腦開工先 `git pull`，`package-lock` 有變就 `npm install`。
 
@@ -13,7 +13,7 @@
 ## 3. 等使用者決定／下一步（他都同意了，照順序）
 1. **自己的家＋花園**：v1.1.0 已做（擺設存在 prefs，跟著帳號雲端同步）。下一步是**加好友、互訪**：花園要搬到後端才看得到別人家。
 2. **一起看 YouTube**：邀請制、不自動播、只帶影片 ID／秒數／播放暫停、換片 30 秒一次、可擋人（沿用 `prefs.blocked`）。
-3. Buy me a coffee 現在是 Ko-fi 連結，他說以後可能改成儲值系統。
+3. Buy me a coffee 現在是 Ko-fi 連結，以後改儲值；儲值用戶可以客製化帳號（villa 是第一個，給 perks 的後台還沒做）。
 - Redis Cloud 換密碼：他說先不用、記著。
 
 ## 4. 下次要看
@@ -28,6 +28,7 @@
 - 回報 bug 會放螢幕錄影；這台 ffmpeg 壞了，用 Swift `AVAssetImageGenerator` 抽影格。
 
 ## 6. 最近做完（細節 grep 存檔 2026-10-16）
+- 10-17 v1.2.0：付費客製化雛形——`users.perks`（只有管理員能改），id 3（他朋友，實驗用）給了 villa：浴室、雙人床可躺、人字拼地板、櫻花／玫瑰花園。v1.1.x 登入框不閃（一直掛著、Google 按鈕先畫好）。
 - 10-16 晚 v1.1.0：自己的家（`HomeScene.vue`）：每張地圖「🏠 我的家」、沒登入跳 `LoginDialog`；衣櫃換裝（`LookEditor.vue` 草稿）、書架設定、書桌專注、花園買擺設（`homeArt.ts`）；沒存就離開會先問（防呆，含關網頁）。
 - 10-16 晚 v1.0.1：F1／公園／北投也能點名牌（`ProfileCard.vue` 共用，悄悄話、封鎖）；在獨立地圖上方改成「搭車回圖書館」；
   手機地圖下的說明縮一行可點開（`SceneHint.vue`）。

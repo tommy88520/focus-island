@@ -37,6 +37,8 @@ export interface PlayerPrefs {
   garden: GardenPlacement[];
   // 回過家了（第一次回家送花園擺設，只送一次）
   homeVisited: boolean;
+  // villa 的專屬花園套過了（只套一次）
+  villaGarden: boolean;
   // 勿擾：別人的招呼不會出現在你的畫面上，你的名牌旁會有 🔕
   doNotDisturb: boolean;
   // 一起專注：番茄鐘跟著時鐘走（整點、半點開始）
@@ -58,7 +60,7 @@ export function applyCoinFloor(p: PlayerPrefs): PlayerPrefs {
   return p.coinFloor300 ? p : { ...p, coins: Math.max(p.coins, COIN_FLOOR), coinFloor300: true };
 }
 
-const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, body: 0, acc: 0, ownedAcc: [], whispersOff: false, blocked: [], garden: [], homeVisited: false, doNotDisturb: false, groupFocus: false, notifications: false, sceneClock: true, coins: COIN_FLOOR, coinFloor300: true };
+const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, body: 0, acc: 0, ownedAcc: [], whispersOff: false, blocked: [], garden: [], homeVisited: false, villaGarden: false, doNotDisturb: false, groupFocus: false, notifications: false, sceneClock: true, coins: COIN_FLOOR, coinFloor300: true };
 
 function load(): PlayerPrefs {
   try {
@@ -72,6 +74,7 @@ function load(): PlayerPrefs {
       acc: int(parsed.acc, 0),
       whispersOff: parsed.whispersOff === true,
       homeVisited: parsed.homeVisited === true,
+      villaGarden: parsed.villaGarden === true,
       garden: Array.isArray(parsed.garden) ? parsed.garden.filter(isPlacement).slice(0, 300) : [],
       blocked: Array.isArray(parsed.blocked) ? parsed.blocked.filter((v): v is string => typeof v === 'string').slice(0, 200) : [],
       ownedAcc: Array.isArray(parsed.ownedAcc) ? parsed.ownedAcc.filter((v): v is number => Number.isInteger(v) && v > 0) : [],

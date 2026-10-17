@@ -144,14 +144,16 @@ import { localPoint } from 'src/pages/index/composables/sceneFullscreen';
 import LookEditor from 'src/pages/index/components/LookEditor.vue';
 import SceneHint from 'src/pages/index/components/SceneHint.vue';
 import { AVATAR_SIZE, getAvatarFrame, lookColors, SEATED_ROWS, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
-import { drawGardenItem, GARDEN_ITEM_BY_ID, GARDEN_ITEMS, STARTER_GARDEN } from 'src/pages/index/pixel/homeArt';
+import { drawGardenItem, GARDEN_ITEM_BY_ID, GARDEN_ITEMS, STARTER_GARDEN, VILLA_GARDEN } from 'src/pages/index/pixel/homeArt';
 import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 
 type Facing = 'up' | 'down' | 'left' | 'right';
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
-const props = defineProps<{ disabled: boolean }>();
+// theme：管理員給的客製化（後端 users.perks.homeTheme），'villa' 是有浴室、雙人床的大宅
+const props = defineProps<{ disabled: boolean; theme?: 'villa' | undefined }>();
+const VILLA = props.theme === 'villa';
 const emit = defineEmits<{ leave: [] }>();
 const { t, locale } = useLocale();
 const $q = useQuasar();
@@ -168,12 +170,21 @@ const W = 20;
 const H = 24;
 const HOUSE_BOTTOM = 11;
 const DOOR = { x0: 9, x1: 11 };
-const BED: Rect = { x0: 1.5, y0: 2.6, x1: 4.5, y1: 6 };
-const DESK: Rect = { x0: 8.5, y0: 2.6, x1: 11.5, y1: 3.8 };
-const CHAIR = { x: 10, y: 4.7 };
-const SHELF: Rect = { x0: 12.8, y0: 2, x1: 15.6, y1: 3.4 };
+// villa：左上隔一間浴室，雙人床移到中間（可以躺），書桌、書架往右挪
+const BED: Rect = VILLA ? { x0: 6.4, y0: 2.1, x1: 10, y1: 6.4 } : { x0: 1.5, y0: 2.6, x1: 4.5, y1: 6 };
+const DESK: Rect = VILLA ? { x0: 10.9, y0: 2.6, x1: 13.7, y1: 3.8 } : { x0: 8.5, y0: 2.6, x1: 11.5, y1: 3.8 };
+const CHAIR = VILLA ? { x: 12.3, y: 4.7 } : { x: 10, y: 4.7 };
+const SHELF: Rect = VILLA ? { x0: 14.1, y0: 2, x1: 16.1, y1: 3.4 } : { x0: 12.8, y0: 2, x1: 15.6, y1: 3.4 };
 const WARDROBE: Rect = { x0: 16.4, y0: 2, x1: 18.9, y1: 3.8 };
-const RUG: Rect = { x0: 6.5, y0: 6, x1: 13.5, y1: 9.2 };
+const RUG: Rect = VILLA ? { x0: 7, y0: 7.4, x1: 13, y1: 9.8 } : { x0: 6.5, y0: 6, x1: 13.5, y1: 9.2 };
+// 浴室（villa）：外框、門（在下面那道牆）、浴缸、馬桶、洗手台
+const BATHROOM: Rect = { x0: 0.4, y0: 1.9, x1: 5.6, y1: 7.4 };
+const BATH_DOOR = { x0: 2.4, x1: 3.9 };
+const TUB: Rect = { x0: 0.8, y0: 2.2, x1: 3.1, y1: 3.9 };
+const SINK: Rect = { x0: 3.6, y0: 2.1, x1: 5.2, y1: 2.9 };
+const TOILET: Rect = { x0: 0.8, y0: 5.4, x1: 1.8, y1: 6.7 };
+const BED_SIDE = { x: BED.x1 + 0.6, y: (BED.y0 + BED.y1) / 2 + 0.6 };
+const inBathroom = (x: number, y: number) => VILLA && x < BATHROOM.x1 && y < BATHROOM.y1;
 const PLANTS = [
   { x: 1.6, y: 9.8 },
   { x: 18.4, y: 9.8 },
@@ -182,7 +193,7 @@ const PLANTS = [
 const GARDEN = { x0: 1, y0: 12, x1: 19, y1: 23 };
 const PATH = { x0: 9, x1: 11 };
 const GATE = { x: 10, y: 22.6 };
-const SHELF_FRONT = { x: 14.2, y: 4.3 };
+const SHELF_FRONT = { x: (SHELF.x0 + SHELF.x1) / 2, y: 4.3 };
 const WARDROBE_FRONT = { x: 17.6, y: 4.6 };
 
 const inRect = (x: number, y: number, r: Rect, pad = 0) => x > r.x0 - pad && x < r.x1 + pad && y > r.y0 - pad && y < r.y1 + pad;
@@ -203,6 +214,12 @@ const blocked = (x: number, y: number): boolean => {
   // 房子下緣那道牆（門口留空）
   if (y > HOUSE_BOTTOM - 0.5 && y < HOUSE_BOTTOM + 0.3 && !(x > DOOR.x0 + 0.2 && x < DOOR.x1 - 0.2)) return true;
   if (inRect(x, y, BED) || inRect(x, y, DESK) || inRect(x, y, SHELF) || inRect(x, y, WARDROBE)) return true;
+  if (VILLA) {
+    // 浴室的牆：右邊一道、下面一道（門口留空）
+    if (y < BATHROOM.y1 + 0.2 && x > BATHROOM.x1 - 0.25 && x < BATHROOM.x1 + 0.35) return true;
+    if (x < BATHROOM.x1 + 0.2 && y > BATHROOM.y1 - 0.2 && y < BATHROOM.y1 + 0.35 && !(x > BATH_DOOR.x0 && x < BATH_DOOR.x1)) return true;
+    if (inRect(x, y, TUB) || inRect(x, y, SINK) || inRect(x, y, TOILET)) return true;
+  }
   if (PLANTS.some((p) => Math.abs(x - p.x) < 0.5 && Math.abs(y - p.y) < 0.4)) return true;
   // 花園裡擺的東西（樹、燈只擋樹幹那一小塊）
   if (y > HOUSE_BOTTOM + 0.3) {
@@ -215,6 +232,8 @@ const blocked = (x: number, y: number): boolean => {
 // ── 自己 ──
 const me = { x: GATE.x, y: GATE.y - 1.5, facing: 'up' as Facing, moving: false, walkClock: 0 };
 const seated = ref(false);
+// 躺在床上（villa）：跟坐書桌一樣可以專注
+const lying = ref(false);
 let route: { x: number; y: number }[] = [];
 let arriveAction: (() => void) | null = null;
 let stuckFor = 0;
@@ -234,10 +253,17 @@ function input(): { x: number; y: number } {
 
 // 走過去：房子和花園之間要先走到門口
 function walkTo(to: { x: number; y: number }, onArrive: (() => void) | null = null): void {
-  if (seated.value) standUp();
+  if (seated.value || lying.value) standUp();
   const inside = (y: number) => y < HOUSE_BOTTOM;
   const doorX = (DOOR.x0 + DOOR.x1) / 2;
-  route = inside(me.y) !== inside(to.y) ? [{ x: doorX, y: inside(me.y) ? HOUSE_BOTTOM - 0.9 : HOUSE_BOTTOM + 0.9 }, { x: doorX, y: inside(me.y) ? HOUSE_BOTTOM + 0.9 : HOUSE_BOTTOM - 0.9 }, to] : [to];
+  const pts: { x: number; y: number }[] = [];
+  // 出浴室要先走到浴室門口
+  const bathX = (BATH_DOOR.x0 + BATH_DOOR.x1) / 2;
+  if (inBathroom(me.x, me.y) && !inBathroom(to.x, to.y)) pts.push({ x: bathX, y: BATHROOM.y1 - 0.6 }, { x: bathX, y: BATHROOM.y1 + 0.8 });
+  if (inside(me.y) !== inside(to.y)) pts.push({ x: doorX, y: inside(me.y) ? HOUSE_BOTTOM - 0.9 : HOUSE_BOTTOM + 0.9 }, { x: doorX, y: inside(me.y) ? HOUSE_BOTTOM + 0.9 : HOUSE_BOTTOM - 0.9 });
+  // 進浴室：先走到浴室門口
+  if (!inBathroom(me.x, me.y) && inBathroom(to.x, to.y)) pts.push({ x: bathX, y: BATHROOM.y1 + 0.8 }, { x: bathX, y: BATHROOM.y1 - 0.6 });
+  route = [...pts, to];
   arriveAction = onArrive;
   stuckFor = 0;
 }
@@ -251,13 +277,27 @@ function sitAtDesk(): void {
   me.facing = 'up';
 }
 
+function lieDown(): void {
+  route = [];
+  arriveAction = null;
+  seated.value = false;
+  lying.value = true;
+}
+
 function standUp(): void {
+  if (lying.value) {
+    lying.value = false;
+    me.x = BED_SIDE.x;
+    me.y = BED_SIDE.y;
+    return;
+  }
   seated.value = false;
   me.y = CHAIR.y + 0.9;
 }
 
 // 按專注時父層來問：坐在書桌前就可以（家裡不用搶座位）；在屋裡的話直接幫你坐到書桌前；在花園才回 null（提示要進屋坐）
 function seatForFocus(): string | null {
+  if (lying.value) return 'lying';
   if (!seated.value && me.y < HOUSE_BOTTOM) sitAtDesk();
   return seated.value ? 'lying' : null;
 }
@@ -280,13 +320,13 @@ function step(dx: number, dy: number, dt: number): void {
 }
 
 function updateWalk(dt: number): void {
-  if (props.disabled && !seated.value) sitAtDesk();
+  if (props.disabled && !seated.value && !lying.value) sitAtDesk();
   if (panel.value) {
     me.moving = false;
     return;
   }
   const { x, y } = input();
-  if (seated.value) {
+  if (seated.value || lying.value) {
     me.moving = false;
     if ((x === 0 && y === 0) || props.disabled) return;
     standUp();
@@ -507,10 +547,27 @@ function paintGround(): HTMLCanvasElement {
   // 花園草地
   px(c, '#7ea85a', 0, HOUSE_BOTTOM * T, W * T, (H - HOUSE_BOTTOM) * T);
   for (let i = 0; i < 900; i += 1) px(c, rand() < 0.5 ? '#8bb766' : '#6f984f', Math.floor(rand() * W * T), HOUSE_BOTTOM * T + Math.floor(rand() * (H - HOUSE_BOTTOM) * T), 2, 1);
-  // 步道
-  for (let y = HOUSE_BOTTOM; y < H; y += 1) {
-    px(c, '#cbbfa8', PATH.x0 * T + 2, y * T + 1, (PATH.x1 - PATH.x0) * T - 4, T - 2);
-    px(c, '#b8ab92', PATH.x0 * T + 2, y * T + T - 2, (PATH.x1 - PATH.x0) * T - 4, 1);
+  // 步道：villa 是碎石小徑上一塊塊白色石板；一般的是米色石磚
+  if (VILLA) {
+    px(c, '#d9d2c3', PATH.x0 * T + 1, HOUSE_BOTTOM * T, (PATH.x1 - PATH.x0) * T - 2, (H - HOUSE_BOTTOM) * T);
+    for (let i = 0; i < 260; i += 1) px(c, rand() < 0.5 ? '#c4bba8' : '#ebe5d8', PATH.x0 * T + 1 + Math.floor(rand() * ((PATH.x1 - PATH.x0) * T - 3)), HOUSE_BOTTOM * T + Math.floor(rand() * (H - HOUSE_BOTTOM) * T), 1, 1);
+    for (let y = HOUSE_BOTTOM; y < H; y += 1) {
+      const off = y % 2 === 0 ? 3 : 7;
+      c.fillStyle = '#9a958a';
+      c.beginPath();
+      c.roundRect(PATH.x0 * T + off, y * T + 3, 22, 11, 4);
+      c.fill();
+      c.fillStyle = '#f2efe8';
+      c.beginPath();
+      c.roundRect(PATH.x0 * T + off, y * T + 2, 22, 10, 4);
+      c.fill();
+      px(c, '#ffffff', PATH.x0 * T + off + 3, y * T + 3, 8, 1);
+    }
+  } else {
+    for (let y = HOUSE_BOTTOM; y < H; y += 1) {
+      px(c, '#cbbfa8', PATH.x0 * T + 2, y * T + 1, (PATH.x1 - PATH.x0) * T - 4, T - 2);
+      px(c, '#b8ab92', PATH.x0 * T + 2, y * T + T - 2, (PATH.x1 - PATH.x0) * T - 4, 1);
+    }
   }
   // 籬笆（左右、下面，門口留空）
   const picket = (x: number, y: number) => {
@@ -524,8 +581,48 @@ function paintGround(): HTMLCanvasElement {
   }
   px(c, '#e3dccb', 2, (H - 1) * T + 5, PATH.x0 * T - 2, 2);
   px(c, '#e3dccb', PATH.x1 * T, (H - 1) * T + 5, W * T - PATH.x1 * T - 2, 2);
-  // 室內：長木地板（每片深淺不一，接縫錯開）
-  for (let y = 0, row = 0; y < HOUSE_BOTTOM * T; y += 8, row += 1) {
+  // 室內地板：villa 是淺色人字拼木地板；一般的是長木地板（每片深淺不一，接縫錯開）
+  if (VILLA) {
+    // 只畫在屋子裡（一片 16px 高，不裁會漏到花園）
+    c.save();
+    c.beginPath();
+    c.rect(0, 0, W * T, HOUSE_BOTTOM * T);
+    c.clip();
+    px(c, '#e0c49a', 0, 0, W * T, HOUSE_BOTTOM * T);
+    const tones = ['#e6cba2', '#dcbd90', '#e9d2ad', '#d6b688'];
+    for (let y = -16, row = 0; y < HOUSE_BOTTOM * T; y += 8, row += 1) {
+      for (let x = -16, col = 0; x < W * T + 16; x += 16, col += 1) {
+        const tone = tones[(row + col * 3) % tones.length] ?? '#e0c49a';
+        // 一片往右下斜、一片往右上斜，拼成 V 字
+        c.fillStyle = tone;
+        c.beginPath();
+        c.moveTo(x, y + (col % 2 === 0 ? 0 : 8));
+        c.lineTo(x + 8, y + (col % 2 === 0 ? 8 : 0));
+        c.lineTo(x + 8, y + (col % 2 === 0 ? 16 : 8));
+        c.lineTo(x, y + (col % 2 === 0 ? 8 : 16));
+        c.closePath();
+        c.fill();
+        c.fillStyle = tones[(row + col * 3 + 2) % tones.length] ?? '#d6b688';
+        c.beginPath();
+        c.moveTo(x + 8, y + (col % 2 === 0 ? 8 : 0));
+        c.lineTo(x + 16, y + (col % 2 === 0 ? 0 : 8));
+        c.lineTo(x + 16, y + (col % 2 === 0 ? 8 : 16));
+        c.lineTo(x + 8, y + (col % 2 === 0 ? 16 : 8));
+        c.closePath();
+        c.fill();
+      }
+    }
+    c.restore();
+    // 浴室：白色大理石磁磚
+    const b = BATHROOM;
+    px(c, '#eef1f4', b.x0 * T, b.y0 * T, (b.x1 - b.x0) * T, (b.y1 - b.y0) * T);
+    for (let ty = b.y0 * T; ty < b.y1 * T; ty += 12) px(c, '#d5dbe2', b.x0 * T, ty, (b.x1 - b.x0) * T, 1);
+    for (let tx = b.x0 * T; tx < b.x1 * T; tx += 12) px(c, '#d5dbe2', tx, b.y0 * T, 1, (b.y1 - b.y0) * T);
+    for (let i = 0; i < 40; i += 1) px(c, '#dfe4ea', b.x0 * T + Math.floor(rand() * (b.x1 - b.x0) * T), b.y0 * T + Math.floor(rand() * (b.y1 - b.y0) * T), 3, 1);
+    // 浴室門口的踏墊
+    px(c, '#9ec5d6', BATH_DOOR.x0 * T + 2, (b.y1 + 0.25) * T, (BATH_DOOR.x1 - BATH_DOOR.x0) * T - 4, 9);
+    px(c, '#c3dde8', BATH_DOOR.x0 * T + 4, (b.y1 + 0.25) * T + 2, (BATH_DOOR.x1 - BATH_DOOR.x0) * T - 8, 5);
+  } else for (let y = 0, row = 0; y < HOUSE_BOTTOM * T; y += 8, row += 1) {
     let x = -((row * 37) % 80);
     let i = 0;
     while (x < W * T) {
@@ -553,22 +650,33 @@ function paintGround(): HTMLCanvasElement {
   px(c, '#a0815e', 0, HOUSE_BOTTOM * T - 6, DOOR.x0 * T, 8);
   px(c, '#a0815e', DOOR.x1 * T, HOUSE_BOTTOM * T - 6, W * T - DOOR.x1 * T, 8);
   px(c, '#8a5c3a', DOOR.x0 * T, HOUSE_BOTTOM * T - 2, (DOOR.x1 - DOOR.x0) * T, 4);
-  // 地毯
+  // 地毯（villa 是米白色長毛毯）
   const r = RUG;
-  px(c, '#c46a55', r.x0 * T, r.y0 * T, (r.x1 - r.x0) * T, (r.y1 - r.y0) * T);
-  px(c, '#e3a17a', r.x0 * T + 4, r.y0 * T + 4, (r.x1 - r.x0) * T - 8, (r.y1 - r.y0) * T - 8);
-  px(c, '#c46a55', r.x0 * T + 8, r.y0 * T + 8, (r.x1 - r.x0) * T - 16, (r.y1 - r.y0) * T - 16);
+  const [rugA, rugB] = VILLA ? ['#e9e1d3', '#f6f1e8'] : ['#c46a55', '#e3a17a'];
+  c.fillStyle = rugA;
+  c.beginPath();
+  c.roundRect(r.x0 * T, r.y0 * T, (r.x1 - r.x0) * T, (r.y1 - r.y0) * T, VILLA ? 10 : 0);
+  c.fill();
+  c.fillStyle = rugB;
+  c.beginPath();
+  c.roundRect(r.x0 * T + 4, r.y0 * T + 4, (r.x1 - r.x0) * T - 8, (r.y1 - r.y0) * T - 8, VILLA ? 8 : 0);
+  c.fill();
+  if (!VILLA) px(c, '#c46a55', r.x0 * T + 8, r.y0 * T + 8, (r.x1 - r.x0) * T - 16, (r.y1 - r.y0) * T - 16);
   return canvas;
 }
 
 function drawFurniture(c: CanvasRenderingContext2D, lit: boolean, colors: AvatarColors): void {
-  // 床：被子用自己衣服的顏色
-  const b = BED;
-  px(c, 'rgba(0,0,0,0.18)', b.x0 * T + 2, b.y1 * T - 2, (b.x1 - b.x0) * T, 4);
-  px(c, '#6b4a2f', b.x0 * T, b.y0 * T, (b.x1 - b.x0) * T, (b.y1 - b.y0) * T);
-  px(c, '#f4eee2', b.x0 * T + 3, b.y0 * T + 3, (b.x1 - b.x0) * T - 6, 12);
-  px(c, colors.shirt, b.x0 * T + 3, b.y0 * T + 17, (b.x1 - b.x0) * T - 6, (b.y1 - b.y0) * T - 20);
-  px(c, colors.shirtShade, b.x0 * T + 3, b.y0 * T + 17, (b.x1 - b.x0) * T - 6, 2);
+  if (VILLA) drawVillaBed(c, colors);
+  else {
+    // 床：被子用自己衣服的顏色
+    const b = BED;
+    px(c, 'rgba(0,0,0,0.18)', b.x0 * T + 2, b.y1 * T - 2, (b.x1 - b.x0) * T, 4);
+    px(c, '#6b4a2f', b.x0 * T, b.y0 * T, (b.x1 - b.x0) * T, (b.y1 - b.y0) * T);
+    px(c, '#f4eee2', b.x0 * T + 3, b.y0 * T + 3, (b.x1 - b.x0) * T - 6, 12);
+    px(c, colors.shirt, b.x0 * T + 3, b.y0 * T + 17, (b.x1 - b.x0) * T - 6, (b.y1 - b.y0) * T - 20);
+    px(c, colors.shirtShade, b.x0 * T + 3, b.y0 * T + 17, (b.x1 - b.x0) * T - 6, 2);
+  }
+  if (VILLA) drawBathroom(c, lit);
   // 書桌＋檯燈＋椅子
   const d = DESK;
   px(c, 'rgba(0,0,0,0.18)', d.x0 * T + 2, d.y1 * T, (d.x1 - d.x0) * T, 3);
@@ -605,7 +713,128 @@ function drawFurniture(c: CanvasRenderingContext2D, lit: boolean, colors: Avatar
   }
 }
 
+// villa 的雙人床：深色木頭床頭板、白色床單、兩顆枕頭、蓬蓬的棉被（顏色跟著衣服）；躺著的話頭在左邊枕頭上、身體在被子裡
+function drawVillaBed(c: CanvasRenderingContext2D, colors: AvatarColors): void {
+  const b = BED;
+  const x = b.x0 * T;
+  const y = b.y0 * T;
+  const w = (b.x1 - b.x0) * T;
+  const h = (b.y1 - b.y0) * T;
+  px(c, 'rgba(0,0,0,0.2)', x + 3, y + h - 1, w, 5);
+  // 床頭板
+  px(c, '#5a3d2a', x - 2, y - 10, w + 4, 14);
+  px(c, '#7a5236', x, y - 8, w, 10);
+  for (let i = 0; i < 4; i += 1) px(c, '#6b4730', x + 6 + i * ((w - 12) / 3) - 1, y - 7, 2, 8);
+  // 床架、床單
+  px(c, '#6b4a2f', x, y, w, h);
+  px(c, '#f6f3ee', x + 2, y + 2, w - 4, h - 4);
+  // 兩顆枕頭
+  const pillow = (px0: number) => {
+    c.fillStyle = '#d9d4cc';
+    c.beginPath();
+    c.roundRect(px0, y + 5, w / 2 - 8, 13, 4);
+    c.fill();
+    c.fillStyle = '#ffffff';
+    c.beginPath();
+    c.roundRect(px0, y + 4, w / 2 - 8, 12, 4);
+    c.fill();
+    px(c, '#ece8e1', px0 + 3, y + 12, w / 2 - 14, 1);
+  };
+  pillow(x + 5);
+  pillow(x + w / 2 + 3);
+  // 躺著：頭放在左邊枕頭上（棉被會蓋住身體）
+  if (lying.value) {
+    c.drawImage(getAvatarFrame(colors, 'down', 'idle'), 0, 0, AVATAR_SIZE.w, 12, Math.round(x + 5 + (w / 2 - 8) / 2 - AVATAR_SIZE.w / 2), y + 2, AVATAR_SIZE.w, 12);
+  }
+  // 棉被：上緣反摺一條白邊，表面幾道皺褶；躺著的那半邊鼓起來
+  const qy = y + 20;
+  c.fillStyle = colors.shirtShade;
+  c.beginPath();
+  c.roundRect(x + 1, qy + 1, w - 2, h - 21, 5);
+  c.fill();
+  c.fillStyle = colors.shirt;
+  c.beginPath();
+  c.roundRect(x + 1, qy, w - 2, h - 22, 5);
+  c.fill();
+  px(c, '#ffffff', x + 2, qy, w - 4, 4);
+  px(c, '#eeeae4', x + 2, qy + 3, w - 4, 1);
+  for (let i = 1; i < 4; i += 1) px(c, colors.shirtShade, x + 6, qy + 6 + i * ((h - 32) / 4), w - 12, 1);
+  if (lying.value) {
+    c.fillStyle = 'rgba(255,255,255,0.18)';
+    c.beginPath();
+    c.ellipse(x + w / 4 + 2, qy + (h - 22) / 2, w / 5, (h - 22) / 2.6, 0, 0, Math.PI * 2);
+    c.fill();
+  }
+}
+
+// villa 的浴室：牆、浴缸（有水和泡泡）、洗手台＋鏡子、馬桶、毛巾架
+function drawBathroom(c: CanvasRenderingContext2D, lit: boolean): void {
+  const b = BATHROOM;
+  // 隔間牆（右邊、下面，門口留空）
+  px(c, '#cdbfa8', b.x1 * T - 3, b.y0 * T - 8, 6, (b.y1 - b.y0) * T + 12);
+  px(c, '#e8dcc6', b.x1 * T - 2, b.y0 * T - 8, 4, (b.y1 - b.y0) * T + 10);
+  px(c, '#cdbfa8', b.x0 * T, b.y1 * T - 3, (BATH_DOOR.x0 - b.x0) * T, 7);
+  px(c, '#e8dcc6', b.x0 * T, b.y1 * T - 3, (BATH_DOOR.x0 - b.x0) * T, 4);
+  px(c, '#cdbfa8', BATH_DOOR.x1 * T, b.y1 * T - 3, (b.x1 - BATH_DOOR.x1) * T + 2, 7);
+  px(c, '#e8dcc6', BATH_DOOR.x1 * T, b.y1 * T - 3, (b.x1 - BATH_DOOR.x1) * T + 2, 4);
+  // 浴缸
+  const tb = TUB;
+  c.fillStyle = '#c9d1da';
+  c.beginPath();
+  c.roundRect(tb.x0 * T, tb.y0 * T, (tb.x1 - tb.x0) * T, (tb.y1 - tb.y0) * T, 8);
+  c.fill();
+  c.fillStyle = '#ffffff';
+  c.beginPath();
+  c.roundRect(tb.x0 * T + 1, tb.y0 * T, (tb.x1 - tb.x0) * T - 2, (tb.y1 - tb.y0) * T - 2, 8);
+  c.fill();
+  c.fillStyle = '#9fd8e6';
+  c.beginPath();
+  c.roundRect(tb.x0 * T + 4, tb.y0 * T + 4, (tb.x1 - tb.x0) * T - 8, (tb.y1 - tb.y0) * T - 9, 6);
+  c.fill();
+  for (const [bx, by, r] of [
+    [6, 6, 3],
+    [10, 8, 2],
+    [26, 7, 3],
+    [30, 10, 2],
+  ] as const) {
+    c.fillStyle = 'rgba(255,255,255,0.9)';
+    c.beginPath();
+    c.arc(tb.x0 * T + bx, tb.y0 * T + by, r, 0, Math.PI * 2);
+    c.fill();
+  }
+  px(c, '#b9c2cc', tb.x1 * T - 8, tb.y0 * T + 2, 3, 4);
+  // 洗手台＋鏡子
+  const sk = SINK;
+  px(c, '#a9d6e8', sk.x0 * T + 4, sk.y0 * T - 14, (sk.x1 - sk.x0) * T - 8, 11);
+  px(c, '#d5edf5', sk.x0 * T + 6, sk.y0 * T - 12, 5, 3);
+  px(c, '#b9c2cc', sk.x0 * T + 3, sk.y0 * T - 15, (sk.x1 - sk.x0) * T - 6, 1);
+  px(c, '#8a5c3a', sk.x0 * T, sk.y0 * T, (sk.x1 - sk.x0) * T, (sk.y1 - sk.y0) * T);
+  px(c, '#ffffff', sk.x0 * T + 6, sk.y0 * T + 2, (sk.x1 - sk.x0) * T - 12, 7);
+  px(c, '#cfe6ee', sk.x0 * T + 8, sk.y0 * T + 4, (sk.x1 - sk.x0) * T - 16, 3);
+  px(c, '#b9c2cc', sk.x0 * T + (sk.x1 - sk.x0) * T / 2 - 1, sk.y0 * T, 2, 3);
+  // 馬桶
+  const tl = TOILET;
+  px(c, '#e3e8ee', tl.x0 * T + 2, tl.y0 * T, (tl.x1 - tl.x0) * T - 4, 7);
+  c.fillStyle = '#ffffff';
+  c.beginPath();
+  c.ellipse(((tl.x0 + tl.x1) / 2) * T, tl.y0 * T + 13, ((tl.x1 - tl.x0) * T) / 2 - 1, 7, 0, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = '#dfe4ea';
+  c.beginPath();
+  c.ellipse(((tl.x0 + tl.x1) / 2) * T, tl.y0 * T + 13, ((tl.x1 - tl.x0) * T) / 2 - 4, 4, 0, 0, Math.PI * 2);
+  c.fill();
+  // 毛巾架（右牆上）
+  px(c, '#b9c2cc', (b.x1 - 0.5) * T, (b.y0 + 2.6) * T, 2, 18);
+  px(c, '#f4a3bf', (b.x1 - 0.5) * T - 5, (b.y0 + 2.6) * T + 2, 6, 14);
+  px(c, '#fbd3e0', (b.x1 - 0.5) * T - 5, (b.y0 + 2.6) * T + 2, 6, 2);
+  if (lit) {
+    c.fillStyle = 'rgba(255, 240, 200, 0.12)';
+    c.fillRect(b.x0 * T, b.y0 * T, (b.x1 - b.x0) * T, (b.y1 - b.y0) * T);
+  }
+}
+
 function drawPerson(c: CanvasRenderingContext2D, colors: AvatarColors): void {
+  if (lying.value) return;
   if (seated.value) {
     c.drawImage(getAvatarFrame(colors, 'up', 'idle'), 0, 0, AVATAR_SIZE.w, SEATED_ROWS, Math.round(CHAIR.x * T - AVATAR_SIZE.w / 2), Math.round(CHAIR.y * T + 2 - SEATED_ROWS), AVATAR_SIZE.w, SEATED_ROWS);
     px(c, '#6b4a2f', CHAIR.x * T - 6, CHAIR.y * T - 2, 12, 6);
@@ -719,7 +948,15 @@ function render(seconds: number): void {
   }
   const lg = screen(GATE.x, GATE.y + 0.6);
   pill(ctx, t.value.home.gate, lg.x, lg.y, '#2dd4bf');
-  const mp = seated.value ? screen(CHAIR.x, CHAIR.y - 0.9) : screen(me.x, me.y - 1.1);
+  const mp = lying.value
+    ? screen(BED.x0 + (BED.x1 - BED.x0) / 4 + 0.1, BED.y0 - 0.1)
+    : seated.value
+      ? screen(CHAIR.x, CHAIR.y - 0.9)
+      : screen(me.x, me.y - 1.1);
+  if (VILLA && !lying.value) {
+    const lb = screen((BED.x0 + BED.x1) / 2, BED.y1 + 1.3);
+    pill(ctx, `🛏️ ${t.value.home.bed}`, lb.x, lb.y, '#f472b6');
+  }
   pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
 }
 
@@ -763,12 +1000,13 @@ function ignoreKey(event: KeyboardEvent): boolean {
 
 // 靠近什麼就用什麼：書桌坐下、衣櫃換裝、書架設定
 function interact(): void {
-  if (seated.value) {
+  if (seated.value || lying.value) {
     if (!props.disabled) standUp();
     return;
   }
   const near = (p: { x: number; y: number }, r = 1.6) => Math.hypot(me.x - p.x, me.y - p.y) < r;
-  if (near(CHAIR, 2.6)) sitAtDesk();
+  if (VILLA && near(BED_SIDE, 2.2)) lieDown();
+  else if (near(CHAIR, 2.6)) sitAtDesk();
   else if (near(WARDROBE_FRONT)) openWardrobe();
   else if (near(SHELF_FRONT)) panel.value = 'settings';
 }
@@ -807,6 +1045,7 @@ function handleClick(event: MouseEvent): void {
   if (inRect(x, y, WARDROBE, 0.6)) walkTo(WARDROBE_FRONT, openWardrobe);
   else if (inRect(x, y, SHELF, 0.6)) walkTo(SHELF_FRONT, () => (panel.value = 'settings'));
   else if (inRect(x, y, DESK, 0.6) || Math.hypot(x - CHAIR.x, y - CHAIR.y) < 0.8) walkTo({ x: CHAIR.x, y: CHAIR.y + 0.9 }, sitAtDesk);
+  else if (VILLA && inRect(x, y, BED, 0.3)) walkTo(BED_SIDE, lieDown);
   else if (!blocked(x, y)) walkTo({ x, y });
 }
 
@@ -851,6 +1090,11 @@ onMounted(() => {
   if (!prefs.value.homeVisited) {
     if (!prefs.value.garden.length) prefs.value.garden = STARTER_GARDEN.map((p) => ({ ...p }));
     prefs.value.homeVisited = true;
+  }
+  // villa 第一次：換成專屬花園（左邊一排櫻花、右邊一排玫瑰、沒有路燈），只套一次，之後她自己可以再改
+  if (VILLA && !prefs.value.villaGarden) {
+    prefs.value.garden = VILLA_GARDEN.map((p) => ({ ...p }));
+    prefs.value.villaGarden = true;
   }
   // 重整前在家裡：站回原本的地方（坐著的話專注一開始會自己坐回書桌）
   const back = takeArrival('home');

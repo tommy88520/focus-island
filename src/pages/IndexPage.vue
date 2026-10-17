@@ -90,6 +90,8 @@
           <HomeScene
             v-if="useCanvasScene && sceneLocation === 'home'"
             ref="homeSceneRef"
+            :key="account.perks.value.homeTheme ?? 'basic'"
+            :theme="account.perks.value.homeTheme"
             :disabled="store.isRunning"
             @leave="sceneLocation = homeReturnTo"
           />

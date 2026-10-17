@@ -38,6 +38,32 @@ function readSession(): string {
 }
 
 const session = ref(readSession());
+
+// 管理員給的客製化（後端 users.perks，使用者自己改不到）。先用上次存的，/me 回來再更新
+export interface Perks {
+  homeTheme?: 'villa';
+}
+const PERKS_KEY = 'focus_island_perks_v1';
+function readPerks(): Perks {
+  try {
+    return parsePerks(JSON.parse(localStorage.getItem(PERKS_KEY) ?? '{}'));
+  } catch {
+    return {};
+  }
+}
+function parsePerks(raw: unknown): Perks {
+  const p = (raw ?? {}) as Record<string, unknown>;
+  return p.homeTheme === 'villa' ? { homeTheme: 'villa' } : {};
+}
+const perks = ref<Perks>(readPerks());
+function setPerks(raw: unknown): void {
+  perks.value = parsePerks(raw);
+  try {
+    localStorage.setItem(PERKS_KEY, JSON.stringify(perks.value));
+  } catch {
+    // ignore storage errors
+  }
+}
 const syncing = ref(false);
 let started = false;
 let syncTimer: number | undefined;
@@ -134,6 +160,7 @@ export function useAccount() {
 
   function forgetSession(): void {
     session.value = '';
+    setPerks({});
     try {
       localStorage.removeItem(SESSION_KEY);
     } catch {
@@ -145,8 +172,9 @@ export function useAccount() {
   async function loginWithGoogle(credential: string): Promise<boolean> {
     const res = await request('/api/v1/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
     if (!res.ok) return false;
-    const body = (await res.json()) as { token: string; userId: string; data: unknown };
+    const body = (await res.json()) as { token: string; userId: string; data: unknown; perks?: unknown };
     session.value = body.token;
+    setPerks(body.perks);
     localStorage.setItem(SESSION_KEY, body.token);
     await upload(mergeIn(body.data));
     localStorage.setItem(USER_ID_KEY, body.userId);
@@ -180,7 +208,8 @@ export function useAccount() {
         return;
       }
       if (res.ok) {
-        const body = (await res.json()) as { data: unknown };
+        const body = (await res.json()) as { data: unknown; perks?: unknown };
+        setPerks(body.perks);
         await upload(mergeIn(body.data));
       }
     } catch {
@@ -207,5 +236,5 @@ export function useAccount() {
     });
   }
 
-  return { session, syncing, loginWithGoogle, logout, deleteAccount, startSync };
+  return { session, syncing, perks, loginWithGoogle, logout, deleteAccount, startSync };
 }

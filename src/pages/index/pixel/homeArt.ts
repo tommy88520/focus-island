@@ -16,6 +16,7 @@ export interface GardenItem {
 
 export const GARDEN_ITEMS: GardenItem[] = [
   { id: 'tulips', emoji: '🌷', price: 20, w: 1, h: 1, name: { 'zh-TW': '鬱金香', 'en-US': 'Tulips' } },
+  { id: 'rose', emoji: '🌹', price: 25, w: 1, h: 1, name: { 'zh-TW': '玫瑰', 'en-US': 'Roses' } },
   { id: 'sunflower', emoji: '🌻', price: 25, w: 1, h: 1, name: { 'zh-TW': '向日葵', 'en-US': 'Sunflower' } },
   { id: 'bush', emoji: '🌿', price: 15, w: 1, h: 1, name: { 'zh-TW': '灌木', 'en-US': 'Bush' } },
   { id: 'mushroom', emoji: '🍄', price: 10, w: 1, h: 1, name: { 'zh-TW': '香菇', 'en-US': 'Mushroom' } },
@@ -37,6 +38,12 @@ export const STARTER_GARDEN = [
   { id: 'lamp', x: 8, y: 16 },
 ];
 
+// villa 專屬花園：左邊一排櫻花樹、右邊一排玫瑰（不要路燈）
+export const VILLA_GARDEN = [
+  ...[13, 15, 17, 19, 21].map((y) => ({ id: 'sakura', x: 1, y })),
+  ...[12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((y) => ({ id: 'rose', x: 18, y })),
+];
+
 export const GARDEN_ITEM_BY_ID = Object.fromEntries(GARDEN_ITEMS.map((i) => [i.id, i])) as Record<string, GardenItem | undefined>;
 
 // 畫一個擺設（lit：晚上燈會亮）
@@ -54,6 +61,23 @@ export function drawGardenItem(c: CanvasRenderingContext2D, id: string, tx: numb
         px(c, '#3f8a3a', fx + 1, y + 6, 1, 6);
         px(c, colors[i] ?? '#e25a4a', fx, y + 3, 3, 3);
         px(c, '#ffffff', fx + 1, y + 3, 1, 1);
+      }
+      break;
+    }
+    case 'rose': {
+      // 玫瑰叢：深綠葉子上幾朵紅玫瑰（每朵一圈深紅、中間亮紅）
+      shadow(1);
+      px(c, '#2f6b3f', x + 1, y + 6, 14, 8);
+      px(c, '#3f8a4a', x + 2, y + 4, 12, 7);
+      for (const [rx, ry] of [
+        [3, 4],
+        [9, 3],
+        [6, 8],
+        [11, 8],
+      ] as const) {
+        px(c, '#9f1d2c', x + rx, y + ry, 4, 4);
+        px(c, '#e0314a', x + rx + 1, y + ry, 2, 3);
+        px(c, '#ff8095', x + rx + 1, y + ry, 1, 1);
       }
       break;
     }

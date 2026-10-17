@@ -69,3 +69,7 @@
 - Indoors: wardrobe (`LookEditor.vue` in draft mode — v-model, "Save" writes prefs), bookshelf (goal / DND / whispers, live), desk (sit = focus; pressing Start while indoors auto-sits, no library seat needed). Garden: `GARDEN_ITEMS` in `pixel/homeArt.ts`, placements in `prefs.garden` (cloud-synced with the account), editing is a draft; saving charges new items and refunds half for removed ones. First visit seeds `STARTER_GARDEN` (`prefs.homeVisited`).
 - Unsaved guard: wardrobe/garden drafts → leaving (header button, gate, closing a panel) asks Save / Discard / Keep editing; `beforeunload` blocks closing the tab.
 
+## Perks & villa (v1.2.0, 10-17)
+- Backend `users.perks` (admin-only JSON, e.g. `{"homeTheme":"villa"}`) comes back as `perks` from `/me` and login; `useAccount().perks` (cached in `focus_island_perks_v1`, cleared on logout). Grant with SQL on the home Mac until there's an admin UI: `update users set perks='{"homeTheme":"villa"}' where id=N;`.
+- `HomeScene` `theme="villa"` (remounted via `:key`): bathroom (tub, toilet, sink+mirror, towel; walls with a doorway, routing via the bath door), double bed with two pillows you can lie in (`lying` counts as focusing like the desk), herringbone parquet, cream rug, white stepping-stone path. First visit replaces the garden once with `VILLA_GARDEN` (sakura row left, rose row right, no lamps; `prefs.villaGarden`). New garden item `rose`.
+
