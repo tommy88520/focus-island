@@ -65,19 +65,73 @@ export function drawGardenItem(c: CanvasRenderingContext2D, id: string, tx: numb
       break;
     }
     case 'rose': {
-      // 玫瑰叢：深綠葉子上幾朵紅玫瑰（每朵一圈深紅、中間亮紅）
-      shadow(1);
-      px(c, '#2f6b3f', x + 1, y + 6, 14, 8);
-      px(c, '#3f8a4a', x + 2, y + 4, 12, 7);
-      for (const [rx, ry] of [
-        [3, 4],
-        [9, 3],
-        [6, 8],
-        [11, 8],
-      ] as const) {
-        px(c, '#9f1d2c', x + rx, y + ry, 4, 4);
-        px(c, '#e0314a', x + rx + 1, y + ry, 2, 3);
-        px(c, '#ff8095', x + rx + 1, y + ry, 1, 1);
+      // 玫瑰叢：低低寬寬的一叢葉子（不是三顆圓球），上面兩朵大玫瑰（7×7 手點，看得出一圈圈捲起來的花瓣），偶爾一個花苞。
+      // 每叢依位置長得不太一樣，排一整排才不會像複製貼上
+      const seed = (tx * 73 + ty * 37) % 97;
+      const cx = x + 8;
+      const cy = y + 9;
+      c.fillStyle = 'rgba(0,0,0,0.2)';
+      c.beginPath();
+      c.ellipse(cx, y + 14, 8, 2.5, 0, 0, Math.PI * 2);
+      c.fill();
+      const oval = (ox: number, oy: number, rx: number, ry: number, color: string) => {
+        c.fillStyle = color;
+        c.beginPath();
+        c.ellipse(cx + ox, cy + oy, rx, ry, 0, 0, Math.PI * 2);
+        c.fill();
+      };
+      oval(0, 1, 8, 5, '#24552f');
+      oval(0, 0, 7, 4, '#2f6b3a');
+      oval(-1, -1, 5, 3, '#3a7d45');
+      // 尖尖的葉子從邊緣伸出來
+      const leaf = (lx: number, ly: number, dir: number) => {
+        px(c, '#2f6b3a', cx + lx, cy + ly, 2, 1);
+        px(c, '#3a7d45', cx + lx + dir, cy + ly - 1, 2, 1);
+        px(c, '#5fae62', cx + lx + dir * 2, cy + ly - 2, 1, 1);
+      };
+      leaf(-9, 2, -1);
+      leaf(7, 2, 1);
+      leaf(-5, -3, -1);
+      leaf(4, -4, 1);
+      for (let i = 0; i < 4; i += 1) px(c, '#5fae62', cx - 5 + ((seed * (i + 2)) % 10), cy - 1 + ((seed + i * 3) % 4), 2, 1);
+      // 一朵玫瑰 7×7：外圈深紅、往內一層層亮、中間螺旋
+      const ROSE = ['..dmm..', '.dmllm.', 'dmlddlm', 'mldlldm', 'mlddlld', '.mlllm.', '..dmd..'];
+      const COLORS: Record<string, string> = { d: '#8e1b2b', m: '#c8283f', l: '#ef5068' };
+      const bloom = (bx: number, by: number) => {
+        const fx = Math.round(cx + bx - 3);
+        const fy = Math.round(cy + by - 3);
+        px(c, '#24552f', fx + 2, fy + 7, 3, 1);
+        ROSE.forEach((row, ry) => {
+          for (let rx = 0; rx < 7; rx += 1) {
+            const col = COLORS[row[rx] ?? '.'];
+            if (col) px(c, col, fx + rx, fy + ry, 1, 1);
+          }
+        });
+        px(c, '#ffb3c0', fx + 2, fy + 1, 1, 1);
+        px(c, '#ffb3c0', fx + 1, fy + 2, 1, 1);
+      };
+      const layouts: [number, number][][] = [
+        [
+          [-3, -2],
+          [3, 0],
+        ],
+        [
+          [-2, 0],
+          [3, -3],
+        ],
+        [
+          [-4, -1],
+          [2, -2],
+        ],
+      ];
+      const layout = layouts[seed % layouts.length] ?? layouts[0] ?? [];
+      layout.forEach(([bx, by]) => bloom(bx, by));
+      // 有些叢多一個花苞
+      if (seed % 3 !== 0) {
+        const bx = cx + (seed % 2 ? 6 : -7);
+        px(c, '#3a7d45', bx, cy + 1, 2, 1);
+        px(c, '#c8283f', bx, cy - 1, 2, 2);
+        px(c, '#ef5068', bx, cy - 1, 1, 1);
       }
       break;
     }
