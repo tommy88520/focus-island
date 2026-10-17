@@ -56,6 +56,8 @@ function parsePerks(raw: unknown): Perks {
   return p.homeTheme === 'villa' ? { homeTheme: 'villa' } : {};
 }
 const perks = ref<Perks>(readPerks());
+// 登入被伺服器判定失效、自動登出了（頁面跳提示）
+const sessionLost = ref(false);
 function setPerks(raw: unknown): void {
   perks.value = parsePerks(raw);
   try {
@@ -155,10 +157,15 @@ export function useAccount() {
   async function upload(data: CloudData = localData()): Promise<void> {
     if (!session.value) return;
     const res = await request('/api/v1/me/data', { method: 'PUT', body: JSON.stringify(data) });
-    if (res.status === 401) forgetSession();
+    if (res.status === 401) forgetSession(true);
   }
 
-  function forgetSession(): void {
+  // expired：伺服器說登入失效（401）才清掉；跳提示讓人知道為什麼被登出，也在 console 留紀錄方便查
+  function forgetSession(expired = false): void {
+    if (expired && session.value) {
+      console.warn('[account] session rejected by server (401), signing out');
+      sessionLost.value = true;
+    }
     session.value = '';
     setPerks({});
     try {
@@ -204,7 +211,7 @@ export function useAccount() {
     try {
       const res = await request('/api/v1/me');
       if (res.status === 401) {
-        forgetSession();
+        forgetSession(true);
         return;
       }
       if (res.ok) {
@@ -236,5 +243,5 @@ export function useAccount() {
     });
   }
 
-  return { session, syncing, perks, loginWithGoogle, logout, deleteAccount, startSync };
+  return { session, syncing, perks, sessionLost, loginWithGoogle, logout, deleteAccount, startSync };
 }

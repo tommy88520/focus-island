@@ -56,6 +56,8 @@ function renderButton(): void {
       void account.loginWithGoogle(credential).then((ok) => {
         if (!ok) {
           error.value = t.value.settingsPage.accountLoginFailed;
+          // 失敗了：按鈕重畫一次，才能再按
+          renderButton();
           return;
         }
         error.value = '';
@@ -69,21 +71,34 @@ function renderButton(): void {
   });
 }
 
+// 按了 Google 登入、跳去 Google 的視窗後沒登入就回來（取消、關掉），Google 的按鈕會卡住不能再按：
+// 視窗開著的時候，頁面一回到前景就把按鈕重畫
+function onReturn(): void {
+  if (props.modelValue && document.visibilityState === 'visible') renderButton();
+}
+
 onMounted(() => {
   window.addEventListener('keydown', onKey);
+  window.addEventListener('focus', onReturn);
+  document.addEventListener('visibilitychange', onReturn);
   // 等頁面其他東西先載完再畫，不要搶開場
   window.setTimeout(renderButton, 1500);
 });
 watch([() => $q.dark.isActive, locale], renderButton);
-// 打開時才發現還沒畫好（例如載入失敗過）：再試一次
+// 打開時還沒畫好（例如載入失敗過、上次按過沒成功）：重畫
 watch(
   () => props.modelValue,
   (open) => {
-    if (open && !buttonRef.value?.querySelector('iframe')) renderButton();
+    if (open && (error.value || !buttonRef.value?.querySelector('iframe'))) {
+      error.value = '';
+      renderButton();
+    }
   },
 );
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey);
+  window.removeEventListener('focus', onReturn);
+  document.removeEventListener('visibilitychange', onReturn);
 });
 </script>

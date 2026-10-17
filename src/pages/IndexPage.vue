@@ -894,6 +894,13 @@ const sceneLocation = ref<'library' | 'f1' | 'park' | 'beitou' | 'home'>(
 // 從哪張地圖回家的，出門就回那裡
 const homeReturnTo = ref<'library' | 'f1' | 'park' | 'beitou'>('library');
 const loginOpen = ref(false);
+// 登入被伺服器判定失效：告訴他要重新登入（不要默默變成沒登入）
+watch(
+  () => account.sessionLost.value,
+  (lost) => {
+    if (lost) $q.notify({ message: t.value.home.sessionLost, color: 'warning', icon: 'logout', position: 'top', timeout: 5000 });
+  },
+);
 const homeSceneRef = ref<(SceneHandle & { requestLeave: () => boolean }) | null>(null);
 // 回到圖書館就不用再記獨立地圖
 watch(sceneLocation, (location) => {

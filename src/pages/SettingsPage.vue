@@ -94,7 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useQuasar } from 'quasar';
 import { GOOGLE_CLIENT_ID, useAccount } from 'src/composables/useAccount';
 import { renderGoogleButton } from 'src/composables/googleIdentity';
@@ -112,22 +112,41 @@ const prefs = usePlayerPrefs();
 // 換裝的解鎖要看累計輪數
 usePomodoroStore().loadProgress();
 
+// 畫 Google 登入鈕。登入失敗、或跳去 Google 沒登入就回來，按鈕會卡住：重畫
+function renderLogin(): void {
+  if (account.session.value || !googleButtonRef.value) return;
+  googleButtonRef.value.innerHTML = '';
+  renderGoogleButton(
+    googleButtonRef.value,
+    GOOGLE_CLIENT_ID,
+    (credential) => {
+      loginError.value = '';
+      void account.loginWithGoogle(credential).then((ok) => {
+        if (!ok) {
+          loginError.value = t.value.settingsPage.accountLoginFailed;
+          renderLogin();
+        }
+      });
+    },
+    { dark: $q.dark.isActive, locale: locale.value },
+  ).catch(() => {
+    loginError.value = t.value.settingsPage.accountLoadFailed;
+  });
+}
+
+function onReturn(): void {
+  if (document.visibilityState === 'visible') renderLogin();
+}
+
 onMounted(() => {
-  if (!account.session.value && googleButtonRef.value) {
-    renderGoogleButton(
-      googleButtonRef.value,
-      GOOGLE_CLIENT_ID,
-      (credential) => {
-        loginError.value = '';
-        void account.loginWithGoogle(credential).then((ok) => {
-          if (!ok) loginError.value = t.value.settingsPage.accountLoginFailed;
-        });
-      },
-      { dark: $q.dark.isActive, locale: locale.value },
-    ).catch(() => {
-      loginError.value = t.value.settingsPage.accountLoadFailed;
-    });
-  }
+  renderLogin();
+  window.addEventListener('focus', onReturn);
+  document.addEventListener('visibilitychange', onReturn);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', onReturn);
+  document.removeEventListener('visibilitychange', onReturn);
 });
 
 function confirmDelete(): void {
