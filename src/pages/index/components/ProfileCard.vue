@@ -18,6 +18,18 @@
       <span v-if="person.todayMin !== undefined">⏱ {{ t.seatScene.profileToday(person.todayMin) }}</span>
       <span v-if="person.streak !== undefined" class="ml-3">🔥 {{ t.seatScene.profileStreak(person.streak) }}</span>
     </p>
+    <!-- 加好友：兩邊都有登入（帳號代號 g_ 開頭）才有 -->
+    <button
+      v-if="canFriend"
+      type="button"
+      class="pixel-btn mt-3 h-8 w-full text-xs"
+      :class="{ 'pixel-btn--primary': relation === 'none' || relation === 'incoming' }"
+      :disabled="relation === 'friend' || relation === 'outgoing' || busy"
+      @click="addFriend"
+    >
+      {{ relation === 'friend' ? `✅ ${t.friends.isFriend}` : relation === 'outgoing' ? `⏳ ${t.friends.outgoing}` : relation === 'incoming' ? `👥 ${t.friends.acceptThem}` : `👥 ${t.friends.addThem}` }}
+    </button>
+    <p v-else-if="person.userId && person.userId.startsWith('g_') && !signedIn" class="!mb-0 mt-2 text-center text-[10px] text-[color:var(--px-muted)]">{{ t.friends.loginToAdd }}</p>
     <button v-if="waveLabel" type="button" class="pixel-btn pixel-btn--primary mt-3 h-8 w-full text-xs" :disabled="!canWave" @click="emit('wave')">
       {{ waveLabel }}
     </button>
@@ -44,7 +56,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { useQuasar } from 'quasar';
+import { useAccount } from 'src/composables/useAccount';
+import { useFriends } from 'src/composables/useFriends';
 import { useLocale } from 'src/composables/useLocale';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { WHISPER_IDS, type ProfilePerson, type WhisperId } from 'src/pages/index/composables/useLibrarySocket';
@@ -58,12 +73,41 @@ const props = defineProps<{
 const emit = defineEmits<{ close: []; wave: []; whisper: [to: string, phrase: WhisperId] }>();
 const { t } = useLocale();
 const prefs = usePlayerPrefs();
+const $q = useQuasar();
 
 const status = computed(() => {
   const state = props.person.state;
   return state === '專注' ? t.value.seatScene.profileFocusing : state === '休息' ? t.value.seatScene.profileResting : t.value.seatScene.profileIdle;
 });
 const blocked = computed(() => !!props.person.userId && prefs.value.blocked.includes(props.person.userId));
+
+// 加好友：我有登入、他也是登入的帳號、不是我自己
+const account = useAccount();
+const friendsApi = useFriends();
+const signedIn = computed(() => !!account.session.value);
+const myUserId = (() => {
+  try {
+    return localStorage.getItem('lib_uid') ?? '';
+  } catch {
+    return '';
+  }
+})();
+const canFriend = computed(() => signedIn.value && !!props.person.userId?.startsWith('g_') && props.person.userId !== myUserId);
+const relation = computed(() => (props.person.userId ? friendsApi.relationOf(props.person.userId) : 'none'));
+const busy = ref(false);
+
+async function addFriend(): Promise<void> {
+  const id = props.person.userId;
+  if (!id) return;
+  busy.value = true;
+  const result = await friendsApi.add('', id);
+  busy.value = false;
+  $q.notify({ message: t.value.friends.result[result], color: result === 'sent' || result === 'accepted' ? 'positive' : 'warning', position: 'top', timeout: 2200 });
+}
+
+onMounted(() => {
+  if (signedIn.value) void friendsApi.refresh();
+});
 
 // 擋掉／解除：擋掉之後收不到他的悄悄話（之後的一起看 YouTube 邀請也一樣）
 function toggleBlock(): void {

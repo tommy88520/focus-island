@@ -380,6 +380,10 @@ const translations = {
       backHome: '回我家',
       loadFailed: '進不去他家（可能已經不是好友了）',
       owner: '屋主',
+      addThem: '加好友',
+      acceptThem: '他邀請你了，按這裡同意',
+      isFriend: '已經是好友',
+      loginToAdd: '登入後就能加他好友',
       visitHint: '來好友家逛逛：可以坐他的書桌、躺他的床專注 · 上方「回我家」回去',
     },
     floorTabs: {
@@ -776,6 +780,10 @@ const translations = {
       backHome: 'My home',
       loadFailed: "Couldn't visit (maybe you're no longer friends)",
       owner: 'Owner',
+      addThem: 'Add friend',
+      acceptThem: 'They invited you — tap to accept',
+      isFriend: 'Friends',
+      loginToAdd: 'Sign in to add them as a friend',
       visitHint: "Visiting a friend: sit at their desk or lie on their bed to focus · 'My home' (top) to go back",
     },
     floorTabs: {

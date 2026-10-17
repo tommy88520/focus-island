@@ -6,6 +6,8 @@ import type { GardenPlacement, Look } from 'src/composables/usePlayerPrefs';
 
 export interface FriendProfile {
   code: string;
+  // 帳號代號（g_<id>），跟名牌上的 userId 一樣
+  userId: string;
   name: string;
   look: Look;
   theme?: 'villa';
@@ -25,11 +27,12 @@ const loading = ref(false);
 const int = (v: unknown) => (Number.isInteger(v) && (v as number) >= 0 ? (v as number) : 0);
 
 function parseProfile(raw: unknown): FriendProfile | null {
-  const p = raw as { code?: unknown; name?: unknown; look?: Record<string, unknown>; theme?: unknown } | null;
+  const p = raw as { code?: unknown; userId?: unknown; name?: unknown; look?: Record<string, unknown>; theme?: unknown } | null;
   if (!p || typeof p.code !== 'string' || typeof p.name !== 'string') return null;
   const look = p.look ?? {};
   return {
     code: p.code,
+    userId: typeof p.userId === 'string' ? p.userId : '',
     name: p.name,
     look: { hair: int(look.hair), shirt: int(look.shirt), body: look.body === 1 ? 1 : 0, acc: int(look.acc) },
     ...(p.theme === 'villa' ? { theme: 'villa' as const } : {}),
@@ -58,9 +61,11 @@ export function useFriends() {
     }
   }
 
-  async function add(code: string): Promise<AddResult> {
+  // 用好友碼加，或傳 { userId } 直接加名牌上的人
+  async function add(code: string, userId?: string): Promise<AddResult> {
     try {
-      const res = await accountRequest('/api/v1/me/friends', { method: 'POST', body: JSON.stringify({ code: code.trim().toUpperCase() }) });
+      const payload = userId ? { userId } : { code: code.trim().toUpperCase() };
+      const res = await accountRequest('/api/v1/me/friends', { method: 'POST', body: JSON.stringify(payload) });
       const body = (await res.json()) as { status?: string; message?: string };
       await refresh();
       const result = (res.ok ? body.status : body.message) as AddResult | undefined;
@@ -96,5 +101,13 @@ export function useFriends() {
     }
   }
 
-  return { myCode, friends, incoming, outgoing, loading, refresh, add, accept, remove, loadHome };
+  // 名牌上的人跟我的關係：friend 好友／incoming 他邀請我／outgoing 我邀請他／none
+  function relationOf(userId: string): 'friend' | 'incoming' | 'outgoing' | 'none' {
+    if (friends.value.some((p) => p.userId === userId)) return 'friend';
+    if (incoming.value.some((p) => p.userId === userId)) return 'incoming';
+    if (outgoing.value.some((p) => p.userId === userId)) return 'outgoing';
+    return 'none';
+  }
+
+  return { myCode, friends, incoming, outgoing, loading, refresh, add, accept, remove, loadHome, relationOf };
 }
