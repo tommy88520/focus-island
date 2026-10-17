@@ -10,15 +10,20 @@
     >
       <canvas ref="canvasRef" class="block h-full w-full" @click="handleClick" />
 
-      <!-- 右上：布置花園 -->
-      <button
-        v-if="!gardenDraft && !panel"
-        type="button"
-        class="pixel-btn pixel-btn--primary absolute right-2 top-2 z-10 h-9 px-3 text-xs"
-        @click="startDecorate"
-      >
-        {{ t.home.decorate }}
-      </button>
+      <!-- 右上：自己家是「布置花園」「好友」；去別人家是「誰的家」 -->
+      <div v-if="!gardenDraft && !panel && !visit" class="absolute right-2 top-2 z-10 !flex !flex-nowrap gap-1.5">
+        <button type="button" class="pixel-btn h-9 px-2.5 text-xs" @click="openFriends">
+          👥 {{ t.friends.button }}<span v-if="incomingCount" class="ml-1 rounded-full bg-[#e25a4a] px-1.5 text-[10px] font-black text-white">{{ incomingCount }}</span>
+        </button>
+        <button type="button" class="pixel-btn pixel-btn--primary h-9 px-2.5 text-xs" @click="startDecorate">
+          {{ t.home.decorate }}
+        </button>
+      </div>
+      <div v-if="visit" class="pixel-panel absolute right-2 top-2 z-10 px-3 py-1.5 text-xs font-black">
+        🏠 {{ t.friends.visiting(visit.profile.name) }}
+      </div>
+
+      <FriendsPanel v-if="panel === 'friends'" @close="closePanel" @visit="emit('visit', $event)" />
 
       <!-- 布置花園：選東西、放上去；儲存才扣幣 -->
       <div v-if="gardenDraft" class="pixel-panel absolute inset-x-2 bottom-2 z-10 p-2 sm:left-1/2 sm:right-auto sm:w-[32rem] sm:-translate-x-1/2">
@@ -142,6 +147,8 @@ import { useLocale } from 'src/composables/useLocale';
 import { DAILY_GOAL_OPTIONS, usePlayerPrefs, type GardenPlacement, type Look } from 'src/composables/usePlayerPrefs';
 import { localPoint } from 'src/pages/index/composables/sceneFullscreen';
 import LookEditor from 'src/pages/index/components/LookEditor.vue';
+import FriendsPanel from 'src/pages/index/components/FriendsPanel.vue';
+import { useFriends, type FriendHome } from 'src/composables/useFriends';
 import SceneHint from 'src/pages/index/components/SceneHint.vue';
 import { AVATAR_SIZE, getAvatarFrame, lookColors, SEATED_ROWS, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
 import { drawGardenItem, GARDEN_ITEM_BY_ID, GARDEN_ITEMS, STARTER_GARDEN, VILLA_GARDEN } from 'src/pages/index/pixel/homeArt';
@@ -152,9 +159,13 @@ type Facing = 'up' | 'down' | 'left' | 'right';
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
 // theme：管理員給的客製化（後端 users.perks.homeTheme），'villa' 是有浴室、雙人床的大宅
-const props = defineProps<{ disabled: boolean; theme?: 'villa' | undefined }>();
-const VILLA = props.theme === 'villa';
-const emit = defineEmits<{ leave: [] }>();
+// visit：去好友家（唯讀：不能換裝、改設定、布置花園；屋主站在家裡）
+const props = defineProps<{ disabled: boolean; theme?: 'villa' | undefined; visit?: FriendHome | null | undefined }>();
+const VILLA = (props.visit ? props.visit.profile.theme : props.theme) === 'villa';
+const OWNER = { x: 10, y: 8.6 };
+const emit = defineEmits<{ leave: []; visit: [code: string] }>();
+const { incoming } = useFriends();
+const incomingCount = computed(() => incoming.value.length);
 const { t, locale } = useLocale();
 const $q = useQuasar();
 const prefs = usePlayerPrefs();
@@ -200,7 +211,7 @@ const inRect = (x: number, y: number, r: Rect, pad = 0) => x > r.x0 - pad && x <
 
 // 花園：正式存檔的、或布置中的草稿
 const gardenDraft = ref<GardenPlacement[] | null>(null);
-const placements = computed(() => gardenDraft.value ?? prefs.value.garden);
+const placements = computed(() => gardenDraft.value ?? props.visit?.garden ?? prefs.value.garden);
 
 function occupiedBy(tx: number, ty: number, list: GardenPlacement[]): number {
   return list.findIndex((p) => {
@@ -221,6 +232,7 @@ const blocked = (x: number, y: number): boolean => {
     if (inRect(x, y, TUB) || inRect(x, y, SINK) || inRect(x, y, TOILET)) return true;
   }
   if (PLANTS.some((p) => Math.abs(x - p.x) < 0.5 && Math.abs(y - p.y) < 0.4)) return true;
+  if (props.visit && Math.abs(x - OWNER.x) < 0.45 && Math.abs(y - OWNER.y) < 0.35) return true;
   // 花園裡擺的東西（樹、燈只擋樹幹那一小塊）
   if (y > HOUSE_BOTTOM + 0.3) {
     const i = occupiedBy(Math.floor(x), Math.floor(y), placements.value);
@@ -364,7 +376,11 @@ function updateWalk(dt: number): void {
 }
 
 // ── 衣櫃、書架面板 ──
-const panel = ref<'wardrobe' | 'settings' | null>(null);
+const panel = ref<'wardrobe' | 'settings' | 'friends' | null>(null);
+
+function openFriends(): void {
+  panel.value = 'friends';
+}
 const lookDraft = ref<Look | null>(null);
 const currentLook = (): Look => ({ hair: prefs.value.hair, shirt: prefs.value.shirt, body: prefs.value.body, acc: prefs.value.acc });
 const lookDirty = computed(() => {
@@ -909,7 +925,10 @@ function render(seconds: number): void {
       }
     }
   }
-  drawFurniture(c, lit, colors);
+  // 去別人家：被子是屋主的顏色，屋主站在地毯上
+  const ownerLook = props.visit?.profile.look;
+  const ownerColors = ownerLook ? lookColors(ownerLook.hair, ownerLook.shirt, ownerLook) : null;
+  drawFurniture(c, lit, ownerColors ?? colors);
   const items: { y: number; draw: () => void }[] = [];
   for (const p of placements.value) {
     const item = GARDEN_ITEM_BY_ID[p.id];
@@ -917,6 +936,15 @@ function render(seconds: number): void {
     items.push({ y: p.y + item.h, draw: () => drawGardenItem(c, p.id, p.x, p.y, seconds, lit) });
   }
   items.push({ y: seated.value ? CHAIR.y : me.y + 0.35, draw: () => drawPerson(c, colors) });
+  if (ownerColors) {
+    items.push({
+      y: OWNER.y + 0.35,
+      draw: () => {
+        px(c, 'rgba(0,0,0,0.18)', Math.round(OWNER.x * T - 5), Math.round(OWNER.y * T + 3), 10, 2);
+        c.drawImage(getAvatarFrame(ownerColors, 'down', 'idle'), Math.round(OWNER.x * T - AVATAR_SIZE.w / 2), Math.round(OWNER.y * T + 5 - AVATAR_SIZE.h));
+      },
+    });
+  }
   items.sort((a, b) => a.y - b.y).forEach((it) => it.draw());
 
   if (phase !== 'day') {
@@ -944,10 +972,15 @@ function render(seconds: number): void {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const screen = (x: number, y: number) => ({ x: ox + x * T * scale, y: oy + y * T * scale });
   // 名牌放在家具下方（上方會被畫面頂端切掉）
-  const lw = screen((WARDROBE.x0 + WARDROBE.x1) / 2, WARDROBE.y1 + 1.4);
-  pill(ctx, t.value.home.wardrobe, lw.x, lw.y, '#fbbf24');
-  const ls = screen((SHELF.x0 + SHELF.x1) / 2, SHELF.y1 + 1.4);
-  pill(ctx, t.value.home.bookshelf, ls.x, ls.y, '#60a5fa');
+  if (!props.visit) {
+    const lw = screen((WARDROBE.x0 + WARDROBE.x1) / 2, WARDROBE.y1 + 1.4);
+    pill(ctx, t.value.home.wardrobe, lw.x, lw.y, '#fbbf24');
+    const ls = screen((SHELF.x0 + SHELF.x1) / 2, SHELF.y1 + 1.4);
+    pill(ctx, t.value.home.bookshelf, ls.x, ls.y, '#60a5fa');
+  } else {
+    const lo = screen(OWNER.x, OWNER.y - 1.1);
+    pill(ctx, `🏠 ${props.visit.profile.name}`, lo.x, lo.y, '#2dd4bf');
+  }
   if (!seated.value) {
     const ld = screen(CHAIR.x, CHAIR.y + 1.4);
     pill(ctx, cssW < 640 ? `🪑 ${t.value.home.desk}` : `🪑 ${t.value.home.deskHint}`, ld.x, ld.y, '#4ade80');
@@ -974,7 +1007,7 @@ function frame(time: number): void {
   const dt = last ? Math.min(0.05, seconds - last) : 0;
   last = seconds;
   updateWalk(dt);
-  rememberScene('home', positionForShare(), seated.value, seconds);
+  if (!props.visit) rememberScene('home', positionForShare(), seated.value || lying.value, seconds);
   render(seconds);
 }
 
@@ -1013,8 +1046,8 @@ function interact(): void {
   const near = (p: { x: number; y: number }, r = 1.6) => Math.hypot(me.x - p.x, me.y - p.y) < r;
   if (VILLA && near(BED_SIDE, 2.2)) lieDown();
   else if (near(CHAIR, 2.6)) sitAtDesk();
-  else if (near(WARDROBE_FRONT)) openWardrobe();
-  else if (near(SHELF_FRONT)) panel.value = 'settings';
+  else if (!props.visit && near(WARDROBE_FRONT)) openWardrobe();
+  else if (!props.visit && near(SHELF_FRONT)) panel.value = 'settings';
 }
 
 function onKeyDown(event: KeyboardEvent): void {
@@ -1048,8 +1081,8 @@ function handleClick(event: MouseEvent): void {
     return;
   }
   if (props.disabled) return;
-  if (inRect(x, y, WARDROBE, 0.6)) walkTo(WARDROBE_FRONT, openWardrobe);
-  else if (inRect(x, y, SHELF, 0.6)) walkTo(SHELF_FRONT, () => (panel.value = 'settings'));
+  if (!props.visit && inRect(x, y, WARDROBE, 0.6)) walkTo(WARDROBE_FRONT, openWardrobe);
+  else if (!props.visit && inRect(x, y, SHELF, 0.6)) walkTo(SHELF_FRONT, () => (panel.value = 'settings'));
   else if (inRect(x, y, DESK, 0.6) || Math.hypot(x - CHAIR.x, y - CHAIR.y) < 0.8) walkTo({ x: CHAIR.x, y: CHAIR.y + 0.9 }, sitAtDesk);
   else if (VILLA && inRect(x, y, BED, 0.3)) walkTo(BED_SIDE, lieDown);
   else if (!blocked(x, y)) walkTo({ x, y });
@@ -1092,18 +1125,18 @@ function clearKeys(): void {
 }
 
 onMounted(() => {
-  // 第一次回家：送幾樣擺設
-  if (!prefs.value.homeVisited) {
+  // 第一次回家：送幾樣擺設（去別人家不動自己的資料）
+  if (!props.visit && !prefs.value.homeVisited) {
     if (!prefs.value.garden.length) prefs.value.garden = STARTER_GARDEN.map((p) => ({ ...p }));
     prefs.value.homeVisited = true;
   }
   // villa 第一次：換成專屬花園（左邊一排櫻花、右邊一排玫瑰、沒有路燈），只套一次，之後她自己可以再改
-  if (VILLA && !prefs.value.villaGarden) {
+  if (VILLA && !props.visit && !prefs.value.villaGarden) {
     prefs.value.garden = VILLA_GARDEN.map((p) => ({ ...p }));
     prefs.value.villaGarden = true;
   }
   // 重整前在家裡：站回原本的地方（坐著的話專注一開始會自己坐回書桌）
-  const back = takeArrival('home');
+  const back = props.visit ? null : takeArrival('home');
   if (back && !blocked(back.x + 1, back.y)) {
     me.x = back.x + 1;
     me.y = back.y;

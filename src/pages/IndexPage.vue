@@ -17,7 +17,7 @@
               class="pixel-btn h-7 min-w-0 shrink whitespace-nowrap px-2 text-[11px]"
               @click="leaveScene"
             >
-              {{ sceneLocation === 'home' ? `🗺️ ${t.home.backToMap}` : `🚇 ${t.indexPage.backToLibrary}` }}
+              {{ visitHome ? `🏠 ${t.friends.backHome}` : sceneLocation === 'home' ? `🗺️ ${t.home.backToMap}` : `🚇 ${t.indexPage.backToLibrary}` }}
             </button>
             <!-- 樓層、分區收成一顆，點開才有分頁，地圖才大（電腦、手機都一樣） -->
             <button
@@ -90,9 +90,11 @@
           <HomeScene
             v-if="useCanvasScene && sceneLocation === 'home'"
             ref="homeSceneRef"
-            :key="account.perks.value.homeTheme ?? 'basic'"
+            :key="visitHome ? `visit:${visitHome.profile.code}` : (account.perks.value.homeTheme ?? 'basic')"
             :theme="account.perks.value.homeTheme"
+            :visit="visitHome"
             :disabled="store.isRunning"
+            @visit="startVisit"
             @leave="sceneLocation = homeReturnTo"
           />
           <F1Scene
@@ -270,6 +272,7 @@ import BeitouScene from 'src/pages/index/components/BeitouScene.vue';
 import HomeScene from 'src/pages/index/components/HomeScene.vue';
 import LoginDialog from 'src/pages/index/components/LoginDialog.vue';
 import { useAccount } from 'src/composables/useAccount';
+import { useFriends, type FriendHome } from 'src/composables/useFriends';
 import { buildShareLink, forgetScene, takeSavedScene, takeSharedLocation } from 'src/pages/index/shareLocation';
 import FloorTabs, { type FloorTabItem } from 'src/pages/index/components/FloorTabs.vue';
 import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.vue';
@@ -901,6 +904,26 @@ watch(
     if (lost) $q.notify({ message: t.value.home.sessionLost, color: 'warning', icon: 'logout', position: 'top', timeout: 5000 });
   },
 );
+// 正在朋友家（null = 在自己家）
+const visitHome = ref<FriendHome | null>(null);
+const friendsApi = useFriends();
+// 去朋友家：先問後端拿他家的樣子（只有好友拿得到），自己家沒存的改動會先問
+async function startVisit(code: string): Promise<void> {
+  if (homeSceneRef.value?.requestLeave() === false) return;
+  const home = await friendsApi.loadHome(code);
+  if (!home) {
+    $q.notify({ message: t.value.friends.loadFailed, color: 'warning', position: 'top', timeout: 2500 });
+    return;
+  }
+  visitHome.value = home;
+  sceneLocation.value = 'home';
+}
+// 沒在家就不算在朋友家
+watch(sceneLocation, (loc) => {
+  if (loc !== 'home') visitHome.value = null;
+});
+// 登入了：背景抓一次好友清單（有人邀請你，家裡的好友鈕會有紅點）
+if (account.session.value) onMounted(() => window.setTimeout(() => void friendsApi.refresh(), 3000));
 const homeSceneRef = ref<(SceneHandle & { requestLeave: () => boolean }) | null>(null);
 // 回到圖書館就不用再記獨立地圖
 watch(sceneLocation, (location) => {
@@ -1154,6 +1177,11 @@ function enterHome(): void {
 
 // 上方的「回地圖／搭車回去」：在家裡要先問有沒有沒存的（防呆）
 function leaveScene(): void {
+  // 在朋友家：回自己家
+  if (visitHome.value) {
+    visitHome.value = null;
+    return;
+  }
   if (sceneLocation.value === 'home') {
     if (homeSceneRef.value?.requestLeave() === false) return;
     sceneLocation.value = homeReturnTo.value;

@@ -104,6 +104,11 @@ function isCloudData(value: unknown): value is CloudData {
   return !!value && typeof value === 'object' && (value as CloudData).v === 1 && typeof (value as CloudData).progress === 'object';
 }
 
+// 帶著登入狀態打後端（好友功能也用這個）
+export async function accountRequest(path: string, init: RequestInit = {}): Promise<Response> {
+  return request(path, init);
+}
+
 async function request(path: string, init: RequestInit = {}): Promise<Response> {
   return fetch(`${apiBase()}${path}`, {
     ...init,
