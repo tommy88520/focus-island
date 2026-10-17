@@ -845,9 +845,14 @@ function drawPerson(c: CanvasRenderingContext2D, colors: AvatarColors): void {
   c.drawImage(getAvatarFrame(colors, me.facing, frame), Math.round(me.x * T - AVATAR_SIZE.w / 2), Math.round(me.y * T + 5 - AVATAR_SIZE.h));
 }
 
+// 名牌不能超出畫面（手機很窄，靠邊的名牌會被切掉）：左右夾在畫面裡
+let pillMaxX = Infinity;
 function pill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, color: string): void {
   c.font = '700 12px system-ui, -apple-system, "PingFang TC", sans-serif';
   const width = Math.ceil(c.measureText(text).width) + 14;
+  // 東西本身在畫面外：不畫它的名牌（夾進來會跟別的名牌疊在一起）；在畫面內但名牌太寬：往內推
+  if (cx < 0 || cx > pillMaxX) return;
+  cx = Math.min(Math.max(cx, width / 2 + 4), pillMaxX - width / 2 - 4);
   const height = 20;
   c.fillStyle = 'rgba(15, 23, 42, 0.86)';
   c.beginPath();
@@ -874,6 +879,7 @@ function render(seconds: number): void {
     canvas.height = Math.round(cssH * dpr);
   }
   const scale = cssW >= 900 ? 3 : 2;
+  pillMaxX = cssW;
   const follow = (size: number, world: number, at: number) => (world <= size ? (size - world) / 2 : Math.min(0, Math.max(size - world, size / 2 - at)));
   const ox = Math.round(follow(cssW, W * T * scale, me.x * T * scale) * dpr) / dpr;
   const oy = Math.round(follow(cssH, H * T * scale, me.y * T * scale) * dpr) / dpr;
@@ -944,7 +950,7 @@ function render(seconds: number): void {
   pill(ctx, t.value.home.bookshelf, ls.x, ls.y, '#60a5fa');
   if (!seated.value) {
     const ld = screen(CHAIR.x, CHAIR.y + 1.4);
-    pill(ctx, `🪑 ${t.value.home.deskHint}`, ld.x, ld.y, '#4ade80');
+    pill(ctx, cssW < 640 ? `🪑 ${t.value.home.desk}` : `🪑 ${t.value.home.deskHint}`, ld.x, ld.y, '#4ade80');
   }
   const lg = screen(GATE.x, GATE.y + 0.6);
   pill(ctx, t.value.home.gate, lg.x, lg.y, '#2dd4bf');
@@ -954,7 +960,7 @@ function render(seconds: number): void {
       ? screen(CHAIR.x, CHAIR.y - 0.9)
       : screen(me.x, me.y - 1.1);
   if (VILLA && !lying.value) {
-    const lb = screen((BED.x0 + BED.x1) / 2, BED.y1 + 1.3);
+    const lb = screen((BED.x0 + BED.x1) / 2, BED.y1 - 0.4);
     pill(ctx, `🛏️ ${t.value.home.bed}`, lb.x, lb.y, '#f472b6');
   }
   pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
