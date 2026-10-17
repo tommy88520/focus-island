@@ -265,6 +265,7 @@
 </template>
 
 <script setup lang="ts">
+import { pillTextWidth } from 'src/pages/index/pixel/pixelUtil';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
 import {
   EMOTE_IDS,
@@ -2692,7 +2693,7 @@ function sendEmote(emote: EmoteId): void {
 
 function drawBubble(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, age: number): void {
   c.font = `700 ${LABEL_FONT_PX + 1}px system-ui, -apple-system, "PingFang TC", sans-serif`;
-  const width = Math.ceil(c.measureText(text).width) + 18;
+  const width = pillTextWidth(c, text) + 18;
   const height = LABEL_FONT_PX + 13;
   // 冒出來時往上彈一下
   const pop = age < 0.15 ? Math.round((1 - age / 0.15) * 4) : 0;

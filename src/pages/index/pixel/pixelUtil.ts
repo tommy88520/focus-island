@@ -20,3 +20,10 @@ export function disc(ctx: CanvasRenderingContext2D, color: string, cx: number, c
     px(ctx, color, cx - half, cy + row, half * 2 + 1, 1);
   }
 }
+
+// 名牌（canvas 上的膠囊）要多寬：iPhone 畫 emoji（尤其 🛏️ ♨️ 這種帶 FE0F 的）比 measureText 量到的寬，
+// 不補的話字會超出框。每個 emoji 補 8px
+const EMOJI = /\p{Extended_Pictographic}/gu;
+export function pillTextWidth(c: CanvasRenderingContext2D, text: string): number {
+  return Math.ceil(c.measureText(text).width) + (text.match(EMOJI)?.length ?? 0) * 8;
+}

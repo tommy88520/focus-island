@@ -73,7 +73,7 @@ import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import ProfileCard from 'src/pages/index/components/ProfileCard.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, getAvatarFrame, lookColors, readerColors, SEATED_ROWS } from 'src/pages/index/pixel/pixelArt';
-import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
+import { px, seeded, pillTextWidth } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 import { pickSeatSpot } from 'src/pages/index/seatPick';
 
@@ -570,7 +570,7 @@ function drawRemote(c: CanvasRenderingContext2D, other: ShownRemote, seconds: nu
 
 function pill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, color: string): void {
   c.font = '700 12px system-ui, -apple-system, "PingFang TC", sans-serif';
-  const width = Math.ceil(c.measureText(text).width) + 14;
+  const width = pillTextWidth(c, text) + 14;
   const height = 20;
   c.fillStyle = 'rgba(15, 23, 42, 0.86)';
   c.beginPath();

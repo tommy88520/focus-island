@@ -113,7 +113,7 @@ import ProfileCard from 'src/pages/index/components/ProfileCard.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, paintVehicle, SEATED_ROWS, type AvatarColors, readerColors } from 'src/pages/index/pixel/pixelArt';
 import { getBaristaFrame, paintBikeRack, paintCafe, paintCafeDeck, paintMenuSign } from 'src/pages/index/pixel/parkCafe';
-import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
+import { px, seeded, pillTextWidth } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 import { pickSeatSpot } from 'src/pages/index/seatPick';
 
@@ -889,7 +889,7 @@ function drawRider(c: CanvasRenderingContext2D, colors: AvatarColors, seconds: n
 // 對話泡泡（螢幕座標）：白底、下面一個小尖角
 function bubble(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number): void {
   c.font = '700 12px system-ui, -apple-system, "PingFang TC", sans-serif';
-  const width = Math.ceil(c.measureText(text).width) + 16;
+  const width = pillTextWidth(c, text) + 16;
   const height = 22;
   const left = Math.round(cx - width / 2);
   const top = Math.round(bottom - height - 6);
@@ -927,7 +927,7 @@ function strollerPose(s: (typeof STROLLERS)[number], seconds: number): { x: numb
 
 function pill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, color: string): void {
   c.font = '700 12px system-ui, -apple-system, "PingFang TC", sans-serif';
-  const width = Math.ceil(c.measureText(text).width) + 14;
+  const width = pillTextWidth(c, text) + 14;
   const height = 20;
   c.fillStyle = 'rgba(15, 23, 42, 0.86)';
   c.beginPath();

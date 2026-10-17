@@ -145,7 +145,7 @@ import LookEditor from 'src/pages/index/components/LookEditor.vue';
 import SceneHint from 'src/pages/index/components/SceneHint.vue';
 import { AVATAR_SIZE, getAvatarFrame, lookColors, SEATED_ROWS, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
 import { drawGardenItem, GARDEN_ITEM_BY_ID, GARDEN_ITEMS, STARTER_GARDEN, VILLA_GARDEN } from 'src/pages/index/pixel/homeArt';
-import { px, seeded } from 'src/pages/index/pixel/pixelUtil';
+import { px, seeded, pillTextWidth } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 
 type Facing = 'up' | 'down' | 'left' | 'right';
@@ -849,7 +849,7 @@ function drawPerson(c: CanvasRenderingContext2D, colors: AvatarColors): void {
 let pillMaxX = Infinity;
 function pill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, color: string): void {
   c.font = '700 12px system-ui, -apple-system, "PingFang TC", sans-serif';
-  const width = Math.ceil(c.measureText(text).width) + 14;
+  const width = pillTextWidth(c, text) + 14;
   // 東西本身在畫面外：不畫它的名牌（夾進來會跟別的名牌疊在一起）；在畫面內但名牌太寬：往內推
   if (cx < 0 || cx > pillMaxX) return;
   cx = Math.min(Math.max(cx, width / 2 + 4), pillMaxX - width / 2 - 4);
