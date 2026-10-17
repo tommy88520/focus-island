@@ -30,7 +30,7 @@
       {{ relation === 'friend' ? `✅ ${t.friends.isFriend}` : relation === 'outgoing' ? `⏳ ${t.friends.outgoing}` : relation === 'incoming' ? `👥 ${t.friends.acceptThem}` : `👥 ${t.friends.addThem}` }}
     </button>
     <p v-else-if="person.userId && person.userId.startsWith('g_') && !signedIn" class="!mb-0 mt-2 text-center text-[10px] text-[color:var(--px-muted)]">{{ t.friends.loginToAdd }}</p>
-    <button v-if="waveLabel" type="button" class="pixel-btn pixel-btn--primary mt-3 h-8 w-full text-xs" :disabled="!canWave" @click="emit('wave')">
+    <button v-if="waveLabel" type="button" class="pixel-btn pixel-btn--primary h-8 w-full text-xs" :class="canFriend ? 'mt-2' : 'mt-3'" :disabled="!canWave" @click="emit('wave')">
       {{ waveLabel }}
     </button>
     <!-- 悄悄話：只有他看得到，只能選固定的句子 -->
