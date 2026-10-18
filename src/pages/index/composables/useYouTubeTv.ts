@@ -26,9 +26,11 @@ interface YTPlayer {
   seekTo(seconds: number, allowSeekAhead: boolean): void;
   setVolume(volume: number): void;
   setLoop(loop: boolean): void;
-  loadVideoById(id: string): void;
+  loadVideoById(id: string | { videoId: string; startSeconds?: number }): void;
+  cueVideoById(options: { videoId: string; startSeconds?: number }): void;
+  getCurrentTime?(): number;
   loadPlaylist(options: { list: string; listType: 'playlist'; index?: number }): void;
-  getVideoData?(): { title?: string };
+  getVideoData?(): { title?: string; video_id?: string };
   destroy(): void;
 }
 interface YTNamespace {
@@ -121,6 +123,10 @@ let loop = true;
 let apiPromise: Promise<YTNamespace> | null = null;
 let hostEl: HTMLElement | null = null;
 let onStateChange: (isPlaying: boolean) => void = () => undefined;
+// 一起看：下一次載入影片時從第幾秒開始、要不要先停著（cue＝只載入不播）
+let pendingStart = 0;
+let pendingCue = false;
+let pendingLoad = false;
 
 function save(): void {
   try {
@@ -166,11 +172,17 @@ function loadCurrent(): void {
   if (!source) return;
   loadedUrl = url.value;
   title.value = '';
+  const startSeconds = pendingStart;
+  const cue = pendingCue;
+  pendingStart = 0;
+  pendingCue = false;
+  pendingLoad = false;
   if (source.listId) {
     player.loadPlaylist({ list: source.listId, listType: 'playlist', index: 0 });
     player.setLoop(loop);
   } else if (source.videoId) {
-    player.loadVideoById(source.videoId);
+    if (cue) player.cueVideoById({ videoId: source.videoId, startSeconds });
+    else player.loadVideoById({ videoId: source.videoId, startSeconds });
   }
 }
 
@@ -188,7 +200,7 @@ async function ensurePlayer(): Promise<void> {
       onReady: () => {
         playerReady = true;
         player?.setVolume(volume);
-        if (wantPlaying) loadCurrent();
+        if (wantPlaying || pendingLoad) loadCurrent();
       },
       onStateChange: ({ data }) => {
         if (data === STATE_PLAYING) {
@@ -230,13 +242,46 @@ export function useYouTubeTv() {
       started.value = false;
       return;
     }
-    if (wantPlaying) void ensurePlayer();
+    if (wantPlaying || pendingLoad) void ensurePlayer();
+  }
+
+  // 一起看：載入別人分享的那支影片、從 startSeconds 開始；autoplay=false 就停在那一秒（對方暫停中）
+  function loadShared(videoId: string, startSeconds: number, autoplay: boolean): void {
+    url.value = `https://youtu.be/${videoId}`;
+    save();
+    pendingStart = Math.max(0, startSeconds);
+    pendingCue = !autoplay;
+    pendingLoad = true;
+    wantPlaying = autoplay;
+    started.value = true;
+    if (!autoplay) playing.value = false;
+    if (!player) {
+      void ensurePlayer();
+      return;
+    }
+    if (playerReady) loadCurrent();
+  }
+
+  // 現在播的影片 ID（播放清單會跟著換）；還沒載入就看網址
+  function currentVideoId(): string {
+    if (pendingLoad) return parseYouTubeUrl(url.value)?.videoId ?? '';
+    const fromPlayer = player && playerReady ? player.getVideoData?.().video_id : '';
+    return fromPlayer || (loadedUrl ? parseYouTubeUrl(loadedUrl)?.videoId : '') || '';
+  }
+
+  function currentTime(): number {
+    return player && playerReady ? (player.getCurrentTime?.() ?? 0) : 0;
+  }
+
+  function seekTo(seconds: number): void {
+    if (player && playerReady) player.seekTo(Math.max(0, seconds), true);
   }
 
   // 有網址才會播；回傳 false 代表還沒設定網址
   function play(): boolean {
     if (!parseYouTubeUrl(url.value)) return false;
     wantPlaying = true;
+    pendingCue = false;
     started.value = true;
     if (!player) {
       void ensurePlayer();
@@ -250,6 +295,7 @@ export function useYouTubeTv() {
 
   function pause(): void {
     wantPlaying = false;
+    if (pendingLoad) pendingCue = true;
     if (player && playerReady) player.pauseVideo();
     playing.value = false;
   }
@@ -293,5 +339,9 @@ export function useYouTubeTv() {
     setVolume,
     setLoop,
     onPlayingChange,
+    loadShared,
+    currentVideoId,
+    currentTime,
+    seekTo,
   };
 }

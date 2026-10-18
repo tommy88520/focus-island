@@ -95,6 +95,16 @@
               ▶ {{ item.title }}
             </button>
           </div>
+          <!-- 一起看：正在放影片才能邀請；跟著別人看的時候不能 -->
+          <button
+            v-if="watchTogether && (watchTogether.canHost.value || watchTogether.hosting.value)"
+            type="button"
+            class="pixel-btn mt-2 h-9 w-full text-[11px]"
+            :class="{ 'pixel-btn--primary': !watchTogether.hosting.value }"
+            @click="toggleShare"
+          >
+            {{ watchTogether.hosting.value ? `📡 ${t.watchTogether.stopShare}` : t.watchTogether.invite }}
+          </button>
           <p class="mt-2 text-[10px] text-[color:var(--px-muted)]">{{ t.ambientAudioPlayer.youtubeHint }}</p>
         </form>
 
@@ -160,10 +170,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { AmbientAudio, AudioTrackKey } from '../composables/useAmbientAudio';
+import type { WatchTogether } from '../composables/useWatchTogether';
 import { useLocale } from 'src/composables/useLocale';
 
 const props = defineProps<{
   audio: AmbientAudio;
+  // 只有主頁有（小工具頁沒有房間）
+  watchTogether?: WatchTogether;
 }>();
 
 const { locale, t } = useLocale();
@@ -193,6 +206,16 @@ function openYouTube() {
   showSettings.value = true;
 }
 defineExpose({ openYouTube });
+
+function toggleShare() {
+  const w = props.watchTogether;
+  if (!w) return;
+  if (w.hosting.value) w.stopHosting();
+  else {
+    w.startHosting();
+    showSettings.value = false;
+  }
+}
 
 // 選了 YouTube 但還沒貼網址：按播放直接打開設定讓他貼
 function togglePlayback() {

@@ -202,6 +202,7 @@
     <!-- 全螢幕時計時、音樂搬進地圖裡（跟著一起轉），可以收成一顆小按鈕；YouTube 播放器不搬（iframe 搬了會重新載入） -->
     <Teleport :to="sceneRotorRef ?? 'body'" :disabled="!sceneFullscreen">
     <div :class="{ 'fs-dock': sceneFullscreen }">
+    <WatchTogetherBar v-show="!sceneFullscreen || !dockCollapsed" :watch="watchTogether" />
     <button
       v-if="sceneFullscreen"
       type="button"
@@ -254,7 +255,7 @@
       </button>
       </div>
       <div class="hide-below-sm h-10 w-[2px] bg-[color:var(--px-ink)] opacity-30"></div>
-      <AmbientAudioPlayer ref="audioPlayerRef" :class="{ 'max-sm:!hidden': !mobileAudioOpen && !sceneFullscreen }" :audio="audio" />
+      <AmbientAudioPlayer ref="audioPlayerRef" :class="{ 'max-sm:!hidden': !mobileAudioOpen && !sceneFullscreen }" :audio="audio" :watch-together="watchTogether" />
     </div>
     </div>
     </Teleport>
@@ -270,6 +271,8 @@ import { useQuasar } from 'quasar';
 import { useAmbientAudio, type SoundscapeKind } from 'src/pages/index/composables/useAmbientAudio';
 import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vue';
 import YouTubeTv from 'src/pages/index/components/YouTubeTv.vue';
+import WatchTogetherBar from 'src/pages/index/components/WatchTogetherBar.vue';
+import { useWatchTogether } from 'src/pages/index/composables/useWatchTogether';
 import RiverParkScene from 'src/pages/index/components/RiverParkScene.vue';
 import BeitouScene from 'src/pages/index/components/BeitouScene.vue';
 import HomeScene from 'src/pages/index/components/HomeScene.vue';
@@ -780,6 +783,14 @@ const librarySocket = useLibrarySocket({
   onSeatStolen,
   debugSeatIdSync: import.meta.env.DEV,
 });
+// 一起看 YouTube：同房間（同樓層同分區）才看得到彼此的分享
+const watchTogether = useWatchTogether({
+  audio,
+  socket: librarySocket,
+  roomKey: () => `${currentFloor.value}-${activeZoneId.value}`,
+  onEnded: (name) => $q.notify({ message: t.value.watchTogether.ended(name), color: 'grey-8', position: 'top', timeout: 2500 }),
+});
+
 // 收到悄悄話：關掉了、開勿擾、或封鎖了這個人就不顯示
 watch(
   () => librarySocket.lastWhisper.value,

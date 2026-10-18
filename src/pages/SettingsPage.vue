@@ -77,6 +77,10 @@
           🤫 {{ t.settingsPage.whispersLabel }}
           <input :checked="!prefs.whispersOff" type="checkbox" class="h-4 w-4 accent-amber-400" @change="prefs.whispersOff = !($event.target as HTMLInputElement).checked" />
         </label>
+        <label class="pixel-field !flex items-center justify-between px-3 py-2.5 text-sm font-bold">
+          📺 {{ t.settingsPage.watchInvitesLabel }}
+          <input :checked="!prefs.watchInvitesOff" type="checkbox" class="h-4 w-4 accent-amber-400" @change="prefs.watchInvitesOff = !($event.target as HTMLInputElement).checked" />
+        </label>
         <p v-if="prefs.blocked.length" class="!mb-0 text-[11px] text-[color:var(--px-muted)]">
           {{ t.settingsPage.blockedCount(prefs.blocked.length) }}
           <button type="button" class="ml-1 underline" @click="prefs.blocked = []">{{ t.settingsPage.unblockAll }}</button>

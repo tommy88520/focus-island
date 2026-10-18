@@ -417,6 +417,23 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     updateMediaSessionMetadata();
   }
 
+  // 一起看：換到 YouTube、停掉其他音樂，載入別人分享的影片（autoplay=false＝對方暫停中，先停在那一秒）
+  function playSharedYouTube(videoId: string, startSeconds: number, autoplay: boolean) {
+    fadeTaskId += 1;
+    synthPlayer.stop();
+    if (audioElement && !audioElement.paused) audioElement.pause();
+    if (selectedAudioTrack.value !== 'youtube') {
+      selectedAudioTrack.value = 'youtube';
+      saveAudioPreferences();
+    }
+    youtube.setVolume(getTrackVolume() * 100);
+    youtube.setLoop(audioLoopEnabled.value);
+    youtube.loadShared(videoId, startSeconds, autoplay);
+    if (!autoplay) isAudioPlaying.value = false;
+    updateMediaSessionMetadata();
+    updateMediaSessionPlaybackState();
+  }
+
   async function startPlayback() {
     const track = audioTracks[selectedAudioTrack.value];
     if (selectedAudioTrack.value === 'youtube') {
@@ -639,6 +656,7 @@ export function useAmbientAudio(isFocusRunning: () => boolean) {
     volumeIconName,
     startPlayback,
     stopPlayback,
+    playSharedYouTube,
     togglePlayback,
     updateVolume,
     toggleMute,

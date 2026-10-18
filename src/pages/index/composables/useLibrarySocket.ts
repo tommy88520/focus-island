@@ -125,6 +125,22 @@ export interface IncomingWhisper {
   phrase: WhisperId;
   at: number;
 }
+// 一起看 YouTube：同房間別人分享的影片（stop＝他停止分享了）
+export interface IncomingWatch {
+  key: string;
+  fromUserId: string;
+  name: string;
+  videoId: string;
+  t: number;
+  playing: boolean;
+  stop: boolean;
+  at: number;
+}
+export interface WatchState {
+  videoId: string;
+  t: number;
+  playing: boolean;
+}
 export type EmoteId = (typeof EMOTE_IDS)[number];
 
 export function isEmoteId(value: unknown): value is EmoteId {
@@ -542,6 +558,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
   // 別人在房間裡打的招呼（自己送的不會收到這裡）；場景用座位位置畫泡泡
   const lastEmote = ref<SeatEmote | null>(null);
   const lastWhisper = ref<IncomingWhisper | null>(null);
+  const lastWatch = ref<IncomingWatch | null>(null);
   const remotePlayers = ref<Record<string, RemotePlayer>>({});
   // 有新的人進房：場景要再送一次自己的位置，對方才看得到站著的你
   const peerJoinedAt = ref(0);
@@ -597,6 +614,14 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
   function sendWhisper(to: string, phrase: WhisperId) {
     if (socket?.readyState !== WebSocket.OPEN) return;
     socket.send(JSON.stringify({ type: 'WHISPER', userId: userId.value, sessionId, payload: { to, phrase, username: displayName.value } }));
+  }
+
+  // 一起看：分享自己在看的影片（state＝null 是停止分享）。後端只收影片 ID、秒數、播放狀態，換片至少隔 30 秒
+  function sendWatch(state: WatchState | null): boolean {
+    if (socket?.readyState !== WebSocket.OPEN) return false;
+    const payload = state ? { v: state.videoId, t: state.t, playing: state.playing, username: displayName.value } : { stop: true, username: displayName.value };
+    socket.send(JSON.stringify({ type: 'WATCH', userId: userId.value, sessionId, payload }));
+    return true;
   }
 
   function sendEmote(emote: EmoteId) {
@@ -872,6 +897,25 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
             break;
           }
 
+          case 'WATCH': {
+            if (msg.sessionId === sessionId || typeof msg.userId !== 'string') break;
+            const w = msg.payload ?? {};
+            const stop = w.stop === true;
+            const videoId = typeof w.v === 'string' && /^[\w-]{11}$/.test(w.v) ? w.v : '';
+            if (!stop && !videoId) break;
+            lastWatch.value = {
+              key: msg.sessionId || msg.userId,
+              fromUserId: msg.userId,
+              name: typeof w.username === 'string' && w.username ? w.username : msg.userId,
+              videoId,
+              t: typeof w.t === 'number' && Number.isFinite(w.t) ? Math.max(0, w.t) : 0,
+              playing: w.playing === true,
+              stop,
+              at: Date.now(),
+            };
+            break;
+          }
+
           case 'EMOTE': {
             if (msg.sessionId === sessionId) break;
             const emote: unknown = msg.payload?.emote;
@@ -1080,6 +1124,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     lastEmote,
     lastWhisper,
     sendWhisper,
+    lastWatch,
+    sendWatch,
     sendHome,
     remotePlayers,
     seatedItems,
