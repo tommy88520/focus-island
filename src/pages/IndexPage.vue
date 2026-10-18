@@ -914,14 +914,18 @@ const visitHome = ref<FriendHome | null>(null);
 const friendsApi = useFriends();
 // 去朋友家：先問後端拿他家的樣子（只有好友拿得到），自己家沒存的改動會先問
 async function startVisit(code: string): Promise<void> {
-  if (homeSceneRef.value?.requestLeave() === false) return;
+  // 先拿到他家的樣子，拿不到就留在原地（不要先離開自己家）
   const home = await friendsApi.loadHome(code);
   if (!home) {
     $q.notify({ message: t.value.friends.loadFailed, color: 'warning', position: 'top', timeout: 2500 });
     return;
   }
-  visitHome.value = home;
-  sceneLocation.value = 'home';
+  const go = () => {
+    visitHome.value = home;
+    sceneLocation.value = 'home';
+  };
+  if (homeSceneRef.value) homeSceneRef.value.guardThen(go);
+  else go();
 }
 // 沒在家就不算在朋友家
 watch(sceneLocation, (loc) => {
@@ -938,7 +942,7 @@ watch(
 );
 // 登入了：背景抓一次好友清單（有人邀請你，家裡的好友鈕會有紅點）
 if (account.session.value) onMounted(() => window.setTimeout(() => void friendsApi.refresh(), 3000));
-const homeSceneRef = ref<(SceneHandle & { requestLeave: () => boolean }) | null>(null);
+const homeSceneRef = ref<(SceneHandle & { requestLeave: () => boolean; guardThen: (action: () => void) => void }) | null>(null);
 // 換地圖的過場：還沒有人先叫過場（例如捷運面板），就依目的地自己挑一個
 watch(sceneLocation, (to, from) => {
   if (transition.value && performance.now() - transition.value.startedAt < 300) return;

@@ -538,7 +538,12 @@ function requestLeave(): boolean {
   return false;
 }
 
-defineExpose({ seatForFocus, positionForShare, requestLeave });
+// 有沒存的改動先問，問完（或本來就沒改）再做 action（例如去朋友家）
+function guardThen(action: () => void): void {
+  guard(action);
+}
+
+defineExpose({ seatForFocus, positionForShare, requestLeave, guardThen });
 
 function onBeforeUnload(event: BeforeUnloadEvent): void {
   if (!dirty.value) return;
