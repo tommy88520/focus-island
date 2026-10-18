@@ -158,7 +158,7 @@ export interface RemotePlayer {
   // 手上拿著的夜市小吃
   item?: ShopItemId;
   // 在 F1 賽車場／環河公園（沒有的話在主地圖）；在 F1 開車時 car＝true、angle 是車頭方向
-  scene?: 'f1' | 'park' | 'beitou';
+  scene?: 'f1' | 'park' | 'beitou' | 'home';
   car?: boolean;
   angle?: number;
   hair?: number;
@@ -181,7 +181,7 @@ export interface MyPosition {
   vehicle?: RemoteVehicle | 'f1';
   lying?: boolean;
   pose?: 'floor';
-  scene?: 'f1' | 'park' | 'beitou';
+  scene?: 'f1' | 'park' | 'beitou' | 'home';
   angle?: number;
   item?: ShopItemId;
   hidden?: boolean;
@@ -565,6 +565,22 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     writePosition(pos);
   }
 
+  // 現在在誰的家（g_<id>，空的 = 不在家）：重連後要再報一次
+  let homeOwner = '';
+  function writeHome(): void {
+    if (socket?.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({ type: 'HOME', userId: userId.value, sessionId, payload: { owner: homeOwner } }));
+  }
+  function sendHome(owner: string): void {
+    if (owner === homeOwner) return;
+    homeOwner = owner;
+    // 換家（或出門）：家裡的人先清掉，等新家的人報位置
+    const rest: Record<string, RemotePlayer> = {};
+    for (const [k, r] of Object.entries(remotePlayers.value)) if (r.scene !== 'home') rest[k] = r;
+    remotePlayers.value = rest;
+    writeHome();
+  }
+
   // 站著的人才需要重送（坐下的那則 hidden 送過一次就好）
   function resendPosition() {
     if (lastPos && !lastPos.hidden) writePosition({ ...lastPos, moving: false });
@@ -632,6 +648,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
           },
         }),
       );
+      // 人在家裡：重連後再告訴伺服器一次在誰家（要先講，家裡的位置才送得到）
+      if (homeOwner) writeHome();
       // 連線前送不出去的位置，連上就補送
       if (lastPos) writePosition(lastPos);
 
@@ -794,6 +812,23 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
             break;
           }
 
+          // 有人進了我在的家：馬上告訴他我在哪
+          case 'HOMEJOIN': {
+            if (msg.sessionId !== sessionId) resendPosition();
+            break;
+          }
+
+          // 有人離開我在的家
+          case 'HOMELEAVE': {
+            const key: string = msg.sessionId || msg.userId;
+            if (remotePlayers.value[key]) {
+              const rest = { ...remotePlayers.value };
+              delete rest[key];
+              remotePlayers.value = rest;
+            }
+            break;
+          }
+
           case 'LEAVE': {
             const leaveKey = msg.sessionId || msg.userId;
             const leavingReader = readers.value.find((r) => (r.sessionId || r.userId) === leaveKey);
@@ -889,7 +924,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 ...(['bike', 'cart', 'boat'].includes(pos.vehicle) ? { vehicle: pos.vehicle as RemoteVehicle } : {}),
                 ...(pos.lying === true ? { lying: true } : {}),
                 ...(pos.pose === 'floor' ? { floor: true } : {}),
-                ...(pos.scene === 'f1' || pos.scene === 'park' || pos.scene === 'beitou' ? { scene: pos.scene as 'f1' | 'park' | 'beitou' } : {}),
+                ...(pos.scene === 'f1' || pos.scene === 'park' || pos.scene === 'beitou' || pos.scene === 'home' ? { scene: pos.scene as 'f1' | 'park' | 'beitou' | 'home' } : {}),
                 ...(pos.vehicle === 'f1' ? { car: true } : {}),
                 ...(typeof pos.angle === 'number' && Number.isFinite(pos.angle) ? { angle: pos.angle } : {}),
                 ...(typeof pos.item === 'string' && pos.item in SHOP_ITEM_EMOJI ? { item: pos.item as ShopItemId } : {}),
@@ -1045,6 +1080,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     lastEmote,
     lastWhisper,
     sendWhisper,
+    sendHome,
     remotePlayers,
     seatedItems,
     peerJoinedAt,

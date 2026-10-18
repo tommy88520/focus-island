@@ -21,9 +21,35 @@ export function disc(ctx: CanvasRenderingContext2D, color: string, cx: number, c
   }
 }
 
-// 名牌（canvas 上的膠囊）要多寬：iPhone 畫 emoji（尤其 🛏️ ♨️ 這種帶 FE0F 的）比 measureText 量到的寬，
-// 不補的話字會超出框。每個 emoji 補 8px
-const EMOJI = /\p{Extended_Pictographic}/gu;
+// 名牌（canvas 上的膠囊）裡的字：自己排版。iPhone 畫 emoji（🛏️ ♨️ 🚇…）比 measureText 量到的寬，
+// 交給 textAlign: center 排的話字會被擠出框。所以 emoji 給固定寬度的格子、一般字照量到的寬，從左邊一段段畫。
+const EMOJI_RUN = /(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*\uFE0F?)/u;
+const IS_EMOJI = /\p{Extended_Pictographic}/u;
+
+function pillSegments(c: CanvasRenderingContext2D, text: string): { s: string; emoji: boolean; w: number }[] {
+  const size = Number(/(\d+)px/.exec(c.font)?.[1] ?? 12);
+  return text
+    .split(EMOJI_RUN)
+    .filter(Boolean)
+    .map((s) => {
+      const emoji = IS_EMOJI.test(s);
+      return { s, emoji, w: emoji ? Math.round(size * 1.35) : c.measureText(s).width };
+    });
+}
+
 export function pillTextWidth(c: CanvasRenderingContext2D, text: string): number {
-  return Math.ceil(c.measureText(text).width) + (text.match(EMOJI)?.length ?? 0) * 8;
+  return Math.ceil(pillSegments(c, text).reduce((sum, seg) => sum + seg.w, 0));
+}
+
+// 把字畫在 (cx, midY) 正中間（呼叫前先設好 font、fillStyle）
+export function fillPillText(c: CanvasRenderingContext2D, text: string, cx: number, midY: number): void {
+  const segs = pillSegments(c, text);
+  let x = cx - segs.reduce((sum, seg) => sum + seg.w, 0) / 2;
+  c.textBaseline = 'middle';
+  for (const seg of segs) {
+    c.textAlign = seg.emoji ? 'center' : 'left';
+    c.fillText(seg.s, seg.emoji ? x + seg.w / 2 : x, midY);
+    x += seg.w;
+  }
+  c.textAlign = 'left';
 }

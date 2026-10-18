@@ -94,6 +94,8 @@
             :key="visitHome ? `visit:${visitHome.profile.code}` : (account.perks.value.homeTheme ?? 'basic')"
             :theme="account.perks.value.homeTheme"
             :visit="visitHome"
+            :remote-players="librarySocket.remotePlayers.value"
+            @position="librarySocket.sendPosition"
             :disabled="store.isRunning"
             @visit="startVisit"
             @leave="sceneLocation = homeReturnTo"
@@ -925,6 +927,15 @@ async function startVisit(code: string): Promise<void> {
 watch(sceneLocation, (loc) => {
   if (loc !== 'home') visitHome.value = null;
 });
+// 告訴伺服器我在誰的家（自己家＝我的帳號代號、朋友家＝他的），家裡的人才看得到彼此；出門就清掉
+watch(
+  [sceneLocation, visitHome, () => account.session.value],
+  ([loc, visit, session]) => {
+    const owner = loc !== 'home' || !session ? '' : visit ? visit.profile.userId : userId.value;
+    librarySocket.sendHome(owner.startsWith('g_') ? owner : '');
+  },
+  { immediate: true },
+);
 // 登入了：背景抓一次好友清單（有人邀請你，家裡的好友鈕會有紅點）
 if (account.session.value) onMounted(() => window.setTimeout(() => void friendsApi.refresh(), 3000));
 const homeSceneRef = ref<(SceneHandle & { requestLeave: () => boolean }) | null>(null);

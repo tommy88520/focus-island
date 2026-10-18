@@ -257,7 +257,7 @@
 </template>
 
 <script setup lang="ts">
-import { pillTextWidth } from 'src/pages/index/pixel/pixelUtil';
+import { fillPillText, pillTextWidth } from 'src/pages/index/pixel/pixelUtil';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
 import {
   EMOTE_IDS,
@@ -2631,7 +2631,7 @@ function drawPill(c: CanvasRenderingContext2D, text: string, cx: number, bottom:
   // 🔕／⏳ 不算在名字長度裡
   const label = text.length > 18 ? `${text.slice(0, 18)}…` : text;
   c.font = `700 ${LABEL_FONT_PX}px system-ui, -apple-system, "PingFang TC", sans-serif`;
-  const width = Math.ceil(c.measureText(label).width) + 14;
+  const width = pillTextWidth(c, label) + 14;
   const height = LABEL_FONT_PX + 8;
   const x = Math.round(cx - width / 2);
   const y = Math.round(bottom - height);
@@ -2645,7 +2645,7 @@ function drawPill(c: CanvasRenderingContext2D, text: string, cx: number, bottom:
   c.fillStyle = '#ffffff';
   c.textAlign = 'center';
   c.textBaseline = 'middle';
-  c.fillText(label, cx, y + height / 2 + 0.5);
+  fillPillText(c, label, cx, y + height / 2 + 0.5);
 }
 
 // ── 打招呼 ──
@@ -2708,7 +2708,7 @@ function drawBubble(c: CanvasRenderingContext2D, text: string, cx: number, botto
   c.fillStyle = '#3b2a20';
   c.textAlign = 'center';
   c.textBaseline = 'middle';
-  c.fillText(text, x + width / 2, y + height / 2 + 1);
+  fillPillText(c, text, x + width / 2, y + height / 2 + 1);
 }
 
 function drawBubbles(c: CanvasRenderingContext2D, seconds: number, toScreen: (wx: number, wy: number) => { x: number; y: number }): void {

@@ -3,7 +3,7 @@
 import type { MyPosition, RemotePlayer } from 'src/pages/index/composables/useLibrarySocket';
 import { readerColors, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
 
-export type SceneId = 'f1' | 'park' | 'beitou';
+export type SceneId = 'f1' | 'park' | 'beitou' | 'home';
 
 // 走動時最多每 0.15 秒送一次、停下來那則一定送、站著不動每 20 秒補一次（跟主地圖一樣）
 export function createPositionSync(send: (pos: MyPosition) => void) {

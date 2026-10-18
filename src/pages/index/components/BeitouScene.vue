@@ -56,7 +56,7 @@ import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import ProfileCard from 'src/pages/index/components/ProfileCard.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, getAvatarFrame, lookColors, readerColors, SEATED_ROWS, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
-import { px, seeded, pillTextWidth } from 'src/pages/index/pixel/pixelUtil';
+import { px, seeded, pillTextWidth, fillPillText } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 import { pickSeatSpot } from 'src/pages/index/seatPick';
 
@@ -823,7 +823,7 @@ function pill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: num
   c.fillStyle = '#ffffff';
   c.textAlign = 'center';
   c.textBaseline = 'middle';
-  c.fillText(text, cx, bottom - height / 2 + 0.5);
+  fillPillText(c, text, cx, bottom - height / 2 + 0.5);
 }
 
 function drawLighting(c: CanvasRenderingContext2D): void {

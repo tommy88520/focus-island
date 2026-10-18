@@ -113,7 +113,7 @@ import ProfileCard from 'src/pages/index/components/ProfileCard.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, paintVehicle, SEATED_ROWS, type AvatarColors, readerColors } from 'src/pages/index/pixel/pixelArt';
 import { getBaristaFrame, paintBikeRack, paintCafe, paintCafeDeck, paintMenuSign } from 'src/pages/index/pixel/parkCafe';
-import { px, seeded, pillTextWidth } from 'src/pages/index/pixel/pixelUtil';
+import { px, seeded, pillTextWidth, fillPillText } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 import { pickSeatSpot } from 'src/pages/index/seatPick';
 
@@ -911,7 +911,7 @@ function bubble(c: CanvasRenderingContext2D, text: string, cx: number, bottom: n
   c.fillStyle = '#2b2135';
   c.textAlign = 'center';
   c.textBaseline = 'middle';
-  c.fillText(text, cx, top + height / 2 + 0.5);
+  fillPillText(c, text, cx, top + height / 2 + 0.5);
 }
 
 function strollerPose(s: (typeof STROLLERS)[number], seconds: number): { x: number; facing: Facing } {
@@ -939,7 +939,7 @@ function pill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: num
   c.fillStyle = '#ffffff';
   c.textAlign = 'center';
   c.textBaseline = 'middle';
-  c.fillText(text, cx, bottom - height / 2 + 0.5);
+  fillPillText(c, text, cx, bottom - height / 2 + 0.5);
 }
 
 // 飄落的櫻花瓣／雪花（螢幕座標，跟著時間算，不用存狀態）
