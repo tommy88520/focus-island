@@ -83,3 +83,9 @@
 - Triggers: SeatScenePixel `rideMrt` / `rideElevator` / `rideElevatorToZone` / stairs; IndexPage `watch(sceneLocation)` picks mrt/home for scene switches unless something just fired; any `isLoading` without a pending transition shows `loading`. The old spinner in SeatScenePixel is gone.
 - Villa desk (`drawVillaDesk` / `drawVillaChair` in HomeScene): oak desk with brass edge, glowing monitor, banker's lamp, mug with steam, succulent, notebook, office chair.
 
+## Home presence & pill text (v1.5, 10-18)
+- Homes are multiplayer: IndexPage watches `[sceneLocation, visitHome, session]` and calls `librarySocket.sendHome(owner)` (own `userId` at home, friend's `profile.userId` when visiting, '' otherwise; re-sent on reconnect). HomeScene sends `POS` with `scene:'home'` (desk = chair coords facing up, bed = `lying`) and draws `remotePlayers` with `scene==='home'`: walking, seated at the desk, or lying on the right pillow of the villa bed. The owner NPC hides when the real owner is present. Backend routes these by home, not room (see backend CLAUDE.md "Home presence").
+- `startVisit` loads the friend's home first, then `homeSceneRef.guardThen()` (unsaved check) — never leaves your home on failure.
+- Canvas name pills: `pillTextWidth` / `fillPillText` in `pixelUtil.ts` lay text out in segments, emoji in a fixed-width slot, because iOS draws emoji wider than `measureText` reports. Every scene's pill/bubble uses them.
+- Roses (`homeArt.ts`): individual long-stem roses, 2–3 per tile, red or pink, no bush base.
+
