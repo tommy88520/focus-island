@@ -260,6 +260,8 @@ export const usePomodoroStore = defineStore('pomodoro', {
       this.loadProgress();
       this.ensureTodayProgress();
       this.initWorker();
+      // 已經倒數到 0（上一輪結束沒重設）：從整輪重新開始，不要倒數成負的
+      if (this.timeLeft <= 0) this.timeLeft = this.baseDuration;
       this.isRunning = true;
       this.worker?.postMessage({ command: 'start', payload: this.timeLeft });
     },

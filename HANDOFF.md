@@ -1,4 +1,4 @@
-# 交接（2026-10-19——v1.6.1）
+# 交接（2026-10-19——v1.6.2）
 
 > 固定 7 段、整份改寫、**≤4KB**。細節、使用者原話在 `docs/HANDOFF_ARCHIVE.md`（grep）。步驟見 `.claude/skills/`。
 
@@ -30,6 +30,7 @@
 - 回報 bug 會放截圖／錄影在 `~/Desktop/截圖/`，iPhone 截圖可能在 `~/Downloads/`；ffmpeg 壞了，用 Swift 抽影格。
 
 ## 6. 最近做完（細節 grep 存檔 2026-10-16～19）
+- 10-19 v1.6.2：專注結束停在 00:00、再按開始變 -1:-1 → 結束後重設回整輪時間，開始時是 0 也從整輪開始。
 - 10-19 v1.6.1：去朋友家躺床頭畫成屋主的樣子（他朋友是女生→變女生）已修；拿掉朋友家的「假屋主」，屋主真的連線在家才出現。
 - 10-18 v1.6：一起看 YouTube（`useWatchTogether.ts`、`WatchTogetherBar.vue`、WS `WATCH`）；設定可關邀請（`prefs.watchInvitesOff`）。
 - 10-18 v1.5：家裡多人同時在（後端只把 `scene:'home'` 的 POS 送給同一個家）；名牌自己排版（`fillPillText`，emoji 固定格）；玫瑰改一枝枝；去朋友家失敗不會被踢出。

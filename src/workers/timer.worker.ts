@@ -8,7 +8,7 @@ self.onmessage = (e: MessageEvent) => {
   if (command === 'start') {
     if (timerInterval) clearInterval(timerInterval);
     
-    let remainingTime = payload; // 初始秒數
+    let remainingTime = Math.max(1, payload); // 初始秒數（至少 1 秒，不會倒數成負的）
 
     timerInterval = setInterval(() => {
       remainingTime--;

@@ -1360,6 +1360,8 @@ function handleFocusFinished() {
     return;
   }
 
+  // 結束後回到整輪的時間（25:00），不然停在 00:00、再按開始會倒數成負的
+  store.resetTimer();
   $q.notify({
     message: t.value.indexPage.notifySessionComplete,
     color: 'positive',
