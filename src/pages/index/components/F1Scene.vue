@@ -21,6 +21,9 @@
         <p class="!mb-0 font-pixel text-[10px] text-[color:var(--px-muted)] sm:text-[11px]">{{ t.f1.last }} {{ formatLap(lastLap) }} · {{ t.f1.best }} {{ formatLap(bestLap) }}</p>
       </div>
 
+      <!-- 選賽車：站在自己的車旁邊才出現 -->
+      <CarPicker v-if="carPickerOpen" v-model="prefs.carLivery" @drive="getIn" />
+
       <!-- 回程的車站 -->
       <div v-if="stationOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
         <p class="!mb-2 !text-[11px] font-black">🚉 {{ t.f1Hub.backPrompt }}</p>
@@ -72,11 +75,14 @@ import { localPoint } from 'src/pages/index/composables/sceneFullscreen';
 import SceneHint from 'src/pages/index/components/SceneHint.vue';
 import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import ProfileCard from 'src/pages/index/components/ProfileCard.vue';
+import CarPicker from 'src/pages/index/components/CarPicker.vue';
+import { livery } from 'src/pages/index/pixel/f1Car';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, getAvatarFrame, lookColors, readerColors, SEATED_ROWS } from 'src/pages/index/pixel/pixelArt';
 import { px, seeded, pillTextWidth, fillPillText } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 import { pickSeatSpot } from 'src/pages/index/seatPick';
+import { drawF1Car } from 'src/pages/index/pixel/f1Car';
 
 // 看台的座位跟圖書館的一樣是這個分區的座位（同步給所有人），只是畫在賽車場裡
 const props = defineProps<{
@@ -126,6 +132,7 @@ const canvasRef = ref<HTMLCanvasElement | null>(null);
 const stickRef = ref<HTMLDivElement | null>(null);
 const isTouch = ref(false);
 const stationOpen = ref(false);
+const carPickerOpen = ref(false);
 const driving = ref(false);
 const currentLap = ref<number | null>(null);
 const lastLap = ref<number | null>(null);
@@ -250,6 +257,7 @@ function nearCar(): boolean {
 
 function getIn(): void {
   driving.value = true;
+  carPickerOpen.value = false;
   stationOpen.value = false;
   lapStart = null;
   currentLap.value = null;
@@ -325,6 +333,7 @@ function sitAt(i: number): void {
   if (!seat || !spot) return;
   seatedIndex = i;
   walkTarget = null;
+  carPickerOpen.value = false;
   me.x = spot.x;
   me.y = spot.y;
   me.facing = 'up';
@@ -420,6 +429,7 @@ function updateWalk(dt: number): void {
   const atStation = Math.hypot(me.x - STATION.trigger.x, me.y - STATION.trigger.y) < 1.1;
   if (!atStation) stationLock = false;
   stationOpen.value = atStation && !stationLock;
+  carPickerOpen.value = !props.disabled && seatedIndex === null && nearCar() && !stationOpen.value;
 }
 
 // ── 畫 ──
@@ -511,22 +521,9 @@ function drawStation(c: CanvasRenderingContext2D): void {
   for (let i = 0; i < 6; i += 1) px(c, i % 2 === 1 ? '#ffffff' : '#15171f', x + 4 + i * 4, y - 6, 4, 4);
 }
 
-function drawF1(c: CanvasRenderingContext2D, x: number, y: number, angle: number, color: string, accent: string): void {
-  c.save();
-  c.translate(Math.round(x * T), Math.round(y * T));
-  c.rotate(angle);
-  px(c, 'rgba(0,0,0,0.25)', -15, -5, 32, 12);
-  // 四個輪子
-  for (const [wx, wy] of [[-11, -8], [-11, 5], [7, -8], [7, 5]] as const) px(c, '#15171f', wx, wy, 6, 3);
-  // 車身：細長、鼻翼、尾翼
-  px(c, color, -12, -3, 26, 6);
-  px(c, color, 12, -2, 5, 4);
-  px(c, accent, 15, -7, 3, 14); // 前翼
-  px(c, accent, -15, -7, 3, 14); // 尾翼
-  px(c, '#2b2d33', -3, -2, 6, 4); // 駕駛艙
-  px(c, '#f6c945', -2, -1, 2, 2); // 安全帽
-  px(c, 'rgba(255,255,255,0.35)', -10, -3, 20, 1);
-  c.restore();
+// F1 賽車：共用的精緻版（pixel/f1Car.ts）；黃色車戴紅色安全帽
+function drawF1(c: CanvasRenderingContext2D, x: number, y: number, angle: number, color: string, accent: string, helmet = color === '#f6c945' ? '#e25a4a' : '#f6c945'): void {
+  drawF1Car(c, x * T, y * T, angle, color, accent, performance.now() / 1000, helmet);
 }
 
 // VIP 看台座位：紅色桶型座椅；有人坐著就畫出上半身
@@ -622,13 +619,15 @@ function render(seconds: number): void {
     const p = pointOnTrack(seconds * npc.speed + npc.offset * trackLength);
     items.push({ y: p.y, draw: () => drawF1(c, p.x, p.y, p.angle, npc.color, npc.accent) });
   });
-  items.push({ y: car.y, draw: () => drawF1(c, car.x, car.y, car.angle, '#f6c945', '#2b2d33') });
+  const mine = livery(prefs.value.carLivery);
+  items.push({ y: car.y, draw: () => drawF1(c, car.x, car.y, car.angle, mine.body, mine.accent, mine.helmet) });
   SEAT_SPOTS.forEach((spot, i) => items.push({ y: spot.y + 0.4, draw: () => drawSeat(c, i, seconds) }));
   if (!driving.value && seatedIndex === null) items.push({ y: me.y + 0.35, draw: () => drawMe(c) });
   for (const other of shownRemotes) {
     if (other.remote.car) {
       const color = RIVAL_COLORS[Math.abs([...other.remote.displayName].reduce((h, ch) => h * 31 + ch.charCodeAt(0), 7)) % RIVAL_COLORS.length] ?? '#e86a8a';
-      items.push({ y: other.y, draw: () => drawF1(c, other.x, other.y, other.angle, color, '#2b2d33') });
+      const theirs = other.remote.livery === undefined ? null : livery(other.remote.livery);
+      items.push({ y: other.y, draw: () => (theirs ? drawF1(c, other.x, other.y, other.angle, theirs.body, theirs.accent, theirs.helmet) : drawF1(c, other.x, other.y, other.angle, color, '#2b2d33')) });
     } else {
       items.push({ y: other.y + 0.35, draw: () => drawRemote(c, other, seconds) });
     }
@@ -676,7 +675,7 @@ function frame(time: number): void {
     seatedIndex !== null
       ? { x: me.x, y: me.y, facing: me.facing, moving: false, hidden: true, scene: 'f1' }
       : driving.value
-        ? { x: r2(car.x), y: r2(car.y), facing: me.facing, moving: Math.abs(car.speed) > 0.3, scene: 'f1', vehicle: 'f1', angle: r2(car.angle) }
+        ? { x: r2(car.x), y: r2(car.y), facing: me.facing, moving: Math.abs(car.speed) > 0.3, scene: 'f1', vehicle: 'f1', angle: r2(car.angle), livery: prefs.value.carLivery }
         : { x: r2(me.x), y: r2(me.y), facing: me.facing, moving: me.moving, scene: 'f1' },
     seconds,
   );

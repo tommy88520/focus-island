@@ -4,7 +4,7 @@
   <div class="relative">
     <div
       ref="containerRef"
-      class="scene-box relative h-[calc(100dvh-235px)] sm:h-[calc(100dvh-262px)] min-h-[320px] w-full overflow-hidden rounded-[3px] bg-[#141726] outline-none lg:h-[calc(100dvh-262px)] lg:min-h-[460px]"
+      class="scene-box relative h-[calc(100dvh-235px)] sm:h-[calc(100dvh-262px)] min-h-[320px] w-full overflow-hidden rounded-[3px] bg-[#0d0f18] outline-none lg:h-[calc(100dvh-262px)] lg:min-h-[460px]"
       style="touch-action: pan-y"
       tabindex="0"
     >
@@ -13,15 +13,19 @@
       <!-- 點別人：名牌小卡（看資料、送悄悄話） -->
       <ProfileCard v-if="profilePerson" :person="profilePerson" @close="profilePerson = null" @whisper="whisperTo" />
 
-      <!-- 圈速 -->
-      <!-- 手機上縮小：不要標題、字小一點，少擋地圖 -->
-      <!-- 手機上放到按鈕列下面（不然會蓋到左上角的「好友」） -->
+      <!-- 圈速＋小地圖（手機上放到按鈕列下面、不畫小地圖） -->
       <div class="pixel-panel absolute right-2 top-14 px-2 py-1 text-right sm:top-2 sm:px-3 sm:py-2">
         <p class="hide-below-sm !mb-0 text-[11px] font-black text-[color:var(--px-accent-dark)] dark:!text-amber-300">🏁 {{ circuit.title[locale] }}</p>
+        <div class="hide-below-sm">
+          <canvas ref="miniRef" class="ml-auto mt-1 block" width="128" height="80" style="width: 128px; height: 80px" />
+        </div>
         <p class="!mb-0 font-pixel text-xs font-bold sm:mt-1 sm:text-sm">{{ t.f1.lap }} {{ formatLap(currentLap) }}</p>
         <p class="!mb-0 font-pixel text-[10px] text-[color:var(--px-muted)] sm:text-[11px]">{{ t.f1.last }} {{ formatLap(lastLap) }} · {{ t.f1.best }} {{ formatLap(bestLap) }}</p>
         <p v-if="driving && drsOn" class="!mb-0 mt-0.5 font-pixel text-[11px] font-bold text-[#3dff8a]">DRS OPEN</p>
       </div>
+
+      <!-- 選賽車：站在自己的車旁邊才出現 -->
+      <CarPicker v-if="carPickerOpen" v-model="prefs.carLivery" @drive="getIn" />
 
       <!-- 回程的車站 -->
       <div v-if="stationOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
@@ -74,25 +78,113 @@ import { localPoint } from 'src/pages/index/composables/sceneFullscreen';
 import SceneHint from 'src/pages/index/components/SceneHint.vue';
 import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import ProfileCard from 'src/pages/index/components/ProfileCard.vue';
+import CarPicker from 'src/pages/index/components/CarPicker.vue';
+import { livery } from 'src/pages/index/pixel/f1Car';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, getAvatarFrame, lookColors, readerColors, SEATED_ROWS } from 'src/pages/index/pixel/pixelArt';
-import { px, seeded, pillTextWidth, fillPillText } from 'src/pages/index/pixel/pixelUtil';
+import { px, pillTextWidth, fillPillText } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 import { pickSeatSpot } from 'src/pages/index/seatPick';
-import { cornerPoints, standSeats, TRACK_HALF, type CircuitDef, type Rect } from 'src/pages/index/pixel/circuits';
-import { drawCityBlock, drawLandmark } from 'src/pages/index/pixel/gpArt';
+import { drawF1Car } from 'src/pages/index/pixel/f1Car';
+import { landmarkSky, standSeats, TRACK_HALF, type CircuitDef, type Rect } from 'src/pages/index/pixel/circuits';
+import { buildTrack, miniTrackTransform, paintTrack } from 'src/pages/index/pixel/gpTrack';
+import { buildCity, drawBuilding, drawLamp, drawScooter, drawTree, paintCityGround, paintLampGlow } from 'src/pages/index/pixel/gpCity';
+import { drawDrsBoard, drawLandmark, drawPitGarages, drawStandBack, drawStandFront, drawStandSeat, drawStartGantry, drawStation } from 'src/pages/index/pixel/gpArt';
 
-// 看台的座位跟圖書館的一樣是這個分區的座位（同步給所有人），只是畫在賽車場裡
+// 看台的座位跟圖書館的一樣是這個分區的座位（同步給所有人），只是畫在賽道旁
 const props = defineProps<{
   circuit: CircuitDef;
   seats: Seat[];
   selectedSeatId: string | null;
   disabled: boolean;
   getMateAtSeat: (seatId: string) => Reader | null | undefined;
-  // 同房間的人（只畫也在賽車場的）
+  // 同房間的人（只畫也在這條賽道的）
   remotePlayers: Record<string, RemotePlayer>;
 }>();
 const emit = defineEmits<{ leave: []; select: [seatId: string]; 'end-focus': []; position: [position: MyPosition]; whisper: [to: string, phrase: WhisperId] }>();
+
+const { t, locale } = useLocale();
+const prefs = usePlayerPrefs();
+
+// ── 場地（格，1 格 = 16px）：全部照賽道設定 ──
+const T = 16;
+const C = props.circuit;
+const W = C.W;
+const H = C.H;
+const GEO = buildTrack(C.track);
+const STATION = { ...C.station, trigger: { x: (C.station.x0 + C.station.x1) / 2, y: C.station.y1 + 1 } };
+const CAR_HOME = C.carHome;
+// 看台座位：前排 6、後排 6（順序 = 座位編號，不要調換）
+const SEAT_SPOTS = standSeats(C.stand);
+// 起終點線：第 0 段折線上 startAt 那一點，投影到圓弧化之後的賽道上
+const START_DIST = (() => {
+  const a = C.track[0] ?? [0, 0];
+  const b = C.track[1] ?? [0, 0];
+  return GEO.nearest(a[0] + (b[0] - a[0]) * C.startAt, a[1] + (b[1] - a[1]) * C.startAt).along;
+})();
+const START = GEO.pointAt(START_DIST);
+const NPC_CARS = [
+  { color: '#d72d2d', accent: '#f6c945', speed: 10.5, offset: 0.1 },
+  { color: '#2fb3a6', accent: '#2b2d33', speed: 11.2, offset: 0.35 },
+  { color: '#f2a541', accent: '#5b6ee1', speed: 9.8, offset: 0.6 },
+  { color: '#3b4fbf', accent: '#e25a4a', speed: 10.8, offset: 0.85 },
+];
+const RIVAL_COLORS = ['#e86a8a', '#4fa35a', '#8b5cf6', '#f97316', '#0ea5e9', '#a3a3a3'];
+// 看台焦點座位之間的一般觀眾（裝飾，點了沒反應）：灰色座椅、大約三分之二坐了人
+const CROWD = (() => {
+  const out: { x: number; y: number; colors: ReturnType<typeof lookColors> | null }[] = [];
+  let seed = C.seed * 7 + 3;
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  const rows = [...new Set(SEAT_SPOTS.map((s) => s.y))];
+  for (const y of rows) {
+    for (let x = C.stand.x0 + 0.55; x < C.stand.x1 - 0.4; x += 0.85) {
+      if (SEAT_SPOTS.some((s) => s.y === y && Math.abs(s.x - x) < 0.75)) continue;
+      out.push({ x, y, colors: rand() < 0.68 ? lookColors(Math.floor(rand() * 5), Math.floor(rand() * 4), { body: rand() < 0.5 ? 1 : 0 }) : null });
+    }
+  }
+  return out;
+})();
+
+const distanceToTrack = (x: number, y: number) => GEO.nearest(x, y).dist;
+const inside = (r: Rect, x: number, y: number, pad = 0) => x > r.x0 - pad && x < r.x1 + pad && y > r.y0 - pad && y < r.y1 + pad;
+
+// 看台後面坐滿觀眾的那幾階（往北長），走不進去
+const STAND_BACK: Rect = { x0: C.stand.x0, y0: C.stand.y0 - 3, x1: C.stand.x1, y1: C.stand.y0 + 0.4 };
+const CITY = buildCity(C, distanceToTrack, TRACK_HALF, [...C.landmarks, ...C.landmarks.map(landmarkSky), STAND_BACK, C.stand, C.station, C.pit, C.pitLane]);
+const BUILDINGS = CITY.blocks.flatMap((b) => b.buildings);
+const SOLID: Rect[] = [
+  ...C.landmarks.filter((l) => l.kind !== 'cruise'),
+  ...BUILDINGS.map((b) => ({ x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 - 0.15 })),
+  ...C.water,
+  C.station,
+  C.pit,
+  STAND_BACK,
+];
+
+// DRS 牌：每段 DRS 直線開頭的賽道外側
+const DRS_BOARDS = GEO.segs
+  .map((s, i) => ({ s, prev: GEO.segs[(i - 1 + GEO.segs.length) % GEO.segs.length] }))
+  .filter(({ s, prev }) => C.drs.includes(s.origin) && prev?.origin !== s.origin && s.length > 0)
+  .map(({ s }) => {
+    const ang = Math.atan2(s.to[1] - s.from[1], s.to[0] - s.from[0]);
+    const nx = -Math.sin(ang);
+    const ny = Math.cos(ang);
+    const base = { x: s.from[0] + Math.cos(ang) * 2.5, y: s.from[1] + Math.sin(ang) * 2.5 };
+    const sides = [1, -1].map((side) => ({ x: base.x + nx * side * (TRACK_HALF + 1.3), y: base.y + ny * side * (TRACK_HALF + 1.3) }));
+    return sides.find((p) => !SOLID.some((r) => inside(r, p.x, p.y, 0.3))) ?? sides[0] ?? base;
+  });
+
+// 彎道編號牌：立在彎的外側（柱子＋圓牌），附近的行道樹讓開
+const CORNER_SIGNS = GEO.corners
+  .map((corner) => ({ n: corner.n, x: corner.mx + corner.ox * (TRACK_HALF + 1.7), y: corner.my + corner.oy * (TRACK_HALF + 1.7) }))
+  .filter((p) => !SOLID.some((r) => inside(r, p.x, p.y, 0.2)));
+const TREES = CITY.trees.filter((tr) => !CORNER_SIGNS.some((p) => Math.hypot(tr.x - p.x, tr.y - p.y) < 1.4));
+
+const blocked = (x: number, y: number) =>
+  SEAT_SPOTS.some((s) => Math.abs(x - s.x) < 0.45 && Math.abs(y - s.y) < 0.45) || x < 0.5 || y < 0.5 || x > W - 0.5 || y > H - 0.5 || SOLID.some((b) => inside(b, x, y));
 
 // ── 點別人的名牌：站著的人看頭到腳那一塊，坐著的人用座位 ──
 const profilePerson = ref<ProfilePerson | null>(null);
@@ -121,106 +213,22 @@ function whisperTo(to: string, phrase: WhisperId): void {
 const syncPosition = createPositionSync((pos) => emit('position', pos));
 const viewRemotes = createRemoteView();
 let shownRemotes: ShownRemote[] = [];
-// 別人的車用不同顏色（照名字固定一種）
-const RIVAL_COLORS = ['#e86a8a', '#4fa35a', '#8b5cf6', '#f97316', '#0ea5e9', '#a3a3a3'];
-const { t, locale } = useLocale();
-const prefs = usePlayerPrefs();
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const canvasRef = ref<HTMLCanvasElement | null>(null);
+const miniRef = ref<HTMLCanvasElement | null>(null);
 const stickRef = ref<HTMLDivElement | null>(null);
 const isTouch = ref(false);
 const stationOpen = ref(false);
+const carPickerOpen = ref(false);
 const driving = ref(false);
 const drsOn = ref(false);
 const currentLap = ref<number | null>(null);
 const lastLap = ref<number | null>(null);
 const bestLap = ref<number | null>(readBest());
 
-// ── 場地（格，1 格 = 16px）：全部照賽道設定 ──
-const T = 16;
-const C = props.circuit;
-const W = C.W;
-const H = C.H;
-const TRACK = C.track;
-const STATION = { ...C.station, trigger: { x: (C.station.x0 + C.station.x1) / 2, y: C.station.y1 + 1 } };
-const CAR_HOME = C.carHome;
-// 看台座位：前排 6、後排 6（順序 = 座位編號，不要調換）
-const SEAT_SPOTS = standSeats(C.stand);
-const CORNERS = cornerPoints(TRACK);
-const NPC_CARS = [
-  { color: '#d72d2d', accent: '#f6c945', speed: 10.5, offset: 0 },
-  { color: '#2fb3a6', accent: '#2b2d33', speed: 11.2, offset: 0.25 },
-  { color: '#f2a541', accent: '#5b6ee1', speed: 9.8, offset: 0.5 },
-  { color: '#3b4fbf', accent: '#e25a4a', speed: 10.8, offset: 0.75 },
-];
-
-// 賽道每一段的長度，用來把「跑了多遠」換成座標
-const segments = TRACK.map((p, i) => {
-  const q = TRACK[(i + 1) % TRACK.length] ?? p;
-  return { from: p, to: q, length: Math.hypot(q[0] - p[0], q[1] - p[1]) };
-});
-const trackLength = segments.reduce((sum, s) => sum + s.length, 0);
-// 起終點線：第 0 段上的 startAt 那一點（離起點跑了多遠）
-const START_DIST = (segments[0]?.length ?? 0) * C.startAt;
-const startPoint = pointOnTrack(START_DIST);
-
-function pointOnTrack(distance: number): { x: number; y: number; angle: number } {
-  let d = ((distance % trackLength) + trackLength) % trackLength;
-  for (const s of segments) {
-    if (d <= s.length) {
-      const k = d / s.length;
-      return { x: s.from[0] + (s.to[0] - s.from[0]) * k, y: s.from[1] + (s.to[1] - s.from[1]) * k, angle: Math.atan2(s.to[1] - s.from[1], s.to[0] - s.from[0]) };
-    }
-    d -= s.length;
-  }
-  return { x: TRACK[0]?.[0] ?? 0, y: TRACK[0]?.[1] ?? 0, angle: 0 };
-}
-
-// 離賽道中心線多遠、最近的是第幾段、從起點算跑了多遠（計圈、DRS 用）
-function nearestOnTrack(x: number, y: number): { dist: number; segment: number; along: number } {
-  let best = { dist: Infinity, segment: 0, along: 0 };
-  let before = 0;
-  segments.forEach((s, i) => {
-    const dx = s.to[0] - s.from[0];
-    const dy = s.to[1] - s.from[1];
-    const k = Math.max(0, Math.min(1, ((x - s.from[0]) * dx + (y - s.from[1]) * dy) / (dx * dx + dy * dy)));
-    const dist = Math.hypot(x - (s.from[0] + dx * k), y - (s.from[1] + dy * k));
-    if (dist < best.dist) best = { dist, segment: i, along: before + k * s.length };
-    before += s.length;
-  });
-  return best;
-}
-
-function distanceToTrack(x: number, y: number): number {
-  return nearestOnTrack(x, y).dist;
-}
-
-const inside = (r: Rect, x: number, y: number, pad = 0) => x > r.x0 - pad && x < r.x1 + pad && y > r.y0 - pad && y < r.y1 + pad;
-
-// 城市街廓：照格子切，碰到賽道、地標、看台、車站、維修道、水、公園的格子就不蓋
-const CITY_BLOCKS: Rect[] = (() => {
-  const out: Rect[] = [];
-  for (let gy = 1; gy < H - 4; gy += 6) {
-    for (let gx = 1; gx < W - 5; gx += 7) {
-      const r = { x0: gx + 0.8, y0: gy + 0.8, x1: gx + 6, y1: gy + 5 };
-      const corners = [[r.x0, r.y0], [r.x1, r.y0], [r.x0, r.y1], [r.x1, r.y1], [(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2], [(r.x0 + r.x1) / 2, r.y0], [(r.x0 + r.x1) / 2, r.y1], [r.x0, (r.y0 + r.y1) / 2], [r.x1, (r.y0 + r.y1) / 2]];
-      if (corners.some(([x = 0, y = 0]) => distanceToTrack(x, y) < TRACK_HALF + 1.8)) continue;
-      const overlaps = (o: Rect, pad: number) => r.x0 < o.x1 + pad && o.x0 - pad < r.x1 && r.y0 < o.y1 + pad && o.y0 - pad < r.y1;
-      if ([...C.landmarks, C.stand, C.station, C.pitLane].some((o) => overlaps(o, 1)) || [...C.water, ...C.parks].some((o) => overlaps(o, 0))) continue;
-      out.push(r);
-    }
-  }
-  return out;
-})();
-const SOLID: Rect[] = [...C.landmarks.filter((l) => l.kind !== 'cruise'), ...CITY_BLOCKS, ...C.water, { ...C.station }];
-
-const blocked = (x: number, y: number) =>
-  SEAT_SPOTS.some((s) => Math.abs(x - s.x) < 0.45 && Math.abs(y - s.y) < 0.45) ||
-  x < 0.5 || y < 0.5 || x > W - 0.5 || y > H - 0.5 || SOLID.some((b) => inside(b, x, y));
-
 // ── 自己 ──
-const me = { x: STATION.trigger.x + 1.5, y: STATION.trigger.y + 0.5, facing: 'down' as 'up' | 'down' | 'left' | 'right', moving: false, walkClock: 0 };
+const me = { x: STATION.trigger.x + 1.2, y: STATION.trigger.y + 0.3, facing: 'down' as 'up' | 'down' | 'left' | 'right', moving: false, walkClock: 0 };
 const car = { x: CAR_HOME.x, y: CAR_HOME.y, angle: CAR_HOME.angle, speed: 0 };
 let stationLock = false;
 // 坐在第幾個看台座位上（null = 站著）；走過去要坐的那個
@@ -265,8 +273,10 @@ function nearCar(): boolean {
 
 function getIn(): void {
   driving.value = true;
+  carPickerOpen.value = false;
   stationOpen.value = false;
   lapStart = null;
+  lastAlong = null;
   currentLap.value = null;
 }
 
@@ -279,14 +289,13 @@ function getOut(): void {
   containerRef.value?.focus({ preventScroll: true });
 }
 
-// 開車：方向鍵（或搖桿）指哪個方向，車頭就轉過去並加速；在賽道外面會慢很多
+// 開車：方向鍵（或搖桿）指哪個方向，車頭就轉過去並加速；在賽道外面會慢很多，DRS 直線比較快
 function updateCar(dt: number, now: number): void {
   const { x, y } = input();
   const pushing = x !== 0 || y !== 0;
-  const near = nearestOnTrack(car.x, car.y);
+  const near = GEO.nearest(car.x, car.y);
   const onTrack = near.dist <= TRACK_HALF + 0.3;
-  // DRS 區的直線極速比較高
-  drsOn.value = onTrack && C.drs.includes(near.segment);
+  drsOn.value = onTrack && C.drs.includes(near.origin);
   const top = onTrack ? (drsOn.value ? 20 : 16) : 4;
   if (pushing) {
     const target = Math.atan2(y, x);
@@ -310,8 +319,8 @@ function updateCar(dt: number, now: number): void {
     car.y = ny;
   }
   // 照賽道方向往前越過起終點線（在賽道上）就算一圈：從線前一小段跑到線後一小段
-  const rel = (((near.along - START_DIST) % trackLength) + trackLength) % trackLength;
-  const crossed = onTrack && lastAlong !== null && lastAlong > trackLength - 8 && rel < 8;
+  const rel = (((near.along - START_DIST) % GEO.length) + GEO.length) % GEO.length;
+  const crossed = onTrack && lastAlong !== null && lastAlong > GEO.length - 8 && rel < 8;
   lastAlong = onTrack ? rel : null;
   if (crossed) {
     if (lapStart !== null) {
@@ -339,15 +348,17 @@ function seatState(i: number): 'empty' | 'me' | 'mate' | 'taken' {
   return seat.available ? 'empty' : 'taken';
 }
 
+// 看台的人面向賽道（朝畫面下方）坐
 function sitAt(i: number): void {
   const seat = props.seats[i];
   const spot = SEAT_SPOTS[i];
   if (!seat || !spot) return;
   seatedIndex = i;
   walkTarget = null;
+  carPickerOpen.value = false;
   me.x = spot.x;
   me.y = spot.y;
-  me.facing = 'up';
+  me.facing = 'down';
   if (props.selectedSeatId !== seat.id) emit('select', seat.id);
 }
 
@@ -362,7 +373,7 @@ function seatForFocus(): string | null {
   walkTarget = null;
   me.x = spot.x;
   me.y = spot.y;
-  me.facing = 'up';
+  me.facing = 'down';
   return seat.id;
 }
 
@@ -407,7 +418,7 @@ function updateWalk(dt: number): void {
     if ((x === 0 && y === 0) || props.disabled) return;
     standUp();
   }
-  // 點了座位：自己走過去（場地空曠，直線走）
+  // 點了座位：自己走過去（直線走，卡住就直接坐過去）
   if (x === 0 && y === 0 && walkTarget !== null) {
     const spot = SEAT_SPOTS[walkTarget];
     if (spot) {
@@ -440,18 +451,15 @@ function updateWalk(dt: number): void {
   const atStation = Math.hypot(me.x - STATION.trigger.x, me.y - STATION.trigger.y) < 1.1;
   if (!atStation) stationLock = false;
   stationOpen.value = atStation && !stationLock;
+  carPickerOpen.value = !props.disabled && seatedIndex === null && nearCar() && !stationOpen.value;
 }
 
 // ── 畫 ──
 let ctx: CanvasRenderingContext2D | null = null;
 let ground: HTMLCanvasElement | null = null;
+let miniBase: HTMLCanvasElement | null = null;
 const view = { scale: 2, ox: 0, oy: 0, dpr: 1, w: 0, h: 0 };
-
-function trackPath(c: CanvasRenderingContext2D, points: [number, number][] = TRACK, closed = true): void {
-  c.beginPath();
-  points.forEach(([x, y], i) => (i === 0 ? c.moveTo(x * T, y * T) : c.lineTo(x * T, y * T)));
-  if (closed) c.closePath();
-}
+const titleUpper = C.title['en-US'].toUpperCase();
 
 function paintGround(): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
@@ -459,212 +467,157 @@ function paintGround(): HTMLCanvasElement {
   canvas.height = H * T;
   const c = canvas.getContext('2d');
   if (!c) return canvas;
-  const rand = seeded(C.seed);
-  // 夜裡的城市：深色柏油路面、淡淡的車道線
-  px(c, '#1b1e2b', 0, 0, W * T, H * T);
-  for (let i = 0; i < 1800; i += 1) px(c, rand() < 0.5 ? '#202436' : '#181a26', Math.floor(rand() * W * T), Math.floor(rand() * H * T), 2, 1);
-  for (let gy = 1; gy < H; gy += 6) px(c, 'rgba(255, 214, 120, 0.08)', 0, gy * T - 6, W * T, 1);
-  for (let gx = 1; gx < W; gx += 7) px(c, 'rgba(255, 214, 120, 0.08)', gx * T - 6, 0, 1, H * T);
-  // 水（港口、秋紅谷）：深藍、有一點點城市燈的倒影
-  for (const w of C.water) {
-    px(c, '#0d2440', w.x0 * T, w.y0 * T, (w.x1 - w.x0) * T, (w.y1 - w.y0) * T);
-    for (let i = 0; i < ((w.x1 - w.x0) * (w.y1 - w.y0)) / 2; i += 1) {
-      px(c, rand() < 0.5 ? 'rgba(120, 180, 255, 0.18)' : 'rgba(255, 180, 120, 0.14)', w.x0 * T + Math.floor(rand() * (w.x1 - w.x0) * T), w.y0 * T + Math.floor(rand() * (w.y1 - w.y0) * T), 4 + Math.floor(rand() * 6), 1);
-    }
-    px(c, '#5d6578', w.x0 * T, w.y1 * T - 2, (w.x1 - w.x0) * T, 2);
-  }
-  // 公園：深綠草地＋一叢叢樹
-  for (const p of C.parks) {
-    px(c, '#1f3b2a', p.x0 * T, p.y0 * T, (p.x1 - p.x0) * T, (p.y1 - p.y0) * T);
-    for (let i = 0; i < ((p.x1 - p.x0) * (p.y1 - p.y0)) / 6; i += 1) {
-      const tx = p.x0 * T + 6 + Math.floor(rand() * ((p.x1 - p.x0) * T - 12));
-      const ty = p.y0 * T + 6 + Math.floor(rand() * ((p.y1 - p.y0) * T - 12));
-      if (distanceToTrack(tx / T, ty / T) < TRACK_HALF + 1 || C.water.some((w) => inside(w, tx / T, ty / T, 0.5)) || C.landmarks.some((l) => inside(l, tx / T, ty / T, 0.5))) continue;
-      px(c, '#173022', tx - 5, ty - 4, 11, 9);
-      px(c, '#2d5a3c', tx - 4, ty - 5, 9, 7);
-      px(c, '#3f7a52', tx - 2, ty - 5, 4, 3);
-    }
-  }
-  CITY_BLOCKS.forEach((b, i) => drawCityBlock(c, b.x0 * T, b.y0 * T, (b.x1 - b.x0) * T, (b.y1 - b.y0) * T, C.seed * 31 + i));
-  // 賽道：外面一圈霓虹光暈 → 護欄（白底紅條，DRS 段是綠色）→ 柏油 → 白邊線
-  const stroke = (width: number, color: string, points?: [number, number][], closed = true) => {
-    c.strokeStyle = color;
-    c.lineWidth = width;
-    c.lineJoin = 'round';
-    c.lineCap = 'round';
-    trackPath(c, points, closed);
-    c.stroke();
-  };
-  c.save();
-  c.shadowColor = C.neon;
-  c.shadowBlur = 10;
-  stroke((TRACK_HALF * 2 + 0.9) * T, C.neon);
-  c.restore();
-  stroke((TRACK_HALF * 2 + 0.8) * T, '#e8e8ee');
-  c.setLineDash([6, 6]);
-  stroke((TRACK_HALF * 2 + 0.8) * T, C.neon);
-  c.setLineDash([]);
-  for (const i of C.drs) {
-    const a = TRACK[i];
-    const b = TRACK[(i + 1) % TRACK.length];
-    if (!a || !b) continue;
-    c.save();
-    c.shadowColor = '#3dff8a';
-    c.shadowBlur = 8;
-    stroke((TRACK_HALF * 2 + 0.8) * T, '#3dff8a', [a, b], false);
-    c.restore();
-  }
-  stroke(TRACK_HALF * 2 * T, '#f2f2f2');
-  stroke((TRACK_HALF * 2 - 0.3) * T, '#353844');
-  // 起終點：垂直賽道的黑白格子
-  c.save();
-  c.translate(startPoint.x * T, startPoint.y * T);
-  c.rotate(startPoint.angle);
-  const cell = (TRACK_HALF * 2 * T) / 8;
-  for (let row = 0; row < 8; row += 1) for (let col = 0; col < 2; col += 1) px(c, (row + col) % 2 === 0 ? '#ffffff' : '#15171f', col * 4 - 4, -TRACK_HALF * T + row * cell, 4, cell);
-  // 起跑格（線後面兩排白色括號）
-  for (let k = 1; k <= 6; k += 1) {
-    const gx = -k * 22;
-    const gy = k % 2 === 0 ? -TRACK_HALF * T * 0.5 : TRACK_HALF * T * 0.5;
-    px(c, '#f2f2f2', gx, gy - 6, 2, 12);
-    px(c, '#f2f2f2', gx, gy - 6, 8, 2);
-    px(c, '#f2f2f2', gx, gy + 4, 8, 2);
-  }
-  c.restore();
-  // 維修道：藍色車道＋白線
+  paintCityGround(c, C, CITY);
+  paintLampGlow(c, CITY.lamps);
+  // 維修道：藍色車道、白色分隔線、限速 80 的字
   const pl = C.pitLane;
-  px(c, '#1d4f9e', pl.x0 * T, pl.y0 * T, (pl.x1 - pl.x0) * T, (pl.y1 - pl.y0) * T);
-  px(c, '#4f8fff', pl.x0 * T, pl.y0 * T, (pl.x1 - pl.x0) * T, 2);
+  px(c, '#4b4f5e', pl.x0 * T - 2, pl.y0 * T - 2, (pl.x1 - pl.x0) * T + 4, (pl.y1 - pl.y0) * T + 4);
+  px(c, '#2a3f73', pl.x0 * T, pl.y0 * T, (pl.x1 - pl.x0) * T, (pl.y1 - pl.y0) * T);
+  px(c, '#e9e9ee', pl.x0 * T, pl.y0 * T, (pl.x1 - pl.x0) * T, 1);
   px(c, '#4f8fff', pl.x0 * T, pl.y1 * T - 2, (pl.x1 - pl.x0) * T, 2);
-  for (let x = pl.x0 + 1; x < pl.x1 - 1; x += 2) px(c, 'rgba(255,255,255,0.5)', x * T, (pl.y0 + pl.y1) * 0.5 * T, 10, 1);
-  // 看台的底座（兩層階梯）
-  const st = C.stand;
-  px(c, 'rgba(0,0,0,0.35)', st.x0 * T + 4, st.y1 * T, (st.x1 - st.x0) * T, 5);
-  px(c, '#3b3f52', st.x0 * T, st.y0 * T, (st.x1 - st.x0) * T, (st.y1 - st.y0) * T);
-  px(c, '#4a4f66', st.x0 * T, st.y0 * T + ((st.y1 - st.y0) * T) / 2, (st.x1 - st.x0) * T, 3);
-  px(c, '#c9ccd6', st.x0 * T, st.y1 * T - 2, (st.x1 - st.x0) * T, 2);
-  // 彎道編號牌：放在彎的外側
-  for (const corner of CORNERS) {
-    const i = TRACK.findIndex(([x, y]) => x === corner.x && y === corner.y);
-    const prev = TRACK[(i - 1 + TRACK.length) % TRACK.length];
-    const next = TRACK[(i + 1) % TRACK.length];
-    if (!prev || !next) continue;
-    const ilen = Math.hypot(corner.x - prev[0], corner.y - prev[1]) || 1;
-    const olen = Math.hypot(next[0] - corner.x, next[1] - corner.y) || 1;
-    let ox = -((next[0] - corner.x) / olen - (corner.x - prev[0]) / ilen);
-    let oy = -((next[1] - corner.y) / olen - (corner.y - prev[1]) / ilen);
-    const ol = Math.hypot(ox, oy) || 1;
-    ox /= ol;
-    oy /= ol;
-    const sx = (corner.x + ox * (TRACK_HALF + 1.5)) * T;
-    const sy = (corner.y + oy * (TRACK_HALF + 1.5)) * T;
-    c.fillStyle = '#15171f';
-    c.beginPath();
-    c.arc(sx, sy, 8, 0, Math.PI * 2);
-    c.fill();
-    c.strokeStyle = '#ffffff';
-    c.lineWidth = 1.5;
-    c.stroke();
-    c.fillStyle = '#ffffff';
-    c.font = '700 9px system-ui, sans-serif';
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillText(String(corner.n), sx, sy + 0.5);
-  }
-  // 路燈：沿著賽道兩側，每隔幾格一盞
-  for (const seg of segments) {
-    const nx = -(seg.to[1] - seg.from[1]) / seg.length;
-    const ny = (seg.to[0] - seg.from[0]) / seg.length;
-    for (let d = 2; d < seg.length - 1; d += 4) {
-      for (const side of [-1, 1]) {
-        const lx = seg.from[0] + ((seg.to[0] - seg.from[0]) * d) / seg.length + nx * side * (TRACK_HALF + 0.9);
-        const ly = seg.from[1] + ((seg.to[1] - seg.from[1]) * d) / seg.length + ny * side * (TRACK_HALF + 0.9);
-        if (distanceToTrack(lx, ly) < TRACK_HALF + 0.6 || SOLID.some((b) => inside(b, lx, ly)) || inside(C.pitLane, lx, ly, 0.3) || inside(C.stand, lx, ly, 0.3)) continue;
-        c.fillStyle = 'rgba(255, 220, 140, 0.16)';
-        c.beginPath();
-        c.arc(lx * T, ly * T, 9, 0, Math.PI * 2);
-        c.fill();
-        px(c, '#ffe7a8', Math.round(lx * T) - 1, Math.round(ly * T) - 1, 3, 3);
-      }
-    }
-  }
+  for (let x = pl.x0 + 1; x < pl.x1 - 1; x += 2) px(c, 'rgba(255,255,255,0.35)', x * T, (pl.y0 + pl.y1) * 0.5 * T, 10, 1);
+  c.fillStyle = 'rgba(255,255,255,0.55)';
+  c.font = '700 7px system-ui, sans-serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText('PIT 80', (pl.x0 + 1.6) * T, (pl.y0 + pl.y1) * 0.5 * T);
+  c.fillText('PIT 80', (pl.x1 - 1.6) * T, (pl.y0 + pl.y1) * 0.5 * T);
+  paintTrack(c, GEO, { half: TRACK_HALF, neon: C.neon, drs: C.drs, startDist: START_DIST, seed: C.seed });
   return canvas;
 }
 
-function drawStation(c: CanvasRenderingContext2D): void {
-  const x = STATION.x0 * T;
-  const y = STATION.y0 * T;
-  const w = (STATION.x1 - STATION.x0) * T;
-  const h = (STATION.y1 - STATION.y0) * T;
-  px(c, 'rgba(0,0,0,0.2)', x + 2, y + h - 2, w, 4);
-  px(c, '#e3e8f0', x, y, w, h - 6);
-  px(c, '#3a3d45', x + 10, y + 8, w - 20, h - 16);
-  for (let i = 0; i < 6; i += 1) px(c, i % 2 === 0 ? '#ffffff' : '#15171f', x + 4 + i * 4, y - 10, 4, 4);
-  for (let i = 0; i < 6; i += 1) px(c, i % 2 === 1 ? '#ffffff' : '#15171f', x + 4 + i * 4, y - 6, 4, 4);
+// 小地圖的底圖：賽道外框＋起終點
+function paintMiniBase(): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 80;
+  const c = canvas.getContext('2d');
+  if (!c) return canvas;
+  const map = miniTrackTransform(GEO, 128, 80, 6);
+  c.lineJoin = 'round';
+  c.strokeStyle = 'rgba(255,255,255,0.15)';
+  c.lineWidth = 6;
+  c.beginPath();
+  GEO.pts.forEach(([x, y], i) => {
+    const [mx, my] = map(x, y);
+    if (i === 0) c.moveTo(mx, my);
+    else c.lineTo(mx, my);
+  });
+  c.closePath();
+  c.stroke();
+  c.strokeStyle = C.neon;
+  c.lineWidth = 2;
+  c.stroke();
+  const [sx, sy] = map(START.x, START.y);
+  c.fillStyle = '#ffffff';
+  c.fillRect(sx - 1, sy - 4, 2, 8);
+  return canvas;
 }
 
-function drawF1(c: CanvasRenderingContext2D, x: number, y: number, angle: number, color: string, accent: string): void {
-  c.save();
-  c.translate(Math.round(x * T), Math.round(y * T));
-  c.rotate(angle);
-  px(c, 'rgba(0,0,0,0.25)', -15, -5, 32, 12);
-  // 四個輪子
-  for (const [wx, wy] of [[-11, -8], [-11, 5], [7, -8], [7, 5]] as const) px(c, '#15171f', wx, wy, 6, 3);
-  // 車身：細長、鼻翼、尾翼
-  px(c, color, -12, -3, 26, 6);
-  px(c, color, 12, -2, 5, 4);
-  px(c, accent, 15, -7, 3, 14); // 前翼
-  px(c, accent, -15, -7, 3, 14); // 尾翼
-  px(c, '#2b2d33', -3, -2, 6, 4); // 駕駛艙
-  px(c, '#f6c945', -2, -1, 2, 2); // 安全帽
-  px(c, 'rgba(255,255,255,0.35)', -10, -3, 20, 1);
-  c.restore();
+function drawMini(seconds: number): void {
+  const canvas = miniRef.value;
+  const c = canvas?.getContext('2d');
+  if (!canvas || !c || !miniBase) return;
+  const map = miniTrackTransform(GEO, 128, 80, 6);
+  c.clearRect(0, 0, 128, 80);
+  c.drawImage(miniBase, 0, 0);
+  for (const npc of NPC_CARS) {
+    const p = GEO.pointAt(seconds * npc.speed + npc.offset * GEO.length);
+    const [mx, my] = map(p.x, p.y);
+    c.fillStyle = npc.color;
+    c.fillRect(mx - 1.5, my - 1.5, 3, 3);
+  }
+  const at = driving.value ? car : me;
+  const [mx, my] = map(at.x, at.y);
+  c.fillStyle = '#fbbf24';
+  c.beginPath();
+  c.arc(mx, my, 3, 0, Math.PI * 2);
+  c.fill();
+  c.strokeStyle = '#15171f';
+  c.lineWidth = 1;
+  c.stroke();
 }
 
-// VIP 看台座位：紅色桶型座椅；有人坐著就畫出上半身
-function drawSeat(c: CanvasRenderingContext2D, i: number, seconds: number): void {
+// F1 賽車：共用的精緻版（pixel/f1Car.ts）；黃色車戴紅色安全帽
+function drawF1(c: CanvasRenderingContext2D, x: number, y: number, angle: number, color: string, accent: string, seconds: number, helmet = color === '#f6c945' ? '#e25a4a' : '#f6c945'): void {
+  drawF1Car(c, x * T, y * T, angle, color, accent, seconds, helmet);
+}
+
+function drawSeatPerson(c: CanvasRenderingContext2D, i: number, seconds: number): void {
   const spot = SEAT_SPOTS[i];
   if (!spot) return;
-  const x = Math.round(spot.x * T);
-  const y = Math.round(spot.y * T);
   const state = seatState(i);
+  drawStandSeat(c, spot.x, spot.y, state === 'me' && seatedIndex !== i, seconds);
   const occupied = state === 'mate' || state === 'taken' || (state === 'me' && seatedIndex === i);
-  px(c, 'rgba(0,0,0,0.2)', x - 7, y + 6, 14, 3);
-  px(c, '#3a3d45', x - 1, y + 3, 2, 5);
-  px(c, '#d72d2d', x - 6, y - 4, 12, 8);
-  px(c, '#f06a5a', x - 5, y - 4, 10, 2);
-  if (state === 'me' && seatedIndex !== i) {
-    // 自己的位子但人不在：底下閃黃光
-    c.fillStyle = `rgba(251, 191, 36, ${0.35 + Math.sin(seconds * 3) * 0.15})`;
-    c.fillRect(x - 7, y + 6, 14, 2);
-  }
   if (!occupied) return;
   const mate = props.seats[i] ? props.getMateAtSeat(props.seats[i]?.id ?? '') : null;
   const colors = state === 'me' ? lookColors(prefs.value.hair, prefs.value.shirt, prefs.value) : mate ? readerColors(mate) : { hair: '#6b7280', hairLight: '#8b93a1', shirt: '#94a3b8', shirtShade: '#6f7d91' };
-  const sprite = getAvatarFrame(colors, 'up', 'idle');
-  c.drawImage(sprite, 0, 0, AVATAR_SIZE.w, SEATED_ROWS, x - AVATAR_SIZE.w / 2, y + 2 - SEATED_ROWS, AVATAR_SIZE.w, SEATED_ROWS);
-  px(c, '#d72d2d', x - 6, y - 1, 12, 5);
+  const sprite = getAvatarFrame(colors, 'down', 'idle');
+  const x = Math.round(spot.x * T);
+  const y = Math.round(spot.y * T);
+  c.drawImage(sprite, 0, 0, AVATAR_SIZE.w, SEATED_ROWS, x - AVATAR_SIZE.w / 2, y + 1 - SEATED_ROWS, AVATAR_SIZE.w, SEATED_ROWS);
 }
 
-function drawMe(c: CanvasRenderingContext2D): void {
-  const colors = lookColors(prefs.value.hair, prefs.value.shirt, prefs.value);
-  const frame = me.moving ? (Math.floor(me.walkClock / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
-  const sprite = getAvatarFrame(colors, me.facing, frame);
-  px(c, 'rgba(0,0,0,0.18)', Math.round(me.x * T - 5), Math.round(me.y * T + 3), 10, 2);
-  c.drawImage(sprite, Math.round(me.x * T - AVATAR_SIZE.w / 2), Math.round(me.y * T + 5 - AVATAR_SIZE.h));
+function drawCornerSign(c: CanvasRenderingContext2D, sign: { n: number; x: number; y: number }): void {
+  const x = Math.round(sign.x * T);
+  const y = Math.round(sign.y * T);
+  px(c, 'rgba(0,0,0,0.35)', x - 3, y, 7, 2);
+  px(c, '#5a5f70', x - 1, y - 10, 2, 10);
+  c.fillStyle = '#0f1118';
+  c.beginPath();
+  c.arc(x, y - 16, 7, 0, Math.PI * 2);
+  c.fill();
+  c.strokeStyle = '#ffffff';
+  c.lineWidth = 1.5;
+  c.stroke();
+  c.fillStyle = '#ffffff';
+  c.font = '700 8px system-ui, sans-serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText(String(sign.n), x, y - 15.5);
 }
 
-function drawRemote(c: CanvasRenderingContext2D, other: ShownRemote, seconds: number): void {
-  const frame = other.remote.moving ? (Math.floor(seconds / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
-  const sprite = getAvatarFrame(remoteColors(other.remote), other.remote.facing, frame);
-  px(c, 'rgba(0,0,0,0.18)', Math.round(other.x * T - 5), Math.round(other.y * T + 3), 10, 2);
-  c.drawImage(sprite, Math.round(other.x * T - AVATAR_SIZE.w / 2), Math.round(other.y * T + 5 - AVATAR_SIZE.h));
+function drawFan(c: CanvasRenderingContext2D, fan: (typeof CROWD)[number], seconds: number): void {
+  const x = Math.round(fan.x * T);
+  const y = Math.round(fan.y * T);
+  drawStandSeat(c, fan.x, fan.y, false, seconds, ['#2b2e3a', '#4a4f60', '#5f6578']);
+  if (!fan.colors) return;
+  // 偶爾跳起來一下
+  const hop = Math.sin(seconds * 3 + fan.x * 2.1) > 0.93 ? 2 : 0;
+  c.drawImage(getAvatarFrame(fan.colors, 'down', 'idle'), 0, 0, AVATAR_SIZE.w, SEATED_ROWS, x - AVATAR_SIZE.w / 2, y + 1 - SEATED_ROWS - hop, AVATAR_SIZE.w, SEATED_ROWS);
 }
 
-function pill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, color: string): void {
-  c.font = '700 12px system-ui, -apple-system, "PingFang TC", sans-serif';
-  const width = pillTextWidth(c, text) + 14;
-  const height = 20;
+function drawPerson(c: CanvasRenderingContext2D, x: number, y: number, colors: ReturnType<typeof lookColors>, facing: 'up' | 'down' | 'left' | 'right', moving: boolean, clock: number): void {
+  const frame = moving ? (Math.floor(clock / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
+  px(c, 'rgba(0,0,0,0.3)', Math.round(x * T - 5), Math.round(y * T + 3), 10, 2);
+  c.drawImage(getAvatarFrame(colors, facing, frame), Math.round(x * T - AVATAR_SIZE.w / 2), Math.round(y * T + 5 - AVATAR_SIZE.h));
+}
+
+// 港口、池子的水面：一條條慢慢飄的反光
+function drawWaterShimmer(c: CanvasRenderingContext2D, seconds: number): void {
+  for (const w of C.water) {
+    const count = Math.round(((w.x1 - w.x0) * (w.y1 - w.y0)) / 5);
+    for (let i = 0; i < count; i += 1) {
+      const span = (w.x1 - w.x0) * T;
+      const fx = (i * 97.3 + seconds * (6 + (i % 5))) % span;
+      const fy = (i * 37.1) % ((w.y1 - w.y0) * T - 6);
+      // 城市裡的橢圓池子：池子外面不畫
+      const pond = w.x0 > 0.5 && w.y0 > 0.5 && w.x1 < C.W - 0.5 && w.y1 < C.H - 0.5;
+      if (pond) {
+        const nx = (fx / span) * 2 - 1;
+        const ny = ((fy + 3) / ((w.y1 - w.y0) * T)) * 2 - 1;
+        if (nx * nx + ny * ny > 0.7) continue;
+      }
+      const a = 0.12 + 0.12 * Math.sin(seconds * 1.5 + i);
+      px(c, i % 3 === 0 ? `rgba(255, 190, 120, ${a})` : `rgba(140, 190, 255, ${a})`, Math.round(w.x0 * T + fx), Math.round(w.y0 * T + 3 + fy), 6 + (i % 4) * 2, 1);
+    }
+  }
+}
+
+function pill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, color: string, small = false): void {
+  c.font = small ? '700 10px system-ui, -apple-system, "PingFang TC", sans-serif' : '700 12px system-ui, -apple-system, "PingFang TC", sans-serif';
+  const width = pillTextWidth(c, text) + (small ? 10 : 14);
+  const height = small ? 16 : 20;
   c.fillStyle = 'rgba(15, 23, 42, 0.86)';
   c.beginPath();
   c.roundRect(Math.round(cx - width / 2), Math.round(bottom - height), width, height, height / 2);
@@ -689,8 +642,8 @@ function render(seconds: number): void {
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
   }
-  // 街道賽地圖大、開車要看得遠：一律 2 倍（超大螢幕才 3 倍）
-  const scale = cssW >= 2000 ? 3 : 2;
+  // 走路時近一點看得到細節（跟其他地圖一樣 3 倍），開車拉遠到 2 倍看得到前面的彎
+  const scale = !driving.value && cssW >= 900 ? 3 : 2;
   const focus = driving.value ? car : me;
   const follow = (size: number, world: number, at: number) => (world <= size ? (size - world) / 2 : Math.min(0, Math.max(size - world, size / 2 - at)));
   const ox = Math.round(follow(cssW, W * T * scale, focus.x * T * scale) * dpr) / dpr;
@@ -705,63 +658,83 @@ function render(seconds: number): void {
   ctx.imageSmoothingEnabled = false;
   ctx.setTransform(scale * dpr, 0, 0, scale * dpr, ox * dpr, oy * dpr);
   if (ground) ctx.drawImage(ground, 0, 0);
-
-  // 依 y 排前後
-  const items: { y: number; draw: () => void }[] = [];
   const c = ctx;
-  C.landmarks.forEach((l) => items.push({ y: l.y1, draw: () => drawLandmark(c, l, seconds) }));
-  items.push({ y: STATION.y1, draw: () => drawStation(c) });
+  drawWaterShimmer(c, seconds);
+
+  // 畫面裡看得到的才排進去（建築、樹、燈很多）
+  const vx0 = -ox / scale / T - 2;
+  const vx1 = (cssW - ox) / scale / T + 2;
+  const vy0 = -oy / scale / T - 2;
+  const vy1 = (cssH - oy) / scale / T + 16;
+  const visible = (x0: number, x1: number, y: number) => x1 > vx0 && x0 < vx1 && y > vy0 && y < vy1;
+
+  const items: { y: number; draw: () => void }[] = [];
+  for (const b of BUILDINGS) if (visible(b.x0, b.x1, b.y1)) items.push({ y: b.y1, draw: () => drawBuilding(c, b) });
+  for (const tr of TREES) if (visible(tr.x - 1, tr.x + 1, tr.y)) items.push({ y: tr.y, draw: () => drawTree(c, tr) });
+  for (const sign of CORNER_SIGNS) if (visible(sign.x - 1, sign.x + 1, sign.y)) items.push({ y: sign.y, draw: () => drawCornerSign(c, sign) });
+  for (const l of CITY.lamps) if (visible(l.x - 1, l.x + 1, l.y)) items.push({ y: l.y, draw: () => drawLamp(c, l) });
+  for (const s of CITY.scooters) if (visible(s.x - 1, s.x + 1, s.y)) items.push({ y: s.y, draw: () => drawScooter(c, s) });
+  for (const l of C.landmarks) if (visible(l.x0, l.x1, l.y1)) items.push({ y: l.y1, draw: () => drawLandmark(c, l, seconds) });
+  items.push({ y: C.stand.y0, draw: () => drawStandBack(c, C.stand, C.neon, `${titleUpper}`, seconds) });
+  items.push({ y: C.stand.y1 + 0.05, draw: () => drawStandFront(c, C.stand, C.neon, seconds) });
+  SEAT_SPOTS.forEach((spot, i) => items.push({ y: spot.y + 0.3, draw: () => drawSeatPerson(c, i, seconds) }));
+  for (const fan of CROWD) items.push({ y: fan.y + 0.29, draw: () => drawFan(c, fan, seconds) });
+  items.push({ y: C.pit.y1, draw: () => drawPitGarages(c, C.pit, seconds) });
+  items.push({ y: C.station.y1, draw: () => drawStation(c, C.station, seconds) });
+  for (const d of DRS_BOARDS) items.push({ y: d.y, draw: () => drawDrsBoard(c, d.x, d.y) });
   NPC_CARS.forEach((npc) => {
-    const p = pointOnTrack(seconds * npc.speed + npc.offset * trackLength);
-    items.push({ y: p.y, draw: () => drawF1(c, p.x, p.y, p.angle, npc.color, npc.accent) });
+    const p = GEO.pointAt(seconds * npc.speed + npc.offset * GEO.length);
+    items.push({ y: p.y, draw: () => drawF1(c, p.x, p.y, p.angle, npc.color, npc.accent, seconds) });
   });
-  items.push({ y: car.y, draw: () => drawF1(c, car.x, car.y, car.angle, '#f6c945', '#2b2d33') });
-  SEAT_SPOTS.forEach((spot, i) => items.push({ y: spot.y + 0.4, draw: () => drawSeat(c, i, seconds) }));
-  if (!driving.value && seatedIndex === null) items.push({ y: me.y + 0.35, draw: () => drawMe(c) });
+  const mine = livery(prefs.value.carLivery);
+  items.push({ y: car.y, draw: () => drawF1(c, car.x, car.y, car.angle, mine.body, mine.accent, seconds, mine.helmet) });
+  if (!driving.value && seatedIndex === null) items.push({ y: me.y + 0.35, draw: () => drawPerson(c, me.x, me.y, lookColors(prefs.value.hair, prefs.value.shirt, prefs.value), me.facing, me.moving, me.walkClock) });
   for (const other of shownRemotes) {
     if (other.remote.car) {
       const color = RIVAL_COLORS[Math.abs([...other.remote.displayName].reduce((h, ch) => h * 31 + ch.charCodeAt(0), 7)) % RIVAL_COLORS.length] ?? '#e86a8a';
-      items.push({ y: other.y, draw: () => drawF1(c, other.x, other.y, other.angle, color, '#2b2d33') });
+      const theirs = other.remote.livery === undefined ? null : livery(other.remote.livery);
+      items.push({ y: other.y, draw: () => (theirs ? drawF1(c, other.x, other.y, other.angle, theirs.body, theirs.accent, seconds, theirs.helmet) : drawF1(c, other.x, other.y, other.angle, color, '#2b2d33', seconds)) });
     } else {
-      items.push({ y: other.y + 0.35, draw: () => drawRemote(c, other, seconds) });
+      items.push({ y: other.y + 0.35, draw: () => drawPerson(c, other.x, other.y, remoteColors(other.remote), other.remote.facing, other.remote.moving, seconds) });
     }
   }
   items.sort((a, b) => a.y - b.y).forEach((item) => item.draw());
+  // 高空的東西最後畫：起跑燈門架、高樓頂上的紅色航空警示燈
+  drawStartGantry(c, START.x, START.y, START.angle, TRACK_HALF, titleUpper, seconds);
+  if (Math.sin(seconds * 2.4) > 0.2) {
+    for (const b of BUILDINGS) if (b.beacon && visible(b.x0, b.x1, b.y1)) px(c, '#ff4040', Math.round(b.beacon.x * T) - 1, Math.round(b.beacon.y * T) - 1, 3, 2);
+  }
+
+  // 畫面四周暗一點（夜景的氣氛）
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const vignette = ctx.createRadialGradient(cssW / 2, cssH / 2, Math.min(cssW, cssH) * 0.35, cssW / 2, cssH / 2, Math.max(cssW, cssH) * 0.75);
+  vignette.addColorStop(0, 'rgba(5, 6, 15, 0)');
+  vignette.addColorStop(1, 'rgba(5, 6, 15, 0.45)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, cssW, cssH);
 
   // 名牌（螢幕座標）
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const screen = (x: number, y: number) => ({ x: ox + x * T * scale, y: oy + y * T * scale });
-  const sp = screen((STATION.x0 + STATION.x1) / 2, STATION.y0 - 0.8);
+  const sp = screen((STATION.x0 + STATION.x1) / 2, STATION.y0 - 0.5);
   pill(ctx, `🚉 ${t.value.f1Hub.title}`, sp.x, sp.y, '#fbbf24');
-  // 地標的名字（放在建築下緣）
   for (const l of C.landmarks) {
     const name = l.name[locale.value];
-    if (!name) continue;
-    const lp = screen((l.x0 + l.x1) / 2, l.y1 + 1.3);
-    pill(ctx, name, lp.x, lp.y, '#94a3b8');
+    if (!name || !visible(l.x0, l.x1, l.y1)) continue;
+    const lp = screen((l.x0 + l.x1) / 2, l.y1 + 1.1);
+    pill(ctx, name, lp.x, lp.y, '#94a3b8', true);
   }
-  // DRS 區的牌子
-  for (const i of C.drs) {
-    const a = TRACK[i];
-    const b = TRACK[(i + 1) % TRACK.length];
-    if (!a || !b) continue;
-    const dp = screen((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + 0.4);
-    pill(ctx, 'DRS', dp.x, dp.y, '#3dff8a');
-  }
-  const pp = screen((C.pitLane.x0 + C.pitLane.x1) / 2, C.pitLane.y1 + 0.2);
-  pill(ctx, 'PIT LANE', pp.x, pp.y, '#4f8fff');
   // 人站在車旁時，車的名牌往上疊在「我」上面，不要互相蓋住；觸控裝置寫「點車上車」
   const nearCarLabel = Math.hypot(me.x - car.x, me.y - car.y) < 1.6;
-  const cp = screen(car.x, (nearCarLabel ? Math.min(me.y - 1, car.y - 0.8) : car.y - 0.8));
+  const cp = screen(car.x, nearCarLabel ? Math.min(me.y - 1, car.y - 0.8) : car.y - 0.8);
   if (!driving.value) pill(ctx, isTouch.value ? t.value.f1.yourCarTouch : t.value.f1.yourCar, cp.x, cp.y - (nearCarLabel ? 24 : 0), '#fbbf24');
   const mp = driving.value ? screen(car.x, car.y - 0.8) : screen(me.x, me.y - 1);
-  pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
+  if (seatedIndex === null) pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
   for (const other of shownRemotes) {
     const op = screen(other.x, other.y - (other.remote.car ? 0.8 : 1));
     pill(ctx, remoteLabel(other), op.x, op.y, '#2dd4bf');
   }
-  const vp = screen((C.stand.x0 + C.stand.x1) / 2, C.stand.y0 - 0.2);
-  pill(ctx, t.value.f1.vipSeats, vp.x, vp.y, '#2dd4bf');
+  const vp = screen((C.stand.x0 + C.stand.x1) / 2, C.stand.y1 + 1.2);
+  if (seatedIndex === null && !driving.value) pill(ctx, t.value.f1.vipSeats, vp.x, vp.y, '#2dd4bf', true);
   SEAT_SPOTS.forEach((spot, i) => {
     const mate = props.seats[i] ? props.getMateAtSeat(props.seats[i]?.id ?? '') : null;
     if (!mate) return;
@@ -772,6 +745,7 @@ function render(seconds: number): void {
 
 let rafId = 0;
 let last = 0;
+let frameCount = 0;
 function frame(time: number): void {
   rafId = requestAnimationFrame(frame);
   const seconds = time / 1000;
@@ -786,11 +760,13 @@ function frame(time: number): void {
     seatedIndex !== null
       ? { x: me.x, y: me.y, facing: me.facing, moving: false, hidden: true, scene: C.id }
       : driving.value
-        ? { x: r2(car.x), y: r2(car.y), facing: me.facing, moving: Math.abs(car.speed) > 0.3, scene: C.id, vehicle: 'f1', angle: r2(car.angle) }
+        ? { x: r2(car.x), y: r2(car.y), facing: me.facing, moving: Math.abs(car.speed) > 0.3, scene: C.id, vehicle: 'f1', angle: r2(car.angle), livery: prefs.value.carLivery }
         : { x: r2(me.x), y: r2(me.y), facing: me.facing, moving: me.moving, scene: C.id },
     seconds,
   );
   render(seconds);
+  frameCount += 1;
+  if (frameCount % 3 === 0) drawMini(seconds);
 }
 
 // ── 輸入 ──
@@ -810,7 +786,7 @@ function ignoreKey(event: KeyboardEvent): boolean {
   if (!target || target === containerRef.value) return false;
   if (target.closest('textarea, select, [contenteditable="true"], [role="dialog"]')) return true;
   if (target instanceof HTMLInputElement && target.type !== 'range' && target.type !== 'checkbox') return true;
-  // 點過場景外的按鈕、分頁、音量滑桿後焦點會留在那裡：空白鍵和移動鍵還給賽車場，Enter 照樣按那個按鈕
+  // 點過場景外的按鈕、分頁、音量滑桿後焦點會留在那裡：空白鍵和移動鍵還給賽道，Enter 照樣按那個按鈕
   if (!containerRef.value?.contains(target)) {
     if (event.code !== 'Space' && !KEY_MAP[event.code]) return event.code === 'Enter';
     target.blur();
@@ -885,7 +861,7 @@ function onKeyUp(event: KeyboardEvent): void {
   if (dir) keys.delete(dir);
 }
 
-// 點自己的車就上車
+// 點自己的車就上車；點看台座位走過去坐
 function handleClick(event: MouseEvent): void {
   containerRef.value?.focus({ preventScroll: true });
   const at = canvasRef.value ? localPoint(canvasRef.value, event.clientX, event.clientY) : null;
@@ -903,7 +879,6 @@ function handleClick(event: MouseEvent): void {
     getIn();
     return;
   }
-  // 點看台座位：走過去坐
   const seat = pickSeatSpot(SEAT_SPOTS, x, y, (i) => seatState(i) === 'empty');
   if (seat >= 0 && seatState(seat) === 'empty' && !props.disabled) {
     if (seatedIndex !== null) standUp();
@@ -951,6 +926,7 @@ onMounted(() => {
   ctx = canvasRef.value?.getContext('2d') ?? null;
   isTouch.value = window.matchMedia('(pointer: coarse)').matches;
   ground = paintGround();
+  miniBase = paintMiniBase();
   // 一抵達就站在車站旁：先走開才會再跳出回程面板
   stationLock = true;
   // 朋友分享的位置：站到他旁邊；不然上次就坐在看台上的話直接坐回去

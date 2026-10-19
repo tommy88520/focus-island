@@ -35,6 +35,8 @@ export interface PlayerPrefs {
   blocked: string[];
   // 一起看 YouTube：關掉就不會跳出別人的邀請
   watchInvitesOff: boolean;
+  // 開 F1 時的賽車塗裝（f1Car.ts 的 LIVERIES 編號）
+  carLivery: number;
   // 自己的家：花園裡擺的東西（GARDEN_ITEMS 的 id＋格子座標）。存在帳號裡（雲端同步），之後好友互訪再搬到後端
   garden: GardenPlacement[];
   // 回過家了（第一次回家送花園擺設，只送一次）
@@ -62,7 +64,7 @@ export function applyCoinFloor(p: PlayerPrefs): PlayerPrefs {
   return p.coinFloor300 ? p : { ...p, coins: Math.max(p.coins, COIN_FLOOR), coinFloor300: true };
 }
 
-const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, body: 0, acc: 0, ownedAcc: [], whispersOff: false, blocked: [], watchInvitesOff: false, garden: [], homeVisited: false, villaGarden: false, doNotDisturb: false, groupFocus: false, notifications: false, sceneClock: true, coins: COIN_FLOOR, coinFloor300: true };
+const DEFAULTS: PlayerPrefs = { dailyGoalHours: 6, hair: 0, shirt: 0, body: 0, acc: 0, ownedAcc: [], whispersOff: false, blocked: [], watchInvitesOff: false, carLivery: 0, garden: [], homeVisited: false, villaGarden: false, doNotDisturb: false, groupFocus: false, notifications: false, sceneClock: true, coins: COIN_FLOOR, coinFloor300: true };
 
 function load(): PlayerPrefs {
   try {
@@ -76,6 +78,7 @@ function load(): PlayerPrefs {
       acc: int(parsed.acc, 0),
       whispersOff: parsed.whispersOff === true,
       watchInvitesOff: parsed.watchInvitesOff === true,
+      carLivery: int(parsed.carLivery, 0) <= 15 ? int(parsed.carLivery, 0) : 0,
       homeVisited: parsed.homeVisited === true,
       villaGarden: parsed.villaGarden === true,
       garden: Array.isArray(parsed.garden) ? parsed.garden.filter(isPlacement).slice(0, 300) : [],

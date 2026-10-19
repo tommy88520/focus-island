@@ -59,10 +59,25 @@ import LeaveFocusDialog from 'src/pages/index/components/LeaveFocusDialog.vue';
 import ProfileCard from 'src/pages/index/components/ProfileCard.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, getAvatarFrame, lookColors, readerColors, SEATED_ROWS } from 'src/pages/index/pixel/pixelArt';
-import { px, seeded, pillTextWidth, fillPillText } from 'src/pages/index/pixel/pixelUtil';
+import { px, pillTextWidth, fillPillText } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 import { pickSeatSpot } from 'src/pages/index/seatPick';
-import { CIRCUITS, type CircuitDef } from 'src/pages/index/pixel/circuits';
+import { CIRCUITS } from 'src/pages/index/pixel/circuits';
+import {
+  drawBins,
+  drawDepartureBoard,
+  drawEscalator,
+  drawExitSign,
+  drawHubBenchBack,
+  drawHubBenchSeat,
+  drawHubPillar,
+  drawHubTrain,
+  drawPlant,
+  drawScreenDoors,
+  drawVending,
+  paintHubGround,
+  type HubLayout,
+} from 'src/pages/index/pixel/hubArt';
 
 export type HubDestination = 'f1' | 'gptpe' | 'gptxg' | 'gpkhh';
 
@@ -80,12 +95,13 @@ const emit = defineEmits<{ leave: []; go: [to: HubDestination]; select: [seatId:
 const { t, locale } = useLocale();
 const prefs = usePlayerPrefs();
 
-// ── 場地（格，1 格 = 16px）：上面是列車，中間是月台，下面一排路線看板，右下角是出口 ──
+// ── 場地（格，1 格 = 16px）：上面是列車和月台門，中間是月台，下面一排牆上海報，右下角是出口 ──
 const T = 16;
 const W = 44;
 const H = 21;
-const TRAIN = { y0: 0.5, y1: 5 };
-const PLATFORM_Y = 5.4;
+const TRAIN_Y0 = 0.4;
+const PLATFORM_Y = 5.6;
+const WALL_Y = 16.8;
 // 四個車門：各去一條賽道（顏色是那條賽道的代表色）
 const GATES: { x: number; to: HubDestination; color: string }[] = [
   { x: 7, to: 'f1', color: '#f6c945' },
@@ -94,24 +110,57 @@ const GATES: { x: number; to: HubDestination; color: string }[] = [
   { x: 37, to: 'gpkhh', color: '#ff3b8a' },
 ];
 const EXIT = { x0: 39, y0: 12.8, x1: 43.5, y1: 16.4, trigger: { x: 41, y: 12 } };
-const BOARD = { y0: 16.6, y1: 21 };
-// 長椅：三張、各坐兩個人（順序 = 座位編號）
-const BENCHES = [9.5, 21, 32.5];
+// 柱子在車門之間；長椅靠著柱子（三張、各坐兩個人，順序 = 座位編號）
+const PILLARS = [2, 12, 22, 32, 42];
+const PILLAR_BASE = 8.6;
+const BENCHES = [12, 22, 32];
+const SEAT_Y = 11;
 const SEAT_SPOTS = BENCHES.flatMap((bx) => [
-  { x: bx - 0.75, y: 10.6 },
-  { x: bx + 0.75, y: 10.6 },
+  { x: bx - 0.75, y: SEAT_Y },
+  { x: bx + 0.75, y: SEAT_Y },
 ]);
-const PILLARS = [3, 12, 22, 32];
+const BOARD_RECT = { x0: 4.4, x1: 10.6, base: 14.2 };
+const VENDING = [
+  { x: 0.7, body: '#c62828' },
+  { x: 2.3, body: '#1e5fbf' },
+];
+const VENDING_BASE = 14.2;
+const PLANTS = [
+  { x: 14.5, y: 11.3 },
+  { x: 34.5, y: 11.3 },
+  { x: 19.5, y: 15.6 },
+  { x: 29.5, y: 15.6 },
+];
+const BINS = { x: 24.1, y: 11.3 };
 
 function gateLabel(to: HubDestination): string {
   return to === 'f1' ? t.value.f1.title : CIRCUITS[to].title[locale.value];
 }
 
+const inRect = (x: number, y: number, x0: number, y0: number, x1: number, y1: number) => x > x0 && x < x1 && y > y0 && y < y1;
 const blocked = (x: number, y: number) =>
-  x < 0.5 || x > W - 0.5 || y < PLATFORM_Y + 0.6 || y > BOARD.y0 - 0.2 ||
+  x < 0.5 || x > W - 0.5 || y < PLATFORM_Y + 0.7 || y > WALL_Y - 0.25 ||
   SEAT_SPOTS.some((s) => Math.abs(x - s.x) < 0.45 && Math.abs(y - s.y) < 0.45) ||
-  PILLARS.some((p) => Math.abs(x - p) < 0.5 && y > 8.6 && y < 9.6) ||
-  (x > EXIT.x0 && x < EXIT.x1 && y > EXIT.y0 && y < EXIT.y1);
+  BENCHES.some((b) => inRect(x, y, b - 1.6, SEAT_Y - 0.3, b + 1.6, SEAT_Y + 0.25)) ||
+  PILLARS.some((p) => inRect(x, y, p - 0.55, PILLAR_BASE - 0.7, p + 0.55, PILLAR_BASE + 0.1)) ||
+  inRect(x, y, BOARD_RECT.x0, BOARD_RECT.base - 0.6, BOARD_RECT.x1, BOARD_RECT.base + 0.1) ||
+  inRect(x, y, 0.5, VENDING_BASE - 0.7, 3.8, VENDING_BASE + 0.1) ||
+  PLANTS.some((pl) => inRect(x, y, pl.x - 0.5, pl.y - 0.5, pl.x + 0.5, pl.y + 0.1)) ||
+  inRect(x, y, BINS.x - 0.1, BINS.y - 0.5, BINS.x + 1.2, BINS.y + 0.1) ||
+  inRect(x, y, EXIT.x0, EXIT.y0, EXIT.x1, EXIT.y1);
+
+// 給美術用的配置（名字跟著語言）
+const hubLayout = (): HubLayout => ({
+  W,
+  H,
+  trainY0: TRAIN_Y0,
+  platformY: PLATFORM_Y,
+  wallY: WALL_Y,
+  exit: EXIT,
+  gates: GATES.map((g) => ({ x: g.x, color: g.color, label: gateLabel(g.to), circuit: g.to === 'f1' ? null : CIRCUITS[g.to] })),
+  title: `${t.value.f1Hub.title} · F1 PLATFORM`,
+});
+let layout = hubLayout();
 
 // ── 點別人的名牌 ──
 const profilePerson = ref<ProfilePerson | null>(null);
@@ -152,7 +201,7 @@ const openGate = computed(() => {
 });
 
 // ── 自己 ──
-const me = { x: 22, y: 13, facing: 'up' as 'up' | 'down' | 'left' | 'right', moving: false, walkClock: 0 };
+const me = { x: 22, y: 13.5, facing: 'up' as 'up' | 'down' | 'left' | 'right', moving: false, walkClock: 0 };
 // 剛抵達時站在面板觸發範圍裡：先走開才會再跳出來
 let triggerLock = true;
 let seatedIndex: number | null = null;
@@ -282,121 +331,13 @@ let ctx: CanvasRenderingContext2D | null = null;
 let ground: HTMLCanvasElement | null = null;
 const view = { scale: 2, ox: 0, oy: 0 };
 
-// 路線看板上的小賽道圖：把中心線縮到框框裡
-function miniTrack(c: CanvasRenderingContext2D, circuit: CircuitDef | null, x: number, y: number, w: number, h: number, color: string): void {
-  c.strokeStyle = color;
-  c.lineWidth = 2;
-  c.lineJoin = 'round';
-  c.beginPath();
-  if (!circuit) {
-    // F1 賽車場：原本那條（橢圓形的）
-    c.ellipse(x + w / 2, y + h / 2, w / 2 - 4, h / 2 - 3, 0, 0, Math.PI * 2);
-    c.stroke();
-    return;
-  }
-  const xs = circuit.track.map((p) => p[0]);
-  const ys = circuit.track.map((p) => p[1]);
-  const minX = Math.min(...xs);
-  const minY = Math.min(...ys);
-  const k = Math.min((w - 8) / (Math.max(...xs) - minX), (h - 6) / (Math.max(...ys) - minY));
-  circuit.track.forEach(([tx, ty], i) => {
-    const sx = x + 4 + (tx - minX) * k;
-    const sy = y + 3 + (ty - minY) * k;
-    if (i === 0) c.moveTo(sx, sy);
-    else c.lineTo(sx, sy);
-  });
-  c.closePath();
-  c.stroke();
-}
-
 function paintGround(): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = W * T;
   canvas.height = H * T;
   const c = canvas.getContext('2d');
-  if (!c) return canvas;
-  const rand = seeded(17);
-  // 軌道：碎石、枕木、兩條鐵軌
-  px(c, '#2a2a30', 0, 0, W * T, PLATFORM_Y * T);
-  for (let i = 0; i < 500; i += 1) px(c, rand() < 0.5 ? '#3a3a42' : '#232328', Math.floor(rand() * W * T), Math.floor(rand() * PLATFORM_Y * T), 2, 2);
-  for (let x = 0; x < W * T; x += 10) px(c, '#4a3a2c', x, 2 * T, 5, 2 * T);
-  px(c, '#9aa0ab', 0, 2.3 * T, W * T, 2);
-  px(c, '#9aa0ab', 0, 3.6 * T, W * T, 2);
-  // 月台：磁磚地板、邊緣的黃色導盲磚、白色安全線
-  px(c, '#cfcbc2', 0, PLATFORM_Y * T, W * T, (BOARD.y0 - PLATFORM_Y) * T);
-  for (let x = 0; x < W; x += 1) for (let y = Math.ceil(PLATFORM_Y); y < BOARD.y0; y += 1) if ((x + y) % 2 === 0) px(c, '#cac6bc', x * T, y * T, T, T);
-  for (let i = 0; i < 400; i += 1) px(c, 'rgba(0,0,0,0.05)', Math.floor(rand() * W * T), PLATFORM_Y * T + Math.floor(rand() * (BOARD.y0 - PLATFORM_Y) * T), 2, 2);
-  px(c, '#f6c945', 0, PLATFORM_Y * T, W * T, 6);
-  for (let x = 0; x < W * T; x += 6) px(c, '#e0b232', x + 1, PLATFORM_Y * T + 1, 3, 3);
-  px(c, '#ffffff', 0, (PLATFORM_Y + 0.9) * T, W * T, 2);
-  // 車門前的地上標示（排隊的箭頭）
-  for (const g of GATES) {
-    px(c, g.color, (g.x - 1.2) * T, (PLATFORM_Y + 1.3) * T, 2.4 * T, 3);
-    for (let k = 0; k < 3; k += 1) px(c, 'rgba(0,0,0,0.25)', (g.x - 0.2) * T, (PLATFORM_Y + 1.8 + k * 0.5) * T, 6, 3);
-  }
-  // 下方的牆：四塊路線看板
-  px(c, '#2b2f45', 0, BOARD.y0 * T, W * T, (H - BOARD.y0) * T);
-  px(c, '#454a66', 0, BOARD.y0 * T, W * T, 3);
-  GATES.forEach((g) => {
-    const bx = (g.x - 4) * T;
-    const by = BOARD.y0 * T + 6;
-    const bw = 8 * T;
-    const bh = (H - BOARD.y0) * T - 10;
-    px(c, '#11131c', bx, by, bw, bh);
-    px(c, g.color, bx, by, bw, 2);
-    miniTrack(c, g.to === 'f1' ? null : CIRCUITS[g.to], bx + 4, by + 4, bw * 0.45, bh - 8, g.color);
-    px(c, 'rgba(255,255,255,0.12)', bx + bw * 0.55, by + 8, bw * 0.4, 2);
-    px(c, 'rgba(255,255,255,0.12)', bx + bw * 0.55, by + 14, bw * 0.3, 2);
-  });
-  // 出口的樓梯
-  px(c, '#3a3d4a', EXIT.x0 * T, EXIT.y0 * T, (EXIT.x1 - EXIT.x0) * T, (EXIT.y1 - EXIT.y0) * T);
-  for (let k = 0; k < 6; k += 1) px(c, '#5a5e70', EXIT.x0 * T, EXIT.y0 * T + k * 9, (EXIT.x1 - EXIT.x0) * T, 3);
+  if (c) paintHubGround(c, layout);
   return canvas;
-}
-
-function drawTrain(c: CanvasRenderingContext2D, seconds: number): void {
-  // 銀色車廂、紅色腰帶、四個車門上各一塊目的地 LED
-  px(c, 'rgba(0,0,0,0.35)', 0, TRAIN.y1 * T - 2, W * T, 4);
-  px(c, '#d6dae2', 0, TRAIN.y0 * T, W * T, (TRAIN.y1 - TRAIN.y0) * T);
-  px(c, '#eef1f6', 0, TRAIN.y0 * T, W * T, 4);
-  px(c, '#d72d2d', 0, (TRAIN.y1 - 1.4) * T, W * T, 4);
-  for (let x = 1; x < W - 1; x += 3) {
-    if (GATES.some((g) => Math.abs(x + 1 - g.x) < 3)) continue;
-    px(c, '#28324a', x * T, (TRAIN.y0 + 1) * T, 2 * T, 1.4 * T);
-    px(c, '#4a6a9a', x * T, (TRAIN.y0 + 1) * T, 2 * T, 3);
-  }
-  GATES.forEach((g, i) => {
-    const near = gateIndex.value === i;
-    const dx = (g.x - 1.2) * T;
-    // 車門（站在前面就打開）
-    px(c, '#9aa0ab', dx - 2, (TRAIN.y0 + 0.8) * T, 2.4 * T + 4, (TRAIN.y1 - TRAIN.y0 - 0.8) * T);
-    const open = near ? 8 : 0;
-    px(c, '#c9ced8', dx - open, (TRAIN.y0 + 0.9) * T, 1.2 * T, (TRAIN.y1 - TRAIN.y0 - 0.9) * T);
-    px(c, '#c9ced8', dx + 1.2 * T + open, (TRAIN.y0 + 0.9) * T, 1.2 * T, (TRAIN.y1 - TRAIN.y0 - 0.9) * T);
-    px(c, '#28324a', dx + 3 - open, (TRAIN.y0 + 1.2) * T, 1.2 * T - 6, T);
-    px(c, '#28324a', dx + 1.2 * T + 3 + open, (TRAIN.y0 + 1.2) * T, 1.2 * T - 6, T);
-    // 門上方的 LED 色條，會流動
-    for (let k = 0; k < 8; k += 1) {
-      const on = (k + Math.floor(seconds * 6)) % 8 < 5;
-      px(c, on ? g.color : '#3a2a20', dx + k * 5, TRAIN.y0 * T + 4, 4, 3);
-    }
-  });
-}
-
-function drawBench(c: CanvasRenderingContext2D, bx: number): void {
-  const x = (bx - 1.6) * T;
-  const y = 10.5 * T;
-  px(c, 'rgba(0,0,0,0.2)', x + 2, y + 9, 3.2 * T, 3);
-  px(c, '#5a5e70', x + 3, y + 4, 2, 6);
-  px(c, '#5a5e70', x + 3.2 * T - 5, y + 4, 2, 6);
-  px(c, '#2f80d0', x, y - 4, 3.2 * T, 8);
-  px(c, '#5aa3e8', x, y - 4, 3.2 * T, 2);
-}
-
-function drawPillar(c: CanvasRenderingContext2D, x: number): void {
-  px(c, 'rgba(0,0,0,0.2)', x * T - 6, 9.6 * T, 14, 3);
-  px(c, '#b8b3a8', x * T - 6, 6 * T, 12, 3.6 * T);
-  px(c, '#d6d1c6', x * T - 6, 6 * T, 3, 3.6 * T);
 }
 
 function drawSeated(c: CanvasRenderingContext2D, i: number, seconds: number): void {
@@ -408,13 +349,13 @@ function drawSeated(c: CanvasRenderingContext2D, i: number, seconds: number): vo
   const y = Math.round(spot.y * T);
   if (state === 'me' && seatedIndex !== i) {
     c.fillStyle = `rgba(251, 191, 36, ${0.35 + Math.sin(seconds * 3) * 0.15})`;
-    c.fillRect(x - 7, y + 6, 14, 2);
+    c.fillRect(x - 7, y + 3, 14, 2);
   }
   if (!occupied) return;
   const mate = props.seats[i] ? props.getMateAtSeat(props.seats[i]?.id ?? '') : null;
   const colors = state === 'me' ? lookColors(prefs.value.hair, prefs.value.shirt, prefs.value) : mate ? readerColors(mate) : { hair: '#6b7280', hairLight: '#8b93a1', shirt: '#94a3b8', shirtShade: '#6f7d91' };
   const sprite = getAvatarFrame(colors, 'down', 'idle');
-  c.drawImage(sprite, 0, 0, AVATAR_SIZE.w, SEATED_ROWS, x - AVATAR_SIZE.w / 2, y + 2 - SEATED_ROWS, AVATAR_SIZE.w, SEATED_ROWS);
+  c.drawImage(sprite, 0, 0, AVATAR_SIZE.w, SEATED_ROWS, x - AVATAR_SIZE.w / 2, y + 1 - SEATED_ROWS, AVATAR_SIZE.w, SEATED_ROWS);
 }
 
 function drawPerson(c: CanvasRenderingContext2D, x: number, y: number, colors: ReturnType<typeof lookColors>, facing: 'up' | 'down' | 'left' | 'right', moving: boolean, clock: number): void {
@@ -455,8 +396,7 @@ function render(seconds: number): void {
   const scale = cssW >= 1500 ? 3 : 2;
   const follow = (size: number, world: number, at: number) => (world <= size ? (size - world) / 2 : Math.min(0, Math.max(size - world, size / 2 - at)));
   const ox = Math.round(follow(cssW, W * T * scale, me.x * T * scale) * dpr) / dpr;
-  // 鏡頭往上偏一點：上面的列車和車門比下面的看板重要
-  // 左上角有一排按鈕（全螢幕、我的家、好友）：地圖最上緣可以再往下捲一點，車站、車門才不會被蓋住
+  // 左上角有一排按鈕：地圖最上緣可以再往下捲一點；鏡頭往上偏一點（上面的列車和車門比下面的海報重要）
   const TOP_PAD = 52;
   const followY = (size: number, world: number, at: number) => (world <= size - TOP_PAD ? (size - world + TOP_PAD) / 2 : Math.min(TOP_PAD, Math.max(size - world, size / 2 - at)));
   const oy = Math.round(followY(cssH, H * T * scale, (me.y - 4) * T * scale) * dpr) / dpr;
@@ -467,11 +407,21 @@ function render(seconds: number): void {
   ctx.setTransform(scale * dpr, 0, 0, scale * dpr, ox * dpr, oy * dpr);
   if (ground) ctx.drawImage(ground, 0, 0);
   const c = ctx;
-  drawTrain(c, seconds);
+  drawHubTrain(c, layout, gateIndex.value, seconds);
+  drawScreenDoors(c, layout, gateIndex.value, seconds);
+  drawEscalator(c, layout, seconds);
   const items: { y: number; draw: () => void }[] = [];
-  PILLARS.forEach((p) => items.push({ y: 9.6, draw: () => drawPillar(c, p) }));
-  BENCHES.forEach((b) => items.push({ y: 10.8, draw: () => drawBench(c, b) }));
-  SEAT_SPOTS.forEach((spot, i) => items.push({ y: spot.y + 0.4, draw: () => drawSeated(c, i, seconds) }));
+  PILLARS.forEach((p, i) => items.push({ y: PILLAR_BASE, draw: () => drawHubPillar(c, p, PILLAR_BASE, layout.gates[i % layout.gates.length]) }));
+  BENCHES.forEach((b) => {
+    items.push({ y: SEAT_Y - 0.1, draw: () => drawHubBenchBack(c, b, SEAT_Y) });
+    items.push({ y: SEAT_Y + 0.05, draw: () => drawHubBenchSeat(c, b, SEAT_Y) });
+  });
+  SEAT_SPOTS.forEach((spot, i) => items.push({ y: spot.y, draw: () => drawSeated(c, i, seconds) }));
+  items.push({ y: BOARD_RECT.base, draw: () => drawDepartureBoard(c, BOARD_RECT.x0, BOARD_RECT.x1, BOARD_RECT.base, layout.gates, t.value.f1Hub.departures, t.value.f1Hub.boarding, seconds) });
+  VENDING.forEach((v) => items.push({ y: VENDING_BASE, draw: () => drawVending(c, v.x, VENDING_BASE, v.body) }));
+  PLANTS.forEach((pl) => items.push({ y: pl.y, draw: () => drawPlant(c, pl.x, pl.y) }));
+  items.push({ y: BINS.y, draw: () => drawBins(c, BINS.x, BINS.y) });
+  items.push({ y: EXIT.y0, draw: () => drawExitSign(c, layout) });
   if (seatedIndex === null) items.push({ y: me.y + 0.35, draw: () => drawPerson(c, me.x, me.y, lookColors(prefs.value.hair, prefs.value.shirt, prefs.value), me.facing, me.moving, me.walkClock) });
   for (const other of shownRemotes) items.push({ y: other.y + 0.35, draw: () => drawPerson(c, other.x, other.y, remoteColors(other.remote), other.remote.facing, other.remote.moving, seconds) });
   items.sort((a, b) => a.y - b.y).forEach((it) => it.draw());
@@ -479,13 +429,13 @@ function render(seconds: number): void {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const screen = (x: number, y: number) => ({ x: ox + x * T * scale, y: oy + y * T * scale });
   for (const g of GATES) {
-    const p = screen(g.x, PLATFORM_Y + 0.2);
+    const p = screen(g.x, PLATFORM_Y + 0.85);
     pill(ctx, `${g.to === 'f1' ? '🏁' : '🏆'} ${gateLabel(g.to)}`, p.x, p.y, g.color);
   }
-  const ep = screen((EXIT.x0 + EXIT.x1) / 2, EXIT.y0 - 0.3);
+  const ep = screen((EXIT.x0 + EXIT.x1) / 2, (EXIT.y0 + EXIT.y1) / 2 + 0.4);
   pill(ctx, t.value.f1.stationName, ep.x, ep.y, '#fbbf24');
-  const sp = screen(21, 9.4);
-  pill(ctx, t.value.f1Hub.benches, sp.x, sp.y, '#2dd4bf');
+  const sp = screen(22, 9.6);
+  if (seatedIndex === null) pill(ctx, t.value.f1Hub.benches, sp.x, sp.y, '#2dd4bf');
   const mp = screen(me.x, me.y - 1);
   if (seatedIndex === null) pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
   for (const other of shownRemotes) {
@@ -696,6 +646,7 @@ function clearKeys(): void {
 onMounted(() => {
   ctx = canvasRef.value?.getContext('2d') ?? null;
   isTouch.value = window.matchMedia('(pointer: coarse)').matches;
+  layout = hubLayout();
   ground = paintGround();
   // 從賽道回來：站在那條賽道的車門前（不跳面板，走開再回來才會）；分享連結：站到朋友旁邊；坐過長椅就坐回去
   const arrival = takeArrival('f1hub');
@@ -710,7 +661,7 @@ onMounted(() => {
   } else if (mine >= 0) sitAt(mine);
   else if (from) {
     me.x = from.x;
-    me.y = PLATFORM_Y + 2.4;
+    me.y = PLATFORM_Y + 2.9;
     me.facing = 'down';
   } else {
     // 從圖書館搭下來：站在出口樓梯前

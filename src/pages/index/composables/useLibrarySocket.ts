@@ -178,6 +178,8 @@ export interface RemotePlayer {
   scene?: SceneId;
   car?: boolean;
   angle?: number;
+  // 開 F1 時選的塗裝（f1Car.ts 的 LIVERIES）
+  livery?: number;
   hair?: number;
   shirt?: number;
   body?: number;
@@ -200,6 +202,7 @@ export interface MyPosition {
   pose?: 'floor';
   scene?: SceneId;
   angle?: number;
+  livery?: number;
   item?: ShopItemId;
   hidden?: boolean;
 }
@@ -972,6 +975,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 ...(isSceneId(pos.scene) ? { scene: pos.scene } : {}),
                 ...(pos.vehicle === 'f1' ? { car: true } : {}),
                 ...(typeof pos.angle === 'number' && Number.isFinite(pos.angle) ? { angle: pos.angle } : {}),
+                ...(Number.isInteger(pos.livery) && pos.livery >= 0 && pos.livery <= 15 ? { livery: pos.livery as number } : {}),
                 ...(typeof pos.item === 'string' && pos.item in SHOP_ITEM_EMOJI ? { item: pos.item as ShopItemId } : {}),
                 ...(reader ? readerExtras(reader as unknown as Record<string, unknown>) : {}),
                 ...readerExtras(pos),
