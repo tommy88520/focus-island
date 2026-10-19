@@ -1,4 +1,4 @@
-# 交接（2026-10-19——v1.8.0 大獎賽重畫＋選賽車）
+# 交接（2026-10-19——v1.8.1 倒車）
 
 > 固定 7 段、整份改寫、**≤4KB**。細節、使用者原話在 `docs/HANDOFF_ARCHIVE.md`（grep）。步驟見 `.claude/skills/`。
 
@@ -32,6 +32,7 @@
 - 回報 bug 會放截圖／錄影在 `~/Desktop/截圖/`，iPhone 截圖可能在 `~/Downloads/`；ffmpeg 壞了，用 Swift 抽影格。
 
 ## 6. 最近做完（細節 grep 存檔 2026-10-16～19）
+- v1.8.1：賽車可以倒車（往車尾方向推：先煞車再倒退，白色倒車燈）。
 - v1.8：使用者說醜 → 月台、三條賽道全部重畫（圓弧彎、路緣石、霓虹護牆、正面立面城市、看台觀眾、車庫、起跑燈、小地圖）；F1 車重畫（`f1Car.ts`）＋選賽車塗裝（走到車旁，`prefs.carLivery`，POS 帶 `livery`）。
 - v1.7：F1 站 → F1 月台 → F1 賽車場／台北／台中／高雄大獎賽；座位每區 104→146（後端一起改）。
 - v1.6.4：選單「🐞 回報問題」存後端 `bug_reports`。**接手先查新回報**：家機 `psql focus_island -c "select id,name,message from bug_reports where not done"`。

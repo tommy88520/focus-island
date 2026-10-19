@@ -295,17 +295,30 @@ function updateCar(dt: number, now: number): void {
   const pushing = x !== 0 || y !== 0;
   const near = GEO.nearest(car.x, car.y);
   const onTrack = near.dist <= TRACK_HALF + 0.3;
-  drsOn.value = onTrack && C.drs.includes(near.origin);
+  drsOn.value = onTrack && car.speed > 0 && C.drs.includes(near.origin);
   const top = onTrack ? (drsOn.value ? 20 : 16) : 4;
   if (pushing) {
     const target = Math.atan2(y, x);
-    let diff = target - car.angle;
-    while (diff > Math.PI) diff -= Math.PI * 2;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-    car.angle += Math.sign(diff) * Math.min(Math.abs(diff), dt * 3.2);
-    // 方向差太多先減速轉彎
-    const want = Math.abs(diff) > 1.6 ? top * 0.3 : top;
-    car.speed += (want - car.speed) * Math.min(1, dt * 1.6);
+    const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+    const diff = wrap(target - car.angle);
+    const backward = Math.abs(diff) > 2.4;
+    if (backward && car.speed > 0.6) {
+      // 往車尾方向推：先煞車
+      car.speed -= Math.min(car.speed, dt * 14);
+    } else if (backward) {
+      // 停住之後繼續往車尾推＝倒車：車頭不轉過去，車尾對準推的方向，最快 5
+      const back = wrap(target + Math.PI - car.angle);
+      car.angle += Math.sign(back) * Math.min(Math.abs(back), dt * 2.2);
+      car.speed += (-5 - car.speed) * Math.min(1, dt * 1.8);
+    } else if (car.speed < -0.2) {
+      // 倒車中改往前推：先煞住再往前開
+      car.speed += Math.min(-car.speed, dt * 14);
+    } else {
+      car.angle += Math.sign(diff) * Math.min(Math.abs(diff), dt * 3.2);
+      // 方向差太多先減速轉彎
+      const want = Math.abs(diff) > 1.6 ? top * 0.3 : top;
+      car.speed += (want - car.speed) * Math.min(1, dt * 1.6);
+    }
   } else {
     car.speed -= car.speed * Math.min(1, dt * 1.2);
   }
@@ -539,8 +552,8 @@ function drawMini(seconds: number): void {
 }
 
 // F1 賽車：共用的精緻版（pixel/f1Car.ts）；黃色車戴紅色安全帽
-function drawF1(c: CanvasRenderingContext2D, x: number, y: number, angle: number, color: string, accent: string, seconds: number, helmet = color === '#f6c945' ? '#e25a4a' : '#f6c945'): void {
-  drawF1Car(c, x * T, y * T, angle, color, accent, seconds, helmet);
+function drawF1(c: CanvasRenderingContext2D, x: number, y: number, angle: number, color: string, accent: string, seconds: number, helmet = color === '#f6c945' ? '#e25a4a' : '#f6c945', reversing = false): void {
+  drawF1Car(c, x * T, y * T, angle, color, accent, seconds, helmet, reversing);
 }
 
 function drawSeatPerson(c: CanvasRenderingContext2D, i: number, seconds: number): void {
@@ -687,7 +700,7 @@ function render(seconds: number): void {
     items.push({ y: p.y, draw: () => drawF1(c, p.x, p.y, p.angle, npc.color, npc.accent, seconds) });
   });
   const mine = livery(prefs.value.carLivery);
-  items.push({ y: car.y, draw: () => drawF1(c, car.x, car.y, car.angle, mine.body, mine.accent, seconds, mine.helmet) });
+  items.push({ y: car.y, draw: () => drawF1(c, car.x, car.y, car.angle, mine.body, mine.accent, seconds, mine.helmet, car.speed < -0.3) });
   if (!driving.value && seatedIndex === null) items.push({ y: me.y + 0.35, draw: () => drawPerson(c, me.x, me.y, lookColors(prefs.value.hair, prefs.value.shirt, prefs.value), me.facing, me.moving, me.walkClock) });
   for (const other of shownRemotes) {
     if (other.remote.car) {

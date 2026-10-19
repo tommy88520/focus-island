@@ -124,7 +124,7 @@ function sprite(body: string, accent: string, helmet: string): HTMLCanvasElement
 }
 
 // (x, y) 是車子中心的像素座標；angle 是車頭方向（弧度）
-export function drawF1Car(c: CanvasRenderingContext2D, x: number, y: number, angle: number, body: string, accent: string, seconds: number, helmet = '#f6c945'): void {
+export function drawF1Car(c: CanvasRenderingContext2D, x: number, y: number, angle: number, body: string, accent: string, seconds: number, helmet = '#f6c945', reversing = false): void {
   c.save();
   c.translate(Math.round(x), Math.round(y));
   c.rotate(angle);
@@ -136,5 +136,12 @@ export function drawF1Car(c: CanvasRenderingContext2D, x: number, y: number, ang
   c.drawImage(sprite(body, accent, helmet), -CAR_W / 2, -Math.floor(CAR_H / 2));
   // 尾燈（雨燈）一閃一閃
   if (Math.floor(seconds * 4) % 2 === 0) px(c, '#ff3030', -CAR_W / 2 - 1, -1, 2, 2);
+  // 倒車：車尾兩盞白燈＋地上一點光
+  if (reversing) {
+    c.fillStyle = 'rgba(255, 255, 255, 0.18)';
+    c.fillRect(-CAR_W / 2 - 10, -6, 9, 12);
+    px(c, '#ffffff', -CAR_W / 2 - 1, -5, 2, 2);
+    px(c, '#ffffff', -CAR_W / 2 - 1, 3, 2, 2);
+  }
   c.restore();
 }
