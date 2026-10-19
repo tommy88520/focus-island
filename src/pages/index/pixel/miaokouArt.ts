@@ -1,7 +1,7 @@
 // 基隆廟口夜市的美術：老街屋（騎樓、鐵窗、直式招牌；李鵠餅店、連珍糕餅）、仁三路中間的不鏽鋼攤車和一整排黃色燈籠招牌、
 // 東邊的奠濟宮（燕尾脊、剪黏、門神、紅燈籠、香爐的煙）、南邊的基隆港和 KEELUNG 山，還有雨都的雨。
 import { MK, stallCenter, type MiaokouStall } from './miaokou';
-import { px, seeded } from './pixelUtil';
+import { layerCanvas, layerSize, px, seeded, spriteRes } from './pixelUtil';
 
 const T = 16;
 
@@ -146,13 +146,12 @@ function shophouseSprite(b: Shophouse): HTMLCanvasElement {
   const ground = 18;
   const h = ground + b.floors * floorH + 10;
   const pad = 8;
-  const canvas = document.createElement('canvas');
-  canvas.width = w + pad * 2;
-  canvas.height = h + 4;
-  const c = canvas.getContext('2d');
+  const cw = w + pad * 2;
+  const ch = h + 4;
+  const { canvas, c } = layerCanvas(cw, ch, spriteRes());
   if (!c) return canvas;
   const ox = pad;
-  const top = canvas.height - h;
+  const top = ch - h;
   const wall = b.special === 'lihu' ? '#7a3a2c' : b.special === 'lianzhen' ? '#7a6248' : WALLS[Math.floor(rand() * WALLS.length)] ?? '#7a6a5c';
   // 屋頂女兒牆、水塔
   px(c, '#3b3640', ox, top, w, 6);
@@ -229,7 +228,8 @@ function shophouseSprite(b: Shophouse): HTMLCanvasElement {
 
 export function drawShophouse(c: CanvasRenderingContext2D, b: Shophouse): void {
   const s = shophouseSprite(b);
-  c.drawImage(s, Math.round(b.x0 * T) - 8, Math.round(MK.shopLine * T) - s.height);
+  const size = layerSize(s);
+  c.drawImage(s, Math.round(b.x0 * T) - 8, Math.round(MK.shopLine * T) - size.h, size.w, size.h);
 }
 
 // ── 攤車：不鏽鋼台面、後面的老闆、依攤位不同的食物（湯鍋冒煙、炭烤冒煙、剉冰機…），上面掛黃色燈籠招牌 ──

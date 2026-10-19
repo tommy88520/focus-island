@@ -13,6 +13,48 @@ export function px(ctx: CanvasRenderingContext2D, color: string, x: number, y: n
   ctx.fillRect(x, y, w, h);
 }
 
+// 畫布用幾倍的螢幕像素：iPhone 是 3 倍，只畫 2 倍的話瀏覽器會把整張圖再放大 1.5 倍，看起來糊
+export function canvasDpr(): number {
+  return Math.min(window.devicePixelRatio || 1, 3);
+}
+
+// 預先畫好的圖（地圖底圖、有字的建築）：照螢幕上實際放大的倍數畫，招牌的字、霓虹線、圓弧才清楚；
+// 方塊照樣是方塊，像素風不變。以前用 1 倍畫再放大 4～6 倍，字和斜線會糊成一塊塊的。
+// 圖太大就把倍數除以整數（6 → 3、2），貼上去剛好放大整數倍，方塊還是一樣大。手機單張畫布有上限（iPhone 約 1,600 萬像素）
+function maxLayerPixels(): number {
+  return window.matchMedia('(pointer: coarse)').matches ? 12_000_000 : 40_000_000;
+}
+
+// 開一張 w×h（世界座標 px）的圖，照 target 倍畫：回傳的 c 已經縮放好，照世界座標畫就好
+export function layerCanvas(w: number, h: number, target: number): { canvas: HTMLCanvasElement; c: CanvasRenderingContext2D | null } {
+  const limit = Math.sqrt(maxLayerPixels() / (w * h));
+  let res = Math.max(1, target);
+  for (let k = 2; res > limit && target / k >= 1; k += 1) res = target / k;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(w * res);
+  canvas.height = Math.round(h * res);
+  const c = canvas.getContext('2d');
+  c?.scale(canvas.width / w, canvas.height / h);
+  layerSizes.set(canvas, { w, h });
+  return { canvas, c };
+}
+
+// layerCanvas 開的圖原本（世界座標）多大；不是它開的就是畫布本身的大小
+const layerSizes = new WeakMap<HTMLCanvasElement, { w: number; h: number }>();
+export function layerSize(canvas: HTMLCanvasElement): { w: number; h: number } {
+  return layerSizes.get(canvas) ?? { w: canvas.width, h: canvas.height };
+}
+
+// 貼回世界座標 (x, y)、原本的大小 w×h
+export function drawLayer(ctx: CanvasRenderingContext2D, layer: HTMLCanvasElement, x: number, y: number, w: number, h: number): void {
+  ctx.drawImage(layer, x, y, w, h);
+}
+
+// 有字的小圖（建築招牌）用幾倍畫：最常見的放大倍數（畫面 2～3 倍 × 螢幕 2～3 倍），最多 6
+export function spriteRes(): number {
+  return Math.min(6, Math.ceil(canvasDpr() * 3));
+}
+
 // 像素圓：一列一列填，邊緣是鋸齒而不是糊邊
 export function disc(ctx: CanvasRenderingContext2D, color: string, cx: number, cy: number, r: number): void {
   for (let row = -r; row <= r; row += 1) {

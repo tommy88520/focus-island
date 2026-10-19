@@ -214,7 +214,7 @@
 </template>
 
 <script setup lang="ts">
-import { fillPillText, pillTextWidth } from 'src/pages/index/pixel/pixelUtil';
+import { fillPillText, pillTextWidth, canvasDpr, drawLayer, layerCanvas } from 'src/pages/index/pixel/pixelUtil';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue';
 import {
   EMOTE_IDS,
@@ -668,6 +668,8 @@ let ctx: CanvasRenderingContext2D | null = null;
 let sheet: HTMLImageElement | null = null;
 let map: PixelMap = createPixelMap(0);
 let staticLayer: HTMLCanvasElement | null = null;
+// 底圖用幾倍畫：畫面放大倍數 × 螢幕像素（變了就重畫），招牌的字和線條才清楚
+let staticRes = 1;
 let seatNodes: SeatNode[] = [];
 let stairs: StairInfo[] = [];
 let nav: Navigation | null = null;
@@ -830,10 +832,7 @@ function buildNavigation(): void {
 // 底圖涵蓋整個世界（包含負座標的戶外區），畫的時候先把原點移過去
 function paintStatic(): void {
   const { world } = map;
-  const canvas = document.createElement('canvas');
-  canvas.width = (world.x1 - world.x0) * TILE;
-  canvas.height = (world.y1 - world.y0) * TILE;
-  const layer = canvas.getContext('2d');
+  const { canvas, c: layer } = layerCanvas((world.x1 - world.x0) * TILE, (world.y1 - world.y0) * TILE, staticRes);
   if (layer) {
     layer.translate(-world.x0 * TILE, -world.y0 * TILE);
     paintOutdoorGround(layer, world, map.width, map.libraryHeight, map.beach.seaTop);
@@ -1804,7 +1803,7 @@ function updateView(): void {
   if (!container || !canvas) return;
   const cssW = container.clientWidth;
   const cssH = container.clientHeight;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = canvasDpr();
   if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
@@ -2334,7 +2333,7 @@ function renderMinimap(seconds: number): void {
   // 之後都用世界座標畫（左上角是負的）
   c.setTransform(dpr * k, 0, 0, dpr * k, -world.x0 * TILE * k * dpr, -world.y0 * TILE * k * dpr);
   c.imageSmoothingEnabled = true;
-  c.drawImage(staticLayer, world.x0 * TILE, world.y0 * TILE);
+  c.drawImage(staticLayer, world.x0 * TILE, world.y0 * TILE, (world.x1 - world.x0) * TILE, (world.y1 - world.y0) * TILE);
   for (const prop of world.props) {
     const color = MINIMAP_OUTDOOR_COLORS[prop.kind];
     if (!color) continue;
@@ -2518,7 +2517,11 @@ function render(seconds: number): void {
   ctx.imageSmoothingEnabled = false;
   ctx.setTransform(scale * dpr, 0, 0, scale * dpr, ox * dpr, oy * dpr);
 
-  if (staticLayer) ctx.drawImage(staticLayer, map.world.x0 * TILE, map.world.y0 * TILE);
+  if (scale * dpr !== staticRes) {
+    staticRes = scale * dpr;
+    paintStatic();
+  }
+  if (staticLayer) drawLayer(ctx, staticLayer, map.world.x0 * TILE, map.world.y0 * TILE, (map.world.x1 - map.world.x0) * TILE, (map.world.y1 - map.world.y0) * TILE);
   paintWaves(ctx, map, seconds);
   paintElevatorDoors(ctx, map, elevatorDoor);
   paintAmbient(ctx, map, seconds, lightingNow() === 'night', 'under');

@@ -2,7 +2,7 @@
 // 建築用「正面立面」的畫法（跟北投、主地圖一樣）：底下是一樓，往上疊樓層，最上面露出一點屋頂；
 // 每棟先畫成一張小圖存起來（每格只要 drawImage），照底部的 y 排前後。
 import type { CircuitDef, Rect } from './circuits';
-import { px, seeded } from './pixelUtil';
+import { layerCanvas, layerSize, px, seeded, spriteRes } from './pixelUtil';
 
 const T = 16;
 const PAD = 6;
@@ -357,16 +357,16 @@ export function buildingSprite(b: Building): HTMLCanvasElement {
   const ground = b.kind === 'shops' ? 16 : 14;
   const facadeH = ground + b.floors * floorPx;
   const roofD = Math.max(8, Math.min(18, Math.round((b.y1 - b.y0) * T * 0.35)));
-  const canvas = document.createElement('canvas');
-  canvas.width = w + PAD * 2;
-  canvas.height = facadeH + roofD + 24;
-  const c = canvas.getContext('2d');
+  const cw = w + PAD * 2;
+  const ch = facadeH + roofD + 24;
+  // 城市的大樓很多，最多 3 倍就好（手機記憶體）
+  const { canvas, c } = layerCanvas(cw, ch, Math.min(3, spriteRes()));
   if (!c) return canvas;
   const ox = PAD;
-  const top = canvas.height - facadeH - roofD;
+  const top = ch - facadeH - roofD;
   const fy = top + roofD;
   // 影子
-  px(c, 'rgba(0,0,0,0.35)', ox + 2, canvas.height - 3, w, 3);
+  px(c, 'rgba(0,0,0,0.35)', ox + 2, ch - 3, w, 3);
   if (b.kind === 'tower' || b.kind === 'hotel') {
     const pal = TOWER_GLASS[Math.floor(rand() * TOWER_GLASS.length)] ?? TOWER_GLASS[0];
     if (!pal) return canvas;
@@ -524,7 +524,8 @@ export function buildingSprite(b: Building): HTMLCanvasElement {
 
 export function drawBuilding(ctx: CanvasRenderingContext2D, b: Building): void {
   b.sprite ??= buildingSprite(b);
-  ctx.drawImage(b.sprite, Math.round(b.x0 * T) - PAD, Math.round(b.y1 * T) - b.sprite.height + 3);
+  const size = layerSize(b.sprite);
+  ctx.drawImage(b.sprite, Math.round(b.x0 * T) - PAD, Math.round(b.y1 * T) - size.h + 3, size.w, size.h);
 }
 
 // 行道樹：樹穴＋圓圓的樹冠（夜裡偏藍綠，被路燈照到的那側亮一點）

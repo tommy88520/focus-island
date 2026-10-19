@@ -113,7 +113,7 @@ import ProfileCard from 'src/pages/index/components/ProfileCard.vue';
 import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { AVATAR_SIZE, avatarColorsFor, getAvatarFrame, lookColors, paintVehicle, SEATED_ROWS, type AvatarColors, readerColors } from 'src/pages/index/pixel/pixelArt';
 import { getBaristaFrame, paintBikeRack, paintCafe, paintCafeDeck, paintMenuSign } from 'src/pages/index/pixel/parkCafe';
-import { px, seeded, pillTextWidth, fillPillText } from 'src/pages/index/pixel/pixelUtil';
+import { px, seeded, pillTextWidth, fillPillText, canvasDpr, drawLayer, layerCanvas } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 import { pickSeatSpot } from 'src/pages/index/seatPick';
 
@@ -587,13 +587,12 @@ function lightPhase(): 'dawn' | 'day' | 'dusk' | 'night' {
 // ── 畫 ──
 let ctx: CanvasRenderingContext2D | null = null;
 let ground: HTMLCanvasElement | null = null;
+// 底圖用幾倍畫：畫面放大倍數 × 螢幕像素（變了就重畫），招牌的字和線條才清楚
+let groundRes = 1;
 const view = { scale: 2, ox: 0, oy: 0, dpr: 1, w: 0, h: 0 };
 
 function paintGround(): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  canvas.width = W * T;
-  canvas.height = H * T;
-  const c = canvas.getContext('2d');
+  const { canvas, c } = layerCanvas(W * T, H * T, groundRes);
   if (!c) return canvas;
   const snow = season.value === 'snow';
   const rand = seeded(377);
@@ -1009,7 +1008,7 @@ function render(seconds: number): void {
   if (!ctx || !canvas || !container) return;
   const cssW = container.clientWidth;
   const cssH = container.clientHeight;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = canvasDpr();
   if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
@@ -1027,7 +1026,11 @@ function render(seconds: number): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.imageSmoothingEnabled = false;
   ctx.setTransform(scale * dpr, 0, 0, scale * dpr, ox * dpr, oy * dpr);
-  if (ground) ctx.drawImage(ground, 0, 0);
+  if (scale * dpr !== groundRes) {
+    groundRes = scale * dpr;
+    ground = paintGround();
+  }
+  if (ground) drawLayer(ctx, ground, 0, 0, W * T, H * T);
   paintCafeDeck(ctx, DECK.x0 * T, DECK.y0 * T, (DECK.x1 - DECK.x0) * T, (DECK.y1 - DECK.y0) * T, snow);
 
   const c = ctx;

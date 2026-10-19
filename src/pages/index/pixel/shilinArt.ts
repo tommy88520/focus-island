@@ -2,7 +2,7 @@
 // 慈諴宮（綠琉璃瓦、金色剪黏、黃燈籠）、廟埕的撈金魚和射氣球、士林市場的紅磚立面、折疊桌、
 // 劍潭站（白色船形屋頂，紅線列車會進站）、基河路、基隆河和對岸的圓山大飯店。
 import { SL, STALL_GAP_X, stallCenter, stallLeft, type ShilinStall } from './shilin';
-import { px, seeded } from './pixelUtil';
+import { layerCanvas, layerSize, px, seeded, spriteRes } from './pixelUtil';
 
 const T = 16;
 const FONT_TC = '"PingFang TC", "Noto Sans TC", sans-serif';
@@ -197,13 +197,12 @@ function shophouseSprite(b: Shophouse): HTMLCanvasElement {
   const ground = 18;
   const h = ground + b.floors * floorH + 10;
   const pad = 10;
-  const canvas = document.createElement('canvas');
-  canvas.width = w + pad * 2;
-  canvas.height = h + 10;
-  const c = canvas.getContext('2d');
+  const cw = w + pad * 2;
+  const ch = h + 10;
+  const { canvas, c } = layerCanvas(cw, ch, spriteRes());
   if (!c) return canvas;
   const ox = pad;
-  const top = canvas.height - h;
+  const top = ch - h;
   const wall = b.special === 'haodada' ? '#6e2a20' : b.special === 'xinfating' ? '#4a5a6e' : WALLS[Math.floor(rand() * WALLS.length)] ?? '#6c6670';
   // 女兒牆、水塔、鐵皮加蓋
   px(c, '#34303a', ox, top, w, 6);
@@ -299,7 +298,8 @@ function shophouseSprite(b: Shophouse): HTMLCanvasElement {
 
 export function drawShophouse(c: CanvasRenderingContext2D, b: Shophouse): void {
   const s = shophouseSprite(b);
-  c.drawImage(s, Math.round(b.x0 * T) - 10, Math.round(SL.shopLine * T) - s.height);
+  const size = layerSize(s);
+  c.drawImage(s, Math.round(b.x0 * T) - 10, Math.round(SL.shopLine * T) - size.h, size.w, size.h);
 }
 
 // ── 攤位：日光燈管照亮的不鏽鋼攤車，老闆在後面，上面是彩色燈箱招牌 ──
