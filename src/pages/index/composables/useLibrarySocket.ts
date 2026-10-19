@@ -279,6 +279,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
   let heartbeatTimer: number | null = null;
   let connectionVersion = 0;
   let socketCloseWasIntentional = false;
+  // 同一個帳號在別的裝置／分頁連上了，這條被伺服器關掉（4001）：不自己重連，等使用者按「在這裡繼續」
+  const replaced = ref(false);
 
   const roomID = computed(() => `${currentFloor.value}-${activeZoneId.value}`);
 
@@ -647,7 +649,9 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
 
   function connectWebSocket(token: string, version: number) {
     const baseUrl = backendWsUrl() || 'ws://localhost:8080';
-    const url = `${baseUrl}/api/v1/library/ws?floor=${currentFloor.value}&zone=${activeZoneId.value}&userId=${userId.value}&sessionId=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(token)}`;
+    // v=2：認得 4001（被取代就不重連）。背景分頁（看不到的）連線時標 passive：帳號已經在別處在線就讓自己被擋，不去踢正在用的那邊
+    const passive = typeof document !== 'undefined' && document.visibilityState === 'hidden' ? '&passive=1' : '';
+    const url = `${baseUrl}/api/v1/library/ws?floor=${currentFloor.value}&zone=${activeZoneId.value}&userId=${userId.value}&sessionId=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(token)}&v=2${passive}`;
 
     if (import.meta.env.DEV) {
       console.log('[WS Connect] Connecting to:', url);
@@ -1006,7 +1010,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
       }
     };
 
-    currentSocket.onclose = () => {
+    currentSocket.onclose = (event) => {
       if (socket === currentSocket) {
         socket = null;
       }
@@ -1014,6 +1018,15 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
       clearHeartbeatTimer();
 
       if (version !== connectionVersion) return;
+
+      if (event.code === 4001) {
+        console.warn('[WS Close] Replaced by another connection of the same account');
+        replaced.value = true;
+        isLoading.value = false;
+        clearReconnectTimer();
+        onSelfLeave();
+        return;
+      }
 
       if (socketCloseWasIntentional) {
         console.log('[WS Close] Connection closed intentionally');
@@ -1053,7 +1066,15 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     };
   }
 
+  // 被別的裝置取代後，使用者按「在這裡繼續」：重新連上（這次換把那邊踢掉）
+  function resumeHere() {
+    replaced.value = false;
+    isLoading.value = true;
+    void reconnectRoomSession();
+  }
+
   async function reconnectRoomSession() {
+    replaced.value = false;
     const version = ++connectionVersion;
     stopWebSocketConnection(true);
     // 換房間：上一個房間的人不要留在地圖上（同一個房間重連就保留，見 SYNC_ALL）
@@ -1148,6 +1169,8 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
     sendPosition,
     reconnectRoomSession,
     stopWebSocketConnection,
+    replaced,
+    resumeHere,
     startFloorPollingTimer,
     clearFloorPollingTimer,
     handleVisibilityChange,

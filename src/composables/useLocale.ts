@@ -507,6 +507,9 @@ const translations = {
       seatTakenBySomeoneElse: '🛑 慢了一步！這個位子剛剛被別人搶走了',
       connectionError: '連線發生錯誤，正在嘗試重新連線',
       tokenFetchFailed: '無法取得安全連線權杖，請稍後再試',
+      replacedTitle: '你在別的地方上線了',
+      replacedBody: '同一個帳號只能在一個裝置（或一個分頁）上線。這裡先離線，別人不會看到兩個你。',
+      resumeHere: '在這裡繼續',
     },
   },
   'en-US': {
@@ -995,6 +998,9 @@ const translations = {
       seatTakenBySomeoneElse: '🛑 Too slow! Someone else grabbed this seat',
       connectionError: 'Connection error, attempting to reconnect',
       tokenFetchFailed: 'Could not get a secure connection token, please try again later',
+      replacedTitle: 'You are online somewhere else',
+      replacedBody: 'One account can only be online on one device (or tab) at a time. This one is offline now, so nobody sees two of you.',
+      resumeHere: 'Continue here',
     },
   },
 } as const;

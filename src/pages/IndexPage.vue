@@ -336,6 +336,15 @@
     </div>
     </Teleport>
     <YouTubeTv :audio="audio" />
+    <!-- 同一個帳號在別的裝置／分頁上線了：這裡已經被踢下線 -->
+    <q-dialog :model-value="librarySocket.replaced.value" persistent>
+      <div class="pixel-panel w-[min(22rem,calc(100vw-2rem))] px-5 py-4 text-center">
+        <p class="!mb-1 text-2xl">📱💻</p>
+        <p class="!mb-1 text-sm font-black">{{ t.librarySocket.replacedTitle }}</p>
+        <p class="!mb-3 text-xs leading-relaxed text-[color:var(--px-muted)]">{{ t.librarySocket.replacedBody }}</p>
+        <button type="button" class="pixel-btn pixel-btn--primary h-10 px-5 text-sm" @click="librarySocket.resumeHere()">{{ t.librarySocket.resumeHere }}</button>
+      </div>
+    </q-dialog>
   </div>
 </template>
 
