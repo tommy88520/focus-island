@@ -90,3 +90,5 @@
 - Canvas name pills: `pillTextWidth` / `fillPillText` in `pixelUtil.ts` lay text out in segments, emoji in a fixed-width slot, because iOS draws emoji wider than `measureText` reports. Every scene's pill/bubble uses them.
 - Roses (`homeArt.ts`): individual long-stem roses, 2–3 per tile, red or pink, no bush base.
 
+
+- **Bug report** (`components/BugReportDialog.vue`, drawer "🐞 Report a problem"): message (≤2000), optional screenshot shrunk in the browser to a ≤1280px JPEG data URL, plus auto context (version, path, UA, viewport, standalone, language, dark, logged in, room/last location/scene from localStorage). `POST /api/v1/feedback` via `accountRequest` (session attaches the account if logged in). Stored only in the backend `bug_reports` table for the maintainer.

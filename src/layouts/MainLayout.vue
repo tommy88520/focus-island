@@ -145,6 +145,9 @@
               <p class="mt-1 text-[11px]">{{ displayedRoomInfo.roomName }}</p>
               <p class="mt-1 text-[10px] text-[color:var(--px-muted)]">{{ displayedRoomInfo.zoneDescription }}</p>
             </div>
+            <button type="button" class="pixel-btn mt-3 !flex h-9 w-full items-center justify-center text-xs" @click="openBugReport">
+              🐞 {{ t.bugReport.menu }}
+            </button>
             <!-- 跟 ptt 專案一樣接 Ko-fi；之後要做儲值再換 -->
             <a :href="COFFEE_URL" target="_blank" rel="noreferrer" class="pixel-btn pixel-btn--primary mt-3 !flex h-9 w-full items-center justify-center text-xs no-underline">
               ☕ {{ t.layout.coffee }}
@@ -154,6 +157,7 @@
         </aside>
       </div>
     </q-drawer>
+    <BugReportDialog v-model="bugReportOpen" />
 
     <q-page-container>
       <router-view />
@@ -171,8 +175,15 @@ import { usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import { useAccount } from 'src/composables/useAccount';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 import { HAIR_UNLOCK, SHIRT_UNLOCK } from 'src/pages/index/pixel/pixelArt';
+import BugReportDialog from 'src/components/BugReportDialog.vue';
 
 const leftDrawerOpen = ref(false);
+// 回報問題：從選單打開，選單先收起來
+const bugReportOpen = ref(false);
+function openBugReport(): void {
+  leftDrawerOpen.value = false;
+  bugReportOpen.value = true;
+}
 // App 自己的版號（package.json，build 時帶進來）
 const APP_VERSION = process.env.APP_VERSION ?? '';
 const COFFEE_URL = 'https://ko-fi.com/tommy88520';
