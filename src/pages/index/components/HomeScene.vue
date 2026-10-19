@@ -204,6 +204,8 @@ const TUB: Rect = { x0: 0.8, y0: 2.2, x1: 3.1, y1: 3.9 };
 const SINK: Rect = { x0: 3.6, y0: 2.1, x1: 5.2, y1: 2.9 };
 const TOILET: Rect = { x0: 0.8, y0: 5.4, x1: 1.8, y1: 6.7 };
 const BED_SIDE = { x: BED.x1 + 0.6, y: (BED.y0 + BED.y1) / 2 + 0.6 };
+// 浴缸前面（villa）：走到這裡按 E 或點浴缸就進去泡澡
+const TUB_SIDE = { x: (TUB.x0 + TUB.x1) / 2, y: TUB.y1 + 0.7 };
 const inBathroom = (x: number, y: number) => VILLA && x < BATHROOM.x1 && y < BATHROOM.y1;
 const PLANTS = [
   { x: 1.6, y: 9.8 },
@@ -254,6 +256,8 @@ const me = { x: GATE.x, y: GATE.y - 1.5, facing: 'up' as Facing, moving: false, 
 const seated = ref(false);
 // 躺在床上（villa）：跟坐書桌一樣可以專注
 const lying = ref(false);
+// 泡在浴缸裡（villa）
+const bathing = ref(false);
 let route: { x: number; y: number }[] = [];
 let arriveAction: (() => void) | null = null;
 let stuckFor = 0;
@@ -273,7 +277,7 @@ function input(): { x: number; y: number } {
 
 // 走過去：房子和花園之間要先走到門口
 function walkTo(to: { x: number; y: number }, onArrive: (() => void) | null = null): void {
-  if (seated.value || lying.value) standUp();
+  if (seated.value || lying.value || bathing.value) standUp();
   const inside = (y: number) => y < HOUSE_BOTTOM;
   const doorX = (DOOR.x0 + DOOR.x1) / 2;
   const pts: { x: number; y: number }[] = [];
@@ -291,6 +295,7 @@ function walkTo(to: { x: number; y: number }, onArrive: (() => void) | null = nu
 function sitAtDesk(): void {
   route = [];
   arriveAction = null;
+  bathing.value = false;
   seated.value = true;
   me.x = CHAIR.x;
   me.y = CHAIR.y;
@@ -301,10 +306,26 @@ function lieDown(): void {
   route = [];
   arriveAction = null;
   seated.value = false;
+  bathing.value = false;
   lying.value = true;
 }
 
+function bathe(): void {
+  route = [];
+  arriveAction = null;
+  seated.value = false;
+  lying.value = false;
+  bathing.value = true;
+}
+
 function standUp(): void {
+  if (bathing.value) {
+    bathing.value = false;
+    me.x = TUB_SIDE.x;
+    me.y = TUB_SIDE.y;
+    me.facing = 'down';
+    return;
+  }
   if (lying.value) {
     lying.value = false;
     me.x = BED_SIDE.x;
@@ -346,7 +367,7 @@ function updateWalk(dt: number): void {
     return;
   }
   const { x, y } = input();
-  if (seated.value || lying.value) {
+  if (seated.value || lying.value || bathing.value) {
     me.moving = false;
     if ((x === 0 && y === 0) || props.disabled) return;
     standUp();
@@ -803,7 +824,10 @@ function drawFurniture(c: CanvasRenderingContext2D, lit: boolean, colors: Avatar
     px(c, colors.shirt, b.x0 * T + 3, b.y0 * T + 17, (b.x1 - b.x0) * T - 6, (b.y1 - b.y0) * T - 20);
     px(c, colors.shirtShade, b.x0 * T + 3, b.y0 * T + 17, (b.x1 - b.x0) * T - 6, 2);
   }
-  if (VILLA) drawBathroom(c, lit);
+  if (VILLA) {
+    const bathers = shownRemotes.filter((r) => r.remote.bath).map((r) => remoteColors(r.remote));
+    drawBathroom(c, lit, bathing.value ? [me, ...bathers] : bathers, seconds);
+  }
   // 書桌＋檯燈＋椅子（villa 是另一套精緻的）
   const d = DESK;
   if (VILLA) {
@@ -903,7 +927,8 @@ function drawVillaBed(c: CanvasRenderingContext2D, colors: AvatarColors, me: Ava
 }
 
 // villa 的浴室：牆、浴缸（有水和泡泡）、洗手台＋鏡子、馬桶、毛巾架
-function drawBathroom(c: CanvasRenderingContext2D, lit: boolean): void {
+// bathers：泡在浴缸裡的人（最多畫兩個），水面上只露出頭和肩膀
+function drawBathroom(c: CanvasRenderingContext2D, lit: boolean, bathers: AvatarColors[], seconds: number): void {
   const b = BATHROOM;
   // 隔間牆（右邊、下面，門口留空）
   px(c, '#cdbfa8', b.x1 * T - 3, b.y0 * T - 8, 6, (b.y1 - b.y0) * T + 12);
@@ -938,6 +963,33 @@ function drawBathroom(c: CanvasRenderingContext2D, lit: boolean): void {
     c.fill();
   }
   px(c, '#b9c2cc', tb.x1 * T - 8, tb.y0 * T + 2, 3, 4);
+  if (bathers.length) {
+    // 泡澡：頭和肩膀露出水面、身邊一圈泡泡、黃色小鴨、熱氣往上飄
+    const slots = bathers.length > 1 ? [0.32, 0.68] : [0.5];
+    bathers.slice(0, 2).forEach((col, i) => {
+      const hx = Math.round((tb.x0 + (tb.x1 - tb.x0) * (slots[i] ?? 0.5)) * T);
+      const top = Math.round(tb.y0 * T + 1);
+      c.drawImage(getAvatarFrame(col, 'down', 'idle'), 0, 0, AVATAR_SIZE.w, 13, hx - AVATAR_SIZE.w / 2, top, AVATAR_SIZE.w, 13);
+      for (let k = 0; k < 5; k += 1) {
+        const bob = Math.sin(seconds * 2 + k + i) * 0.8;
+        c.fillStyle = 'rgba(255,255,255,0.95)';
+        c.beginPath();
+        c.arc(hx - 8 + k * 4, top + 13 + bob, 2.4, 0, Math.PI * 2);
+        c.fill();
+      }
+    });
+    const duck = Math.sin(seconds * 0.8) * 3;
+    px(c, '#f6c945', Math.round(tb.x1 * T - 14 + duck), tb.y0 * T + 15, 5, 3);
+    px(c, '#f6c945', Math.round(tb.x1 * T - 11 + duck), tb.y0 * T + 13, 3, 3);
+    px(c, '#f28a2e', Math.round(tb.x1 * T - 9 + duck), tb.y0 * T + 14, 2, 1);
+    for (let k = 0; k < 4; k += 1) {
+      const p = (seconds * 0.4 + k / 4) % 1;
+      c.fillStyle = `rgba(255,255,255,${0.35 * (1 - p)})`;
+      c.beginPath();
+      c.arc(tb.x0 * T + 8 + k * 9 + Math.sin(seconds + k) * 3, tb.y0 * T - p * 18, 3 + p * 3, 0, Math.PI * 2);
+      c.fill();
+    }
+  }
   // 洗手台＋鏡子
   const sk = SINK;
   px(c, '#a9d6e8', sk.x0 * T + 4, sk.y0 * T - 14, (sk.x1 - sk.x0) * T - 8, 11);
@@ -969,7 +1021,7 @@ function drawBathroom(c: CanvasRenderingContext2D, lit: boolean): void {
 }
 
 function drawPerson(c: CanvasRenderingContext2D, colors: AvatarColors): void {
-  if (lying.value) return;
+  if (lying.value || bathing.value) return;
   if (seated.value) {
     c.drawImage(getAvatarFrame(colors, 'up', 'idle'), 0, 0, AVATAR_SIZE.w, SEATED_ROWS, Math.round(CHAIR.x * T - AVATAR_SIZE.w / 2), Math.round(CHAIR.y * T + 2 - SEATED_ROWS), AVATAR_SIZE.w, SEATED_ROWS);
     if (VILLA) {
@@ -1067,7 +1119,7 @@ function render(seconds: number): void {
   }
   items.push({ y: seated.value ? CHAIR.y : me.y + 0.35, draw: () => drawPerson(c, colors) });
   for (const r of shownRemotes) {
-    if (r.remote.lying && VILLA) continue;
+    if ((r.remote.lying || r.remote.bath) && VILLA) continue;
     const rc = remoteColors(r.remote);
     if (remoteAtDesk(r)) {
       items.push({
@@ -1122,7 +1174,7 @@ function render(seconds: number): void {
   }
   // 家裡其他人的名牌
   for (const r of shownRemotes) {
-    const at = r.remote.lying && VILLA ? { x: BED.x0 + ((BED.x1 - BED.x0) * 3) / 4, y: BED.y0 - 0.1 } : remoteAtDesk(r) ? { x: CHAIR.x, y: CHAIR.y - 0.9 } : { x: r.x, y: r.y - 1.1 };
+    const at = r.remote.bath && VILLA ? { x: (TUB.x0 + TUB.x1) / 2, y: TUB.y0 - 0.2 } : r.remote.lying && VILLA ? { x: BED.x0 + ((BED.x1 - BED.x0) * 3) / 4, y: BED.y0 - 0.1 } : remoteAtDesk(r) ? { x: CHAIR.x, y: CHAIR.y - 0.9 } : { x: r.x, y: r.y - 1.1 };
     const p = screen(at.x, at.y);
     pill(ctx, remoteLabel(r), p.x, p.y, '#2dd4bf');
   }
@@ -1132,7 +1184,9 @@ function render(seconds: number): void {
   }
   const lg = screen(GATE.x, GATE.y + 0.6);
   pill(ctx, t.value.home.gate, lg.x, lg.y, '#2dd4bf');
-  const mp = lying.value
+  const mp = bathing.value
+    ? screen((TUB.x0 + TUB.x1) / 2, TUB.y0 - 0.2)
+    : lying.value
     ? screen(BED.x0 + (BED.x1 - BED.x0) / 4 + 0.1, BED.y0 - 0.1)
     : seated.value
       ? screen(CHAIR.x, CHAIR.y - 0.9)
@@ -1140,6 +1194,10 @@ function render(seconds: number): void {
   if (VILLA && !lying.value) {
     const lb = screen((BED.x0 + BED.x1) / 2, BED.y1 - 0.4);
     pill(ctx, `🛏️ ${t.value.home.bed}`, lb.x, lb.y, '#f472b6');
+  }
+  if (VILLA && !bathing.value) {
+    const lt = screen((TUB.x0 + TUB.x1) / 2, TUB.y1 + 0.2);
+    pill(ctx, `🛁 ${t.value.home.bath}`, lt.x, lt.y, '#38bdf8');
   }
   pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
 }
@@ -1152,10 +1210,12 @@ function frame(time: number): void {
   const dt = last ? Math.min(0.05, seconds - last) : 0;
   last = seconds;
   updateWalk(dt);
-  if (!props.visit) rememberScene('home', positionForShare(), seated.value || lying.value, seconds);
+  if (!props.visit) rememberScene('home', positionForShare(), seated.value || lying.value || bathing.value, seconds);
   shownRemotes = viewRemotes(props.remotePlayers, 'home', dt);
   syncPosition(
-    lying.value
+    bathing.value
+      ? { x: TUB_SIDE.x, y: TUB_SIDE.y, facing: 'down', moving: false, pose: 'bath', scene: 'home' }
+      : lying.value
       ? { x: BED_SIDE.x, y: BED_SIDE.y, facing: 'down', moving: false, lying: true, scene: 'home' }
       : seated.value
         ? { x: CHAIR.x, y: CHAIR.y, facing: 'up', moving: false, scene: 'home' }
@@ -1193,12 +1253,13 @@ function ignoreKey(event: KeyboardEvent): boolean {
 
 // 靠近什麼就用什麼：書桌坐下、衣櫃換裝、書架設定
 function interact(): void {
-  if (seated.value || lying.value) {
+  if (seated.value || lying.value || bathing.value) {
     if (!props.disabled) standUp();
     return;
   }
   const near = (p: { x: number; y: number }, r = 1.6) => Math.hypot(me.x - p.x, me.y - p.y) < r;
-  if (VILLA && near(BED_SIDE, 2.2)) lieDown();
+  if (VILLA && inBathroom(me.x, me.y) && near(TUB_SIDE, 1.5)) bathe();
+  else if (VILLA && near(BED_SIDE, 2.2)) lieDown();
   else if (near(CHAIR, 2.6)) sitAtDesk();
   else if (!props.visit && near(WARDROBE_FRONT)) openWardrobe();
   else if (!props.visit && near(SHELF_FRONT)) panel.value = 'settings';
@@ -1239,6 +1300,7 @@ function handleClick(event: MouseEvent): void {
   else if (!props.visit && inRect(x, y, SHELF, 0.6)) walkTo(SHELF_FRONT, () => (panel.value = 'settings'));
   else if (inRect(x, y, DESK, 0.6) || Math.hypot(x - CHAIR.x, y - CHAIR.y) < 0.8) walkTo({ x: CHAIR.x, y: CHAIR.y + 0.9 }, sitAtDesk);
   else if (VILLA && inRect(x, y, BED, 0.3)) walkTo(BED_SIDE, lieDown);
+  else if (VILLA && inRect(x, y, TUB, 0.3)) walkTo(TUB_SIDE, bathe);
   else if (!blocked(x, y)) walkTo({ x, y });
 }
 

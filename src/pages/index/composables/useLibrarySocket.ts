@@ -172,6 +172,8 @@ export interface RemotePlayer {
   lying?: boolean;
   // 躺在地板上（不是躺椅或懶骨頭）
   floor?: boolean;
+  // 在家裡的浴缸泡澡
+  bath?: boolean;
   // 手上拿著的夜市小吃
   item?: ShopItemId;
   // 在 F1 賽車場／環河公園（沒有的話在主地圖）；在 F1 開車時 car＝true、angle 是車頭方向
@@ -199,7 +201,7 @@ export interface MyPosition {
   moving: boolean;
   vehicle?: RemoteVehicle | 'f1';
   lying?: boolean;
-  pose?: 'floor';
+  pose?: 'floor' | 'bath';
   scene?: SceneId;
   angle?: number;
   livery?: number;
@@ -976,6 +978,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 ...(['bike', 'cart', 'boat'].includes(pos.vehicle) ? { vehicle: pos.vehicle as RemoteVehicle } : {}),
                 ...(pos.lying === true ? { lying: true } : {}),
                 ...(pos.pose === 'floor' ? { floor: true } : {}),
+                ...(pos.pose === 'bath' ? { bath: true } : {}),
                 ...(isSceneId(pos.scene) ? { scene: pos.scene } : {}),
                 ...(pos.vehicle === 'f1' ? { car: true } : {}),
                 ...(typeof pos.angle === 'number' && Number.isFinite(pos.angle) ? { angle: pos.angle } : {}),
