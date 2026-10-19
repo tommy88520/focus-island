@@ -91,7 +91,8 @@ export function takeSavedScene(): SeparateScene | null {
     if (!saved || typeof saved.at !== 'number' || Date.now() - saved.at > SCENE_TTL_MS) return null;
     if (!isSceneId(saved.scene)) return null;
     // 抵達時 placeNear 會先往右站一格（分享連結是站在朋友旁邊），這裡先減掉，站回自己原本的位置
-    if (!saved.seated && typeof saved.x === 'number' && typeof saved.y === 'number') pendingArrival = { scene: saved.scene, x: saved.x - 1, y: saved.y };
+    // 分享連結帶來的抵達點優先
+    if (!pendingArrival && !saved.seated && typeof saved.x === 'number' && typeof saved.y === 'number') pendingArrival = { scene: saved.scene, x: saved.x - 1, y: saved.y };
     return saved.scene;
   } catch {
     return null;

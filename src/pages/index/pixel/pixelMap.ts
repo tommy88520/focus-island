@@ -13,6 +13,8 @@ export interface SeatSlot {
   tx: number;
   ty: number;
   facing: Facing;
+  // 編號還在、但人坐在別張地圖（士林夜市 31–42）：這張地圖不畫、不擋路
+  offMap?: boolean;
 }
 
 export type PropKind =
@@ -116,7 +118,7 @@ const RIGHT_EXIT = { y0: 10, y1: 12 };
 
 export interface PixelMap {
   theme: ThemeId;
-  // 圖書館四周的戶外區（101、動物園、士林夜市）與整個世界的範圍
+  // 圖書館四周的戶外區（101、動物園、夜市捷運站）與整個世界的範圍
   world: OutdoorWorld;
   sideExits: SideExits;
   width: number;
@@ -143,8 +145,11 @@ export interface PixelMap {
 export const TILE = 16;
 export const WALL_ROWS = 3;
 const BASE_HEIGHT = 18;
-// 每個分區的座位數：圖書館 18 + 101 6 + 動物園 6 + 夜市 12 + 海灘 8 + F1 22 + 環河公園 16（跟後端 seatsPerZone 一樣）
+// 每個分區的座位數：圖書館 18 + 101 6 + 動物園 6 + 士林夜市 12 + 海灘 8 + F1 22 + 環河公園 16 + …（跟後端 seatsPerZone 一樣）
 export const LIBRARY_SEATS = 18;
+// 士林夜市（獨立地圖）的折疊桌塑膠椅（編號 31–42）：以前就在主地圖上，搬過去時編號不變，順序是 shilin.ts 的 SHILIN_SEATS
+export const SHILIN_SEAT_START = LIBRARY_SEATS + 12;
+export const SHILIN_SEAT_COUNT = 12;
 export const F1_SEAT_START = 50;
 // F1 看台（編號 51–72）
 export const F1_SEAT_COUNT = 22;
@@ -278,12 +283,12 @@ export function createPixelMap(
     { kind: 'bench', tx: R + 3, ty: 4, facing: 'down' },
     { kind: 'bench', tx: R + 3, ty: 13, facing: 'down' },
     { kind: 'bench', tx: R + 4, ty: 13, facing: 'down' },
-    // 士林夜市：三張折疊桌，每桌四張紅色塑膠椅
+    // 士林夜市：搬到獨立地圖了，這 12 格只是佔著編號（offMap）
     ...[3, 9, 15].flatMap((x): SeatSlot[] => [
-      { kind: 'plasticStool', tx: x - 1, ty: -4, facing: 'right' },
-      { kind: 'plasticStool', tx: x - 1, ty: -3, facing: 'right' },
-      { kind: 'plasticStool', tx: x + 1, ty: -4, facing: 'left' },
-      { kind: 'plasticStool', tx: x + 1, ty: -3, facing: 'left' },
+      { kind: 'plasticStool', tx: x - 1, ty: -4, facing: 'right', offMap: true },
+      { kind: 'plasticStool', tx: x - 1, ty: -3, facing: 'right', offMap: true },
+      { kind: 'plasticStool', tx: x + 1, ty: -4, facing: 'left', offMap: true },
+      { kind: 'plasticStool', tx: x + 1, ty: -3, facing: 'left', offMap: true },
     ]),
     // 海灘：左右兩側延伸出去的沙灘，各兩組陽傘下的沙灘椅（面向海）
     ...[-10, -9, -6, -5, R + 4, R + 5, R + 8, R + 9].map((x): SeatSlot => ({ kind: 'beachChair', tx: x, ty: s + 3, facing: 'down' })),
@@ -466,6 +471,7 @@ export function mapObstacles(map: PixelMap): Rect[] {
     rects.push({ x0: prop.tx + inset, x1: prop.tx + prop.w - inset, z0: prop.ty + inset, z1: prop.ty + prop.h - inset });
   }
   for (const seat of map.seats) {
+    if (seat.offMap) continue;
     const inset = seat.kind === 'armchair' ? 0.06 : 0.16;
     rects.push({ x0: seat.tx + inset, x1: seat.tx + 1 - inset, z0: seat.ty + inset, z1: seat.ty + 1 - inset });
   }

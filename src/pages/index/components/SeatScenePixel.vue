@@ -138,7 +138,7 @@
         </div>
         <p v-if="!isTouch" class="!mb-0 mt-2 text-[10px] text-white/50">{{ t.seatScene.elevatorKeys }}</p>
       </div>
-      <!-- 捷運站：路線圖。紅線是同一層的各分區，轉乘綠線到環河公園、北投溫泉，藍線到基隆廟口夜市；點一站就搭過去 -->
+      <!-- 捷運站：路線圖。紅線是同一層的各分區和劍潭（士林夜市），轉乘綠線到環河公園、北投溫泉，藍線到基隆廟口夜市；點一站就搭過去 -->
       <div v-if="mrtOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(28rem,calc(100%-1rem))] -translate-x-1/2 px-2 pb-2.5 pt-3">
         <p class="!mb-2.5 text-center !text-[11px] font-black tracking-wide">🚇 {{ t.seatScene.mrtPrompt }}</p>
         <div class="!flex !flex-nowrap items-start">
@@ -174,67 +174,24 @@
           </button>
         </div>
       </div>
-      <!-- 夜市攤位：跟老闆買東西（用專注幣） -->
-      <div v-if="shopStall !== null" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(20rem,calc(100%-1.5rem))] -translate-x-1/2 px-4 py-3">
-        <div class="!flex !flex-nowrap items-center justify-between gap-2">
-          <p class="!mb-0 text-sm font-black">🏮 {{ STALLS[shopStall]?.name[locale] }}</p>
-          <button type="button" class="text-[color:var(--px-muted)]" :aria-label="t.seatScene.profileClose" @click="closeShop">
-            <q-icon name="close" size="18px" />
-          </button>
-        </div>
-        <p class="!mb-2 mt-1 text-[11px] font-bold text-[color:var(--px-muted)]">🪙 {{ t.seatScene.coinsLeft(playerPrefs.coins) }}</p>
-        <div class="space-y-1.5">
+      <!-- 夜市捷運站：選要去士林夜市（紅線劍潭站）還是基隆廟口夜市（藍線基隆站） -->
+      <div v-if="marketMrtOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(22rem,calc(100%-1rem))] -translate-x-1/2 px-3 py-3">
+        <p class="!mb-2 text-center !text-[11px] font-black tracking-wide">🏮 {{ t.seatScene.marketMrtPrompt }}</p>
+        <div class="grid grid-cols-2 gap-2">
           <button
-            v-for="item in STALLS[shopStall]?.items ?? []"
-            :key="item.id"
+            v-for="stop in marketStops"
+            :key="stop.key"
             type="button"
-            class="pixel-btn pixel-btn--primary h-10 w-full justify-between px-3 text-xs"
-            :disabled="playerPrefs.coins < item.price"
-            @click="buyFromShop(item.id)"
+            class="pixel-btn pixel-btn--primary h-auto min-h-14 flex-col gap-0.5 px-2 py-1.5 text-center"
+            @click="stop.go()"
           >
-            <span>{{ item.emoji }} {{ item.name[locale] }}</span>
-            <span>🪙 {{ item.price }}</span>
+            <span class="text-base leading-none">{{ stop.emoji }}</span>
+            <span class="text-xs font-black leading-tight">{{ stop.name }}</span>
+            <span class="!flex !flex-nowrap items-center gap-1 text-[10px] font-bold leading-none opacity-80">
+              <span class="inline-block h-2 w-2 rounded-full" :style="{ background: MRT_LINE_COLORS[stop.line] }"></span>{{ stop.stop }}
+            </span>
           </button>
         </div>
-        <p
-          v-if="(STALLS[shopStall]?.items ?? []).every((item) => playerPrefs.coins < item.price)"
-          class="!mb-0 mt-2 text-[11px] text-[color:var(--px-muted)]"
-        >
-          {{ t.seatScene.notEnoughCoins }}
-        </p>
-      </div>
-      <!-- 夜市金魚池：釣魚（拋竿 → 浮標動了就拉） -->
-      <div v-if="fishOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(20rem,calc(100%-1.5rem))] -translate-x-1/2 px-4 py-3">
-        <div class="!flex !flex-nowrap items-center justify-between gap-2">
-          <p class="!mb-0 text-sm font-black">{{ t.seatScene.fishTitle }}</p>
-          <button type="button" class="text-[color:var(--px-muted)]" :aria-label="t.seatScene.profileClose" @click="closeFishing">
-            <q-icon name="close" size="18px" />
-          </button>
-        </div>
-        <p class="!mb-2 mt-1 text-[11px] font-bold text-[color:var(--px-muted)]">🪙 {{ t.seatScene.coinsLeft(playerPrefs.coins) }}</p>
-        <p v-if="fishPhase !== 'idle'" class="!mb-2 text-center text-xs font-black" :class="{ 'text-red-500': fishPhase === 'bite' }">
-          {{ fishMessage }}
-        </p>
-        <button
-          v-if="fishPhase === 'waiting' || fishPhase === 'bite'"
-          type="button"
-          class="pixel-btn pixel-btn--primary h-11 w-full text-sm font-black"
-          @click="pullLine"
-        >
-          🎣 {{ t.seatScene.fishPull }}
-        </button>
-        <button
-          v-else
-          type="button"
-          class="pixel-btn pixel-btn--primary h-10 w-full text-xs"
-          :disabled="playerPrefs.coins < FISHING_PRICE"
-          @click="castLine"
-        >
-          {{ fishPhase === 'idle' ? t.seatScene.fishCast(FISHING_PRICE) : `${t.seatScene.fishAgain}（🪙 ${FISHING_PRICE}）` }}
-        </button>
-        <p v-if="playerPrefs.coins < FISHING_PRICE && fishPhase !== 'waiting' && fishPhase !== 'bite'" class="!mb-0 mt-2 text-[11px] text-[color:var(--px-muted)]">
-          {{ t.seatScene.notEnoughCoins }}
-        </p>
       </div>
       <!-- F1 站：搭車去另一張獨立的 F1 賽車場地圖 -->
       <div v-if="f1Open" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
@@ -350,12 +307,8 @@ import {
   paintBackDoor,
   paintOutdoorGround,
   paintOutdoorProp,
-  paintStall,
   paintWalker,
-  STALLS,
   SHOP_ITEM_EMOJI,
-  FISH,
-  FISHING_PRICE,
   type ShopItemId,
   walkerPose,
   type OutdoorKind,
@@ -403,6 +356,7 @@ const emit = defineEmits<{
   'go-park': [];
   'go-beitou': [];
   'go-miaokou': [];
+  'go-shilin': [];
   whisper: [to: string, phrase: WhisperId];
   // 走進另一個區域（圖書館／沙灘／101／動物園／夜市），父層用來切換場景環境音
   area: [area: Area];
@@ -555,9 +509,17 @@ const mrtStations = computed(() => [
     here: zone.id === currentZoneId.value,
     go: () => rideMrt(zone.id),
   })),
+  { key: 'shilin', name: t.value.seatScene.shilinStop, emoji: '🍗', line: 'red' as const, here: false, go: goShilin },
   { key: 'park', name: t.value.riverPark.title, emoji: '🌸', line: 'green' as const, here: false, go: goPark },
   { key: 'beitou', name: t.value.beitou.title, emoji: '♨️', line: 'green' as const, here: false, go: goBeitou },
   { key: 'miaokou', name: t.value.miaokou.station, emoji: '🏮', line: 'blue' as const, here: false, go: goMiaokou },
+]);
+// 夜市捷運站（主地圖北邊）：只有士林、廟口兩站
+const marketMrtOpen = ref(false);
+let marketMrtLock = false;
+const marketStops = computed(() => [
+  { key: 'shilin', name: t.value.seatScene.shilinName, stop: t.value.seatScene.shilinStop, emoji: '🍗', line: 'red' as const, go: goShilin },
+  { key: 'miaokou', name: t.value.seatScene.miaokouName, stop: t.value.seatScene.miaokouStop, emoji: '🏮', line: 'blue' as const, go: goMiaokou },
 ]);
 const f1Open = ref(false);
 // 剛從 F1 賽車場回來時站在 F1 站口：先走開再走回來才會再跳出面板
@@ -616,7 +578,7 @@ const MINIMAP_OUTDOOR_COLORS: Partial<Record<OutdoorKind, string>> = {
   tower101: '#3e6f6a',
   office: '#59606e',
   mrt: '#e25a4a',
-  stall: '#f2a541',
+  marketMrt: '#e25a4a',
   enclosure: '#8a5e36',
   pool: '#4fc3d9',
   streetTree: '#3d7a4c',
@@ -841,7 +803,8 @@ function buildMap(): void {
   goalVehicle = null;
   seatNodes = props.seats.flatMap((seat, index) => {
     const slot = map.seats[index];
-    return slot ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR, focusing: false, dnd: false, mateKey: '', mateUserId: '' }] : [];
+    // 士林夜市的座位（31–42）留著編號但不在這張地圖上
+    return slot && !slot.offMap ? [{ seatId: seat.id, slot, index, state: 'empty' as SeatState, label: '', colors: TAKEN_AVATAR, focusing: false, dnd: false, mateKey: '', mateUserId: '' }] : [];
   });
   rebuildStairs();
   buildNavigation();
@@ -941,6 +904,11 @@ function insideMrtZone(x: number, y: number): boolean {
   return Math.hypot(x - trigger.x, y - trigger.y) < 0.9;
 }
 
+function insideMarketMrtZone(x: number, y: number): boolean {
+  const trigger = map.world.marketMrtTrigger;
+  return Math.hypot(x - trigger.x, y - trigger.y) < 1.1;
+}
+
 // 搭捷運到同一層樓的另一個分區：從那一區的捷運站口出來
 function rideMrt(zoneId: string): void {
   mrtOpen.value = false;
@@ -983,9 +951,19 @@ function goBeitou(): void {
   emit('go-beitou');
 }
 
+// 去士林夜市：同上
+function goShilin(): void {
+  mrtOpen.value = false;
+  marketMrtOpen.value = false;
+  emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
+  savePosition(performance.now() / 1000, true);
+  emit('go-shilin');
+}
+
 // 去基隆廟口夜市：同上
 function goMiaokou(): void {
   mrtOpen.value = false;
+  marketMrtOpen.value = false;
   emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
   savePosition(performance.now() / 1000, true);
   emit('go-miaokou');
@@ -1098,10 +1076,12 @@ function spawnPlayer(): void {
   }
   stairLock = insideStairZone(player.x, player.y) !== undefined;
   mrtLock = insideMrtZone(player.x, player.y);
+  marketMrtLock = insideMarketMrtZone(player.x, player.y);
   f1Lock = insideF1Zone(player.x, player.y);
   elevatorLock = insideElevatorZone(player.x, player.y);
   elevatorOpen.value = false;
   mrtOpen.value = false;
+  marketMrtOpen.value = false;
 }
 
 // 站起來：座位在伺服器端仍保留，所以只是人離開椅子，站到椅子後方
@@ -1374,8 +1354,6 @@ function walkToPoint(target: { x: number; y: number }): void {
   goalVehicle = null;
   goalLie = null;
   goalStation = null;
-  goalShop = null;
-  goalFish = false;
   if (riding) {
     // 騎車時點到哪就往哪去，但不會離開那台車能去的範圍
     const area = vehicleArea(map, riding.kind);
@@ -1537,10 +1515,6 @@ function updatePlayer(dt: number): void {
         goalLie = null;
         if (goalStation && Math.hypot(goalStation.x - player.x, goalStation.y - player.y) < STATION_REACH) takeBike();
         goalStation = null;
-        if (goalShop !== null && nearestStall() === goalShop) openShop(goalShop);
-        goalShop = null;
-        if (goalFish && nearFishPool()) openFishing();
-        goalFish = false;
       } else {
         const toX = next.x - player.x;
         const toY = next.z - player.y;
@@ -1607,6 +1581,10 @@ function updatePlayer(dt: number): void {
   if (!inMrtZone) mrtLock = false;
   const showMrt = active && inMrtZone && !mrtLock;
   if (showMrt !== mrtOpen.value) mrtOpen.value = showMrt;
+  const inMarketMrt = !riding && player.state !== 'seated' && player.state !== 'sitting' && insideMarketMrtZone(player.x, player.y);
+  if (!inMarketMrt) marketMrtLock = false;
+  const showMarketMrt = active && inMarketMrt && !marketMrtLock;
+  if (showMarketMrt !== marketMrtOpen.value) marketMrtOpen.value = showMarketMrt;
   const inF1Zone = !riding && player.state !== 'seated' && player.state !== 'sitting' && insideF1Zone(player.x, player.y);
   if (!inF1Zone) f1Lock = false;
   const showF1 = active && inF1Zone && !f1Lock;
@@ -1691,7 +1669,6 @@ function syncPosition(seconds: number): void {
     ...(riding ? { vehicle: riding.kind } : {}),
     ...(player.state === 'lying' ? { lying: true } : {}),
     ...(player.state === 'lying' && lyingOn?.pose === 'floor' ? { pose: 'floor' as const } : {}),
-    ...(heldItemNow() ? { item: heldItemNow() as ShopItemId } : {}),
     ...(hidden ? { hidden: true } : {}),
   };
   const key = hidden ? 'hidden' : JSON.stringify(pos);
@@ -2129,236 +2106,11 @@ function drawLying(c: CanvasRenderingContext2D, colors: AvatarColors, footX: num
   paintSunglasses(c, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - AVATAR_SIZE.h));
 }
 
-// 夜市老闆：白色圍裙，髮色每攤不同
-function vendorAvatar(variant: number): AvatarColors {
-  const hair = avatarColorsFor(`vendor-${variant}`);
-  return { hair: hair.hair, hairLight: hair.hairLight, shirt: '#f4eee2', shirtShade: '#d9d4c8' };
-}
-
-// ── 跟攤販買東西：買到的東西會拿在手上 3 分鐘（別人也看得到） ──
-const HOLD_ITEM_S = 180;
-const shopStall = ref<number | null>(null);
-let heldItem: { id: ShopItemId; until: number } | null = null;
-let goalShop: number | null = null;
-
-function stallFront(i: number): { x: number; y: number } | null {
-  const stall = map.world.props.find((p) => p.kind === 'stall' && (p.variant ?? 0) === i);
-  return stall ? { x: stall.tx + stall.w / 2, y: stall.ty + stall.h + 0.6 } : null;
-}
-
-function nearestStall(): number | null {
-  for (let i = 0; i < STALLS.length; i += 1) {
-    const front = stallFront(i);
-    if (front && Math.hypot(front.x - player.x, front.y - player.y) < 1.6) return i;
-  }
-  return null;
-}
-
-function openShop(i: number): void {
-  shopStall.value = i;
-  if (!playerPrefs.value.doNotDisturb) say(`vendor:${i}`, t.value.seatScene.vendorWelcome);
-}
-
-function closeShop(): void {
-  shopStall.value = null;
-  containerRef.value?.focus({ preventScroll: true });
-}
-
-function buyFromShop(itemId: ShopItemId): void {
-  const i = shopStall.value;
-  const item = i === null ? undefined : STALLS[i]?.items.find((it) => it.id === itemId);
-  if (i === null || !item || playerPrefs.value.coins < item.price) return;
-  playerPrefs.value.coins -= item.price;
-  heldItem = { id: item.id, until: performance.now() / 1000 + HOLD_ITEM_S };
-  say(`vendor:${i}`, t.value.seatScene.vendorThanks);
-  say('me', `${item.emoji} ${t.value.seatScene.yummy}`, 0.6);
-  closeShop();
-  // 讓別人馬上看到你手上拿著東西
-  lastPosKey = '';
-}
-
-// ── 夜市金魚池釣魚 ──
-const fishOpen = ref(false);
-const fishPhase = ref<'idle' | 'waiting' | 'bite' | 'caught' | 'early' | 'missed'>('idle');
-const fishCaughtName = ref('');
-let fishTimer: number | undefined;
-let goalFish = false;
-
-function fishPool(): { tx: number; ty: number; w: number; h: number } | undefined {
-  return map.world.props.find((p) => p.kind === 'goldfish');
-}
-
-// 釣魚池的老闆：站在池子右邊，戴斗笠
-function fishOwnerSpot(): { x: number; y: number } | null {
-  const pool = fishPool();
-  return pool ? { x: pool.tx + pool.w + 0.6, y: pool.ty + 1.2 } : null;
-}
-const FISH_OWNER_COLORS: AvatarColors = { hair: '#3b2a20', hairLight: '#5a4130', shirt: '#2f6fb5', shirtShade: '#25598f' };
-
-function fishOwnerSay(text: string): void {
-  if (!playerPrefs.value.doNotDisturb) say('fisher', text);
-}
-
-// 站在池子旁邊（四周一格內）
-function nearFishPool(): boolean {
-  const pool = fishPool();
-  if (!pool) return false;
-  const dx = Math.max(pool.tx - player.x, 0, player.x - (pool.tx + pool.w));
-  const dy = Math.max(pool.ty - player.y, 0, player.y - (pool.ty + pool.h));
-  return Math.hypot(dx, dy) < 1.2;
-}
-
-const fishMessage = computed(() => {
-  if (fishPhase.value === 'waiting') return t.value.seatScene.fishWaiting;
-  if (fishPhase.value === 'bite') return t.value.seatScene.fishBite;
-  if (fishPhase.value === 'early') return t.value.seatScene.fishEarly;
-  if (fishPhase.value === 'missed') return t.value.seatScene.fishMissed;
-  if (fishPhase.value === 'caught') return t.value.seatScene.fishCaught(fishCaughtName.value);
-  return '';
-});
-
-function openFishing(): void {
-  shopStall.value = null;
-  fishOpen.value = true;
-  fishPhase.value = 'idle';
-  fishOwnerSay(t.value.seatScene.fishOwnerGreet);
-}
-
-function closeFishing(): void {
-  window.clearTimeout(fishTimer);
-  fishOpen.value = false;
-  fishPhase.value = 'idle';
-  containerRef.value?.focus({ preventScroll: true });
-}
-
-// 拋竿：等 1.5～4 秒魚上鉤，上鉤後 1.2 秒內要拉
-function castLine(): void {
-  if (playerPrefs.value.coins < FISHING_PRICE) return;
-  playerPrefs.value.coins -= FISHING_PRICE;
-  fishPhase.value = 'waiting';
-  fishOwnerSay(t.value.seatScene.fishOwnerCast);
-  window.clearTimeout(fishTimer);
-  fishTimer = window.setTimeout(() => {
-    fishPhase.value = 'bite';
-    fishOwnerSay(t.value.seatScene.fishOwnerBite);
-    fishTimer = window.setTimeout(() => {
-      if (fishPhase.value !== 'bite') return;
-      fishPhase.value = 'missed';
-      fishOwnerSay(t.value.seatScene.fishOwnerMissed);
-    }, 1200);
-  }, 1500 + Math.random() * 2500);
-}
-
-function pullLine(): void {
-  window.clearTimeout(fishTimer);
-  if (fishPhase.value === 'waiting') {
-    fishPhase.value = 'early';
-    fishOwnerSay(t.value.seatScene.fishOwnerEarly);
-    return;
-  }
-  if (fishPhase.value !== 'bite') return;
-  let roll = Math.random();
-  const fish = FISH.find((f) => (roll -= f.chance) < 0) ?? FISH[0];
-  if (!fish) return;
-  fishCaughtName.value = fish.name[locale.value];
-  fishPhase.value = 'caught';
-  fishOwnerSay(t.value.seatScene.fishOwnerCaught[fish.id as 'goldfish' | 'tropicalFish' | 'pufferfish']);
-  heldItem = { id: fish.id, until: performance.now() / 1000 + HOLD_ITEM_S };
-  say('me', `${fish.emoji}！`, 0.2);
-  // 讓別人馬上看到你提著一袋魚
-  lastPosKey = '';
-}
-
-function heldItemNow(): ShopItemId | null {
-  if (heldItem && performance.now() / 1000 > heldItem.until) heldItem = null;
-  return heldItem?.id ?? null;
-}
-
-// 夜市老闆招呼客人：走到攤位前面會說「歡迎光臨」，人在夜市裡時偶爾有攤位吆喝
-const VENDOR_GREET_COOLDOWN_S = 25;
-const VENDOR_SHOUT_EVERY_S = 9;
-const vendorLastGreet = new Map<number, number>();
-let lastVendorShout = 0;
-let fishOwnerLastGreet = -Infinity;
-
-function updateVendors(seconds: number): void {
-  // 走離攤位就把菜單關掉
-  if (shopStall.value !== null && nearestStall() !== shopStall.value) shopStall.value = null;
-  if (fishOpen.value && !nearFishPool()) closeFishing();
-  // 夜市在戶外，不受圖書館分區的靜音規則影響；勿擾和專注中照樣不吵你
-  if (area.value !== 'nightmarket' || props.disabled || playerPrefs.value.doNotDisturb) return;
-  const owner = fishOwnerSpot();
-  if (owner && Math.hypot(owner.x - player.x, owner.y - player.y) < 2.2 && !fishOpen.value && seconds - fishOwnerLastGreet > VENDOR_GREET_COOLDOWN_S) {
-    fishOwnerLastGreet = seconds;
-    say('fisher', t.value.seatScene.fishOwnerGreet);
-    lastVendorShout = seconds;
-    return;
-  }
-  const stalls = map.world.props.filter((p) => p.kind === 'stall');
-  for (const stall of stalls) {
-    const i = stall.variant ?? 0;
-    const front = { x: stall.tx + stall.w / 2, y: stall.ty + stall.h + 0.6 };
-    if (Math.hypot(front.x - player.x, front.y - player.y) > 1.8) continue;
-    if (seconds - (vendorLastGreet.get(i) ?? -Infinity) < VENDOR_GREET_COOLDOWN_S) continue;
-    vendorLastGreet.set(i, seconds);
-    say(`vendor:${i}`, `${t.value.seatScene.vendorWelcome} ${STALLS[i]?.call[locale.value] ?? ''}`);
-    lastVendorShout = seconds;
-    return;
-  }
-  if (seconds - lastVendorShout > VENDOR_SHOUT_EVERY_S) {
-    lastVendorShout = seconds;
-    // 偶爾換釣魚池老闆吆喝
-    if (Math.random() < 1 / (STALLS.length + 1)) {
-      say('fisher', t.value.seatScene.fishOwnerShout);
-      return;
-    }
-    const stall = stalls[Math.floor(Math.random() * stalls.length)];
-    const i = stall?.variant ?? 0;
-    if (stall) say(`vendor:${i}`, STALLS[i]?.call[locale.value] ?? '');
-  }
-}
-
-// 戶外的建築、攤位、動物園，以及走來走去的路人、計程車、動物
+// 戶外的建築、動物園，以及走來走去的路人、計程車、動物
 function outdoorDrawables(seconds: number): Drawable[] {
   const night = lightingNow() !== 'day';
   const list: Drawable[] = [];
-  const owner = fishOwnerSpot();
-  if (owner) {
-    list.push({
-      sortY: owner.y + 0.35,
-      draw: (c) => {
-        const x = owner.x * TILE;
-        const y = owner.y * TILE + 5;
-        // 小板凳＋老闆（等你拋竿時會看著池子）
-        c.fillStyle = '#7a5236';
-        c.fillRect(Math.round(x - 5), Math.round(y - 4), 10, 4);
-        drawAvatar(c, FISH_OWNER_COLORS, fishPhase.value === 'waiting' || fishPhase.value === 'bite' ? 'left' : 'down', 'idle', x, y - 2, true);
-        // 斗笠
-        c.fillStyle = '#d9b97f';
-        c.fillRect(Math.round(x - 8), Math.round(y - 20), 16, 2);
-        c.fillRect(Math.round(x - 5), Math.round(y - 22), 10, 2);
-        c.fillRect(Math.round(x - 2), Math.round(y - 24), 4, 2);
-        // 手上的釣竿
-        c.fillStyle = '#3a3d45';
-        for (let i = 0; i < 8; i += 1) c.fillRect(Math.round(x - 6 - i * 2), Math.round(y - 10 - i), 2, 1);
-      },
-    });
-  }
   for (const prop of map.world.props) {
-    if (prop.kind === 'stall') {
-      // 攤位：背板 → 老闆 → 屋頂和檯面（擋住老闆的下半身）
-      const vendorColors = vendorAvatar(prop.variant ?? 0);
-      const bob = Math.sin(seconds * 2 + (prop.variant ?? 0)) > 0.6 ? 1 : 0;
-      list.push(
-        { sortY: prop.ty + 0.2, draw: (c) => paintStall(c, prop, 'back', seconds, night) },
-        {
-          sortY: prop.ty + 0.5,
-          draw: (c) => drawAvatar(c, vendorColors, 'down', 'idle', (prop.tx + prop.w / 2) * TILE, prop.ty * TILE + 18 + bob, true),
-        },
-        { sortY: prop.ty + prop.h, draw: (c) => paintStall(c, prop, 'front', seconds, night) },
-      );
-      continue;
-    }
     list.push({
       // 展區和水池是地面，要畫在裡面的動物底下
       sortY: prop.kind === 'enclosure' || prop.kind === 'pool' ? prop.ty : prop.ty + prop.h,
@@ -2457,9 +2209,9 @@ function drawNightLighting(c: CanvasRenderingContext2D, seconds: number, tint = 
       glow(prop.tx * TILE + 8, prop.ty * TILE + 6, 64 + Math.sin(seconds * 9) * 3, `rgba(255, 150, 60, ${0.5 + Math.sin(seconds * 13) * 0.05})`);
     }
   }
-  // 戶外：夜市的攤位與燈籠、101 的路燈與辦公室、捷運站
+  // 戶外：夜市站的燈籠、101 的路燈與辦公室、捷運站
   for (const prop of world.props) {
-    if (prop.kind === 'stall') glow((prop.tx + prop.w / 2) * TILE, prop.ty * TILE + 6, 46, 'rgba(255, 200, 120, 0.42)');
+    if (prop.kind === 'marketMrt') glow((prop.tx + prop.w / 2) * TILE, prop.ty * TILE + 12, 70, 'rgba(255, 200, 120, 0.4)');
     if (prop.kind === 'lanternPole') glow(prop.tx * TILE + 8, prop.ty * TILE - 14, 56, `rgba(255, 120, 80, ${0.34 + Math.sin(seconds * 2 + prop.tx) * 0.04})`);
     if (prop.kind === 'lanternString') {
       const count = Math.max(3, Math.round((prop.w * TILE) / 14));
@@ -2748,45 +2500,12 @@ function drawBubbles(c: CanvasRenderingContext2D, seconds: number, toScreen: (wx
         anchor = toScreen(shown.x * TILE, shown.y * TILE + remoteHeadOffset(remote));
         anchor.y -= LABEL_FONT_PX + 10;
       }
-    } else if (key.startsWith('vendor:')) {
-      const stall = map.world.props.find((p) => p.kind === 'stall' && String(p.variant ?? 0) === key.slice(7));
-      // 冒在攤位招牌上面
-      if (stall) {
-        anchor = toScreen((stall.tx + stall.w / 2) * TILE, stall.ty * TILE - 20);
-        anchor.y -= LABEL_FONT_PX + 10;
-      }
-    } else if (key === 'fisher') {
-      const owner = fishOwnerSpot();
-      if (owner) {
-        anchor = toScreen(owner.x * TILE, owner.y * TILE - 22);
-        // 在「釣魚池」名牌上面
-        anchor.y -= (LABEL_FONT_PX + 10) * 2;
-      }
     } else if (key.startsWith('npc:')) {
       const goer = map.beachgoers[Number(key.slice(4))];
       if (goer) anchor = toScreen(beachgoerPose(goer, seconds).x * TILE, goer.y * TILE - AVATAR_SIZE.h - 2);
     }
     if (anchor) drawBubble(c, bubble.text, anchor.x, anchor.y, now - bubble.from);
   }
-}
-
-// 釣魚時池子中間的浮標：等的時候輕輕晃，上鉤時往下沉、冒漣漪
-function drawBobber(c: CanvasRenderingContext2D, seconds: number): void {
-  if (fishPhase.value !== 'waiting' && fishPhase.value !== 'bite') return;
-  const pool = fishPool();
-  if (!pool) return;
-  const x = Math.round((pool.tx + pool.w / 2) * TILE);
-  const bite = fishPhase.value === 'bite';
-  const y = Math.round((pool.ty + pool.h / 2) * TILE + (bite ? 2 + Math.round(Math.sin(seconds * 30)) : Math.round(Math.sin(seconds * 3) * 0.6)));
-  c.fillStyle = 'rgba(255,255,255,0.6)';
-  const ring = bite ? 5 + Math.floor((seconds * 12) % 4) : 4;
-  c.fillRect(x - ring, y + 3, ring * 2, 1);
-  c.fillStyle = '#e8572a';
-  c.fillRect(x - 2, y - 3, 4, 3);
-  c.fillStyle = '#ffffff';
-  c.fillRect(x - 2, y, 4, 2);
-  c.fillStyle = '#3a3d45';
-  c.fillRect(x, y - 7, 1, 4);
 }
 
 function render(seconds: number): void {
@@ -2816,7 +2535,6 @@ function render(seconds: number): void {
   if (me) drawables.push(me);
   drawables.sort((a, b) => a.sortY - b.sortY);
   for (const item of drawables) item.draw(ctx);
-  drawBobber(ctx, seconds);
   const light = lightingNow();
   if (light === 'night') drawNightLighting(ctx, seconds);
   else if (light === 'dusk') {
@@ -2848,20 +2566,6 @@ function render(seconds: number): void {
   for (const sign of map.world.signs) {
     const p = toScreen(sign.x * TILE, sign.y * TILE);
     drawPill(ctx, sign.text[locale.value], p.x, p.y, '#fbbf24');
-  }
-  // 釣魚池的招牌
-  const ownerSpot = fishOwnerSpot();
-  if (ownerSpot) {
-    const op = toScreen(ownerSpot.x * TILE, ownerSpot.y * TILE - 24);
-    drawPill(ctx, t.value.seatScene.fishOwnerName, op.x, op.y, '#38bdf8');
-  }
-  // 夜市攤位的招牌（掛在屋頂上）
-  for (const stall of map.world.props) {
-    if (stall.kind !== 'stall') continue;
-    const name = STALLS[stall.variant ?? 0]?.name[locale.value];
-    if (!name) continue;
-    const p = toScreen((stall.tx + stall.w / 2) * TILE, stall.ty * TILE - 20);
-    drawPill(ctx, name, p.x, p.y, '#e25a4a');
   }
   const doors: [number, number, string][] = [
     [1.3, (map.sideExits.left?.y0 ?? 0) - 0.15, `← ${t.value.seatScene.exitTaipei101}`],
@@ -2899,15 +2603,7 @@ function render(seconds: number): void {
   ctx.font = `${Math.round(view.scale * 6)}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  // 坐著：拿在座位旁；騎車：拿在把手上方；站著：拿在手上
-  const mine = heldItemNow();
-  if (mine) {
-    const mySeat = player.state === 'seated' ? seatNodes.find((n) => n.seatId === player.seatId) : undefined;
-    const p = mySeat
-      ? toScreen(mySeat.slot.tx * TILE + 14, mySeat.slot.ty * TILE - 2)
-      : toScreen(player.x * TILE + 7, player.y * TILE + (riding ? -9 : -4));
-    drawHeldItem(ctx, mine, p.x, p.y);
-  }
+  // 騎車：拿在把手上方；站著：拿在手上
   for (const remote of Object.values(props.remotePlayers)) {
     const shown = remoteShown.get(remote.key);
     if (!shown || !remote.item) continue;
@@ -2964,7 +2660,6 @@ function animate(time: number): void {
   lastFrameTime = seconds;
   updatePlayer(dt);
   returnIdleVehicles();
-  updateVendors(seconds);
   updateRemotePlayers();
   syncPosition(seconds);
   savePosition(seconds);
@@ -3081,28 +2776,6 @@ function handleClick(event: MouseEvent): void {
   const lie = pickLieSpot(point);
   if (lie) {
     walkToLie(lie);
-    return;
-  }
-  const clickedStall = map.world.props.find(
-    (p) => p.kind === 'stall' && point.x >= p.tx && point.x <= p.tx + p.w && point.y >= p.ty - 1.3 && point.y <= p.ty + p.h,
-  );
-  if (clickedStall && !riding) {
-    const i = clickedStall.variant ?? 0;
-    const front = stallFront(i);
-    if (front && Math.hypot(front.x - player.x, front.y - player.y) < 1.6) openShop(i);
-    else if (front) {
-      walkToPoint(front);
-      goalShop = i;
-    }
-    return;
-  }
-  const pool = fishPool();
-  if (pool && !riding && point.x >= pool.tx && point.x <= pool.tx + pool.w && point.y >= pool.ty - 0.5 && point.y <= pool.ty + pool.h) {
-    if (nearFishPool()) openFishing();
-    else {
-      walkToPoint({ x: pool.tx + pool.w / 2, y: pool.ty + pool.h + 0.6 });
-      goalFish = true;
-    }
     return;
   }
   const station = stations().find((s) => point.x >= s.rect.x0 && point.x <= s.rect.x1 && point.y >= s.rect.y0 && point.y <= s.rect.y1);
@@ -3244,9 +2917,6 @@ function handleKeyDown(event: KeyboardEvent): void {
       if (lie) options.push({ dist: Math.hypot(lie.x - player.x, lie.y - player.y), act: () => lieDown(lie) });
       const station = nearestStation();
       if (station) options.push({ dist: Math.hypot(station.x - player.x, station.y - player.y), act: takeBike });
-      const shop = nearestStall();
-      if (shop !== null) options.push({ dist: 0.5, act: () => openShop(shop) });
-      if (nearFishPool()) options.push({ dist: 0.5, act: openFishing });
       const best = options.sort((a, b) => a.dist - b.dist)[0];
       // 旁邊什麼都沒有：在圖書館裡就直接躺在地板上
       if (best) best.act();
@@ -3399,7 +3069,6 @@ watchEffect(() => {
 });
 
 onBeforeUnmount(() => {
-  window.clearTimeout(fishTimer);
   cancelAnimationFrame(rafId);
   tvScreen.visible = false;
   tvScreen.onMap = false;

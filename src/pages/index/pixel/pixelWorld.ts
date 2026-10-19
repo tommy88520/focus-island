@@ -1,8 +1,9 @@
-// 圖書館外面的世界：左邊 101 一帶、右邊動物園、上面士林夜市（下面的海灘在 pixelMap 裡）。
+// 圖書館外面的世界：左邊 101 一帶、右邊動物園、上面夜市捷運站（搭去士林夜市、基隆廟口夜市；下面的海灘在 pixelMap 裡）。
 // 座標跟圖書館同一套（格，1 格 = 16px），圖書館在 (0,0)～(32, libraryHeight)，戶外區用到負的座標。
 // 這裡放資料（家具、會動的人車動物）和畫法；碰撞照樣交給 mapObstacles。
 
 import { MIAOKOU_ITEMS } from './miaokou';
+import { SHILIN_ITEMS } from './shilin';
 import { TILE } from './pixelMap';
 import { px, seeded } from './pixelUtil';
 
@@ -16,13 +17,11 @@ export type OutdoorKind =
   | 'tower101'
   | 'office'
   | 'mrt'
+  | 'marketMrt'
   | 'f1station'
   | 'streetTree'
   | 'youbike'
   | 'bench'
-  | 'stall'
-  | 'tableSet'
-  | 'goldfish'
   | 'lanternPole'
   | 'lanternString'
   | 'streetLamp'
@@ -67,15 +66,17 @@ export interface OutdoorWorld {
   signs: { x: number; y: number; text: { 'zh-TW': string; 'en-US': string } }[];
   // 捷運站入口：走到這裡會跳出選分區的面板
   mrtTrigger: { x: number; y: number };
+  // 夜市捷運站入口：走到這裡選要去士林夜市還是基隆廟口夜市
+  marketMrtTrigger: { x: number; y: number };
   // F1 站入口：走到這裡可以去 F1 賽車場
   f1Trigger: { x: number; y: number };
-  // 圖書館後牆的門（通往夜市），x 範圍
+  // 圖書館後牆的門（通往夜市捷運站），x 範圍
   backDoor: [number, number];
 }
 
 export const BACK_DOOR: [number, number] = [29, 31];
 
-// 夜市北邊八個攤位：招牌、老闆的叫賣、賣的東西（價格是專注幣；順序跟 stall 的 variant 一樣）
+// 夜市買得到的東西（士林 shilin.ts、廟口 miaokou.ts、撈金魚）。新增要先加進後端 allowedShopItems（位置訊息會帶手上拿的東西），不然整則位置會被丟掉
 export type ShopItemId =
   | 'icecreamRoll'
   | 'mangoIce'
@@ -112,7 +113,15 @@ export type ShopItemId =
   | 'butterCrab'
   | 'mungBeanCake'
   | 'pineappleCake'
-  | 'taroMochi';
+  | 'taroMochi'
+  // 士林夜市（shilin.ts）
+  | 'bigPancake'
+  | 'shengjianbao'
+  | 'frogEggs'
+  | 'taroIce'
+  | 'squid'
+  | 'snowIce'
+  | 'coldNoodles';
 
 export interface ShopItem {
   id: ShopItemId;
@@ -121,82 +130,7 @@ export interface ShopItem {
   name: { 'zh-TW': string; 'en-US': string };
 }
 
-// 新增小吃要先加進後端 allowedShopItems（位置訊息會帶手上拿的東西），不然整則位置會被丟掉
-export const STALLS: {
-  name: { 'zh-TW': string; 'en-US': string };
-  call: { 'zh-TW': string; 'en-US': string };
-  items: ShopItem[];
-}[] = [
-  {
-    name: { 'zh-TW': '花生捲冰淇淋', 'en-US': 'Peanut ice cream roll' },
-    call: { 'zh-TW': '花生捲冰淇淋，加香菜嗎？', 'en-US': 'Ice cream roll! Cilantro?' },
-    items: [
-      { id: 'icecreamRoll', emoji: '🍦', price: 35, name: { 'zh-TW': '花生捲冰淇淋（加香菜）', 'en-US': 'Peanut ice cream roll' } },
-      { id: 'mangoIce', emoji: '🍧', price: 55, name: { 'zh-TW': '芒果雪花冰', 'en-US': 'Mango shaved snow' } },
-    ],
-  },
-  {
-    name: { 'zh-TW': '烤香腸', 'en-US': 'Grilled sausage' },
-    call: { 'zh-TW': '香腸剛烤好！配大蒜！', 'en-US': 'Fresh sausages! With garlic!' },
-    items: [
-      { id: 'sausage', emoji: '🌭', price: 30, name: { 'zh-TW': '烤香腸配大蒜', 'en-US': 'Grilled sausage with garlic' } },
-      { id: 'bigSausage', emoji: '🥖', price: 50, name: { 'zh-TW': '大腸包小腸', 'en-US': 'Sausage in sticky-rice sausage' } },
-      { id: 'corn', emoji: '🌽', price: 40, name: { 'zh-TW': '烤玉米', 'en-US': 'Grilled corn' } },
-    ],
-  },
-  {
-    name: { 'zh-TW': '芋圓王', 'en-US': 'Taro ball king' },
-    call: { 'zh-TW': '芋圓王，冰的熱的都有～', 'en-US': 'Taro balls, hot or iced~' },
-    items: [
-      { id: 'taroBall', emoji: '🍡', price: 40, name: { 'zh-TW': '綜合芋圓（冰）', 'en-US': 'Mixed taro balls (iced)' } },
-      { id: 'tofuPudding', emoji: '🍮', price: 35, name: { 'zh-TW': '花生豆花', 'en-US': 'Peanut tofu pudding' } },
-    ],
-  },
-  {
-    name: { 'zh-TW': '豪大雞排', 'en-US': 'Fried chicken' },
-    call: { 'zh-TW': '雞排要切不要辣？', 'en-US': 'Chicken cutlet, sliced?' },
-    items: [
-      { id: 'chicken', emoji: '🍗', price: 45, name: { 'zh-TW': '大雞排（要切）', 'en-US': 'Giant chicken cutlet' } },
-      { id: 'saltyChicken', emoji: '🍤', price: 50, name: { 'zh-TW': '鹽酥雞加九層塔', 'en-US': 'Popcorn chicken with basil' } },
-      { id: 'sweetPotatoBall', emoji: '🍠', price: 30, name: { 'zh-TW': 'QQ 地瓜球', 'en-US': 'Chewy sweet potato balls' } },
-    ],
-  },
-  {
-    name: { 'zh-TW': '珍珠奶茶', 'en-US': 'Bubble tea' },
-    call: { 'zh-TW': '珍奶半糖少冰！', 'en-US': 'Bubble tea, half sugar!' },
-    items: [
-      { id: 'boba', emoji: '🧋', price: 40, name: { 'zh-TW': '珍珠奶茶（半糖少冰）', 'en-US': 'Bubble tea (half sugar)' } },
-      { id: 'papayaMilk', emoji: '🥛', price: 45, name: { 'zh-TW': '木瓜牛奶', 'en-US': 'Papaya milk' } },
-      { id: 'lemonTea', emoji: '🍋', price: 35, name: { 'zh-TW': '檸檬愛玉', 'en-US': 'Lemon aiyu jelly' } },
-    ],
-  },
-  {
-    name: { 'zh-TW': '臭豆腐', 'en-US': 'Stinky tofu' },
-    call: { 'zh-TW': '臭豆腐，泡菜加多一點！', 'en-US': 'Stinky tofu, extra kimchi!' },
-    items: [
-      { id: 'tofu', emoji: '🍢', price: 35, name: { 'zh-TW': '酥炸臭豆腐', 'en-US': 'Crispy stinky tofu' } },
-      { id: 'luwei', emoji: '🥘', price: 60, name: { 'zh-TW': '麻辣滷味', 'en-US': 'Spicy braised snacks' } },
-    ],
-  },
-  {
-    name: { 'zh-TW': '射氣球', 'en-US': 'Balloon darts' },
-    call: { 'zh-TW': '射中三個送娃娃喔！', 'en-US': 'Pop three, win a plushie!' },
-    items: [
-      { id: 'plush', emoji: '🧸', price: 50, name: { 'zh-TW': '玩一次（保證送娃娃）', 'en-US': 'One round (plushie guaranteed)' } },
-      { id: 'balloon', emoji: '🎈', price: 20, name: { 'zh-TW': '買一顆氣球', 'en-US': 'A balloon' } },
-    ],
-  },
-  {
-    name: { 'zh-TW': '蚵仔煎', 'en-US': 'Oyster omelette' },
-    call: { 'zh-TW': '蚵仔煎，現煎的！', 'en-US': 'Oyster omelette, made fresh!' },
-    items: [
-      { id: 'oyster', emoji: '🍳', price: 45, name: { 'zh-TW': '蚵仔煎', 'en-US': 'Oyster omelette' } },
-      { id: 'misua', emoji: '🍜', price: 50, name: { 'zh-TW': '大腸蚵仔麵線', 'en-US': 'Oyster and intestine vermicelli' } },
-    ],
-  },
-];
-
-// 夜市金魚池可以釣魚：釣一次 FISHING_PRICE，釣到的魚裝袋拿在手上（跟小吃一樣，id 也要在後端 allowedShopItems 裡）
+// 士林夜市的金魚池可以釣魚：釣一次 FISHING_PRICE，釣到的魚裝袋拿在手上（跟小吃一樣，id 也要在後端 allowedShopItems 裡）
 export const FISHING_PRICE = 20;
 export const FISH: { id: ShopItemId; emoji: string; chance: number; name: { 'zh-TW': string; 'en-US': string } }[] = [
   { id: 'goldfish', emoji: '🐟', chance: 0.7, name: { 'zh-TW': '一條小金魚', 'en-US': 'a little goldfish' } },
@@ -205,9 +139,9 @@ export const FISH: { id: ShopItemId; emoji: string; chance: number; name: { 'zh-
 ];
 
 export const SHOP_ITEM_EMOJI: Record<ShopItemId, string> = Object.fromEntries([
-  ...STALLS.flatMap((s) => s.items.map((item) => [item.id, item.emoji])),
+  ...MIAOKOU_ITEMS.map((item) => [item.id, item.emoji]),
+  ...SHILIN_ITEMS.map((item) => [item.id, item.emoji]),
   ...FISH.map((fish) => [fish.id, fish.emoji]),
-  ...MIAOKOU_ITEMS.filter((item) => !STALLS.some((s) => s.items.some((it) => it.id === item.id))).map((item) => [item.id, item.emoji]),
 ]) as Record<ShopItemId, string>;
 
 export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, worldBottom: number): OutdoorWorld {
@@ -240,20 +174,19 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
     prop('youbike', R + 1, 7, 3, 1),
     ...[-10, -5, 4, 9, 14].map((y) => prop('streetTree', -2, y)),
     ...[-10, -2, 4].map((y) => prop('streetTree', -13, y)),
-    // ── 士林夜市 ──
-    // 北邊一排八個攤位（各有一個老闆），南邊是吃東西的桌椅和撈金魚
-    ...[1, 5, 9, 13, 17, 21, 25, 29].map((x, i) => prop('stall', x, -10, 3, 2, true, i)),
-    // 桌子只佔中間那格，旁邊的紅色塑膠椅是座位（在 pixelMap 的座位清單裡）
-    ...[3, 9, 15].map((x) => prop('tableSet', x, -4, 1, 2, true)),
-    prop('goldfish', 20, -4, 4, 2, true),
-    ...[0, 8, 16, 24, 31].map((x) => prop('lanternPole', x, -7, 1, 1, true)),
+    // ── 夜市捷運站（以前的士林夜市；士林夜市搬成獨立地圖）──
+    // 中間是捷運站出入口（走到前面選士林或廟口），兩邊留著燈籠串、行道樹和長椅
+    prop('marketMrt', 12, -10, 8, 4),
+    ...[0, 8, 24, 31].map((x) => prop('lanternPole', x, -3, 1, 1, true)),
     // 燈柱之間拉一串燈籠橫過走道（不擋路）；w = 到下一根燈柱的格數
     ...[
       [0, 8],
-      [8, 8],
-      [16, 8],
       [24, 7],
-    ].map(([x, w]) => prop('lanternString', x as number, -7, w as number, 1, false)),
+    ].map(([x, w]) => prop('lanternString', x as number, -3, w as number, 1, false)),
+    ...[2, 7, 25, 30].map((x) => prop('streetTree', x, -10)),
+    prop('bench', 4, -7, 2, 1),
+    prop('bench', 26, -7, 2, 1),
+    ...[10, 21].map((x) => prop('streetLamp', x, -6)),
     // ── 路燈：101 的人行道、動物園步道、海灘木棧道（晚上會亮） ──
     ...[-8, 0, 7, 12].map((y) => prop('streetLamp', -2, y)),
     ...[-7, 2].map((y) => prop('streetLamp', -13, y)),
@@ -278,11 +211,11 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
     { kind: 'taxi', from: { x: -10.2, y: libraryHeight + 1 }, to: { x: -10.2, y: y0 - 1 }, speed: 2.6, phase: 0.5, look: 1, loop: true },
     { kind: 'person', from: { x: -3.5, y: -11 }, to: { x: -3.5, y: 11 }, speed: 1.1, phase: 0, look: 2 },
     { kind: 'person', from: { x: -6.5, y: 4 }, to: { x: -1, y: 4 }, speed: 0.9, phase: 0.3, look: 5 },
-    // 夜市逛街的人
-    { kind: 'person', from: { x: 1, y: -6.5 }, to: { x: 30, y: -6.5 }, speed: 1, phase: 0, look: 1 },
-    { kind: 'person', from: { x: 28, y: -5.6 }, to: { x: 3, y: -5.6 }, speed: 0.8, phase: 0.4, look: 3 },
-    { kind: 'person', from: { x: 6, y: -7.3 }, to: { x: 20, y: -7.3 }, speed: 0.7, phase: 0.7, look: 6 },
-    { kind: 'person', from: { x: 12, y: -5 }, to: { x: 26, y: -5 }, speed: 0.9, phase: 0.2, look: 4 },
+    // 進出夜市捷運站的人
+    { kind: 'person', from: { x: 1, y: -4.6 }, to: { x: 30, y: -4.6 }, speed: 1, phase: 0, look: 1 },
+    { kind: 'person', from: { x: 28, y: -1.6 }, to: { x: 3, y: -1.6 }, speed: 0.8, phase: 0.4, look: 3 },
+    { kind: 'person', from: { x: 14.5, y: -5.4 }, to: { x: 14.5, y: -0.8 }, speed: 0.7, phase: 0.7, look: 6 },
+    { kind: 'person', from: { x: 17.6, y: -0.8 }, to: { x: 17.6, y: -5.4 }, speed: 0.9, phase: 0.2, look: 4 },
     // 動物園裡的動物
     { kind: 'panda', from: { x: R + 8, y: -7 }, to: { x: R + 12, y: -7.5 }, speed: 0.35, phase: 0, look: 0 },
     { kind: 'panda', from: { x: R + 7.5, y: -9.6 }, to: { x: R + 10.2, y: -9.6 }, speed: 0.3, phase: 0.5, look: 1 },
@@ -307,11 +240,12 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
       { x: -13, y: -1.6, text: { 'zh-TW': '台北 101', 'en-US': 'Taipei 101' } },
       { x: -4.5, y: -0.4, text: { 'zh-TW': '捷運 台北101/世貿站', 'en-US': 'MRT Taipei 101' } },
       { x: -14, y: 12.4, text: { 'zh-TW': '🏁 F1 站', 'en-US': '🏁 F1 Station' } },
-      { x: 16, y: -11.4, text: { 'zh-TW': '士林夜市', 'en-US': 'Shilin Night Market' } },
+      { x: 16, y: -11.6, text: { 'zh-TW': '🏮 夜市捷運站（士林／廟口）', 'en-US': '🏮 Night Market MRT (Shilin / Miaokou)' } },
       { x: R + 8, y: 8.6, text: { 'zh-TW': '台北市立動物園', 'en-US': 'Taipei Zoo' } },
       { x: R + 10.5, y: -11.4, text: { 'zh-TW': '🐼 熊貓館', 'en-US': '🐼 Panda House' } },
     ],
     mrtTrigger: { x: -4.5, y: 2.5 },
+    marketMrtTrigger: { x: 16, y: -5.3 },
     f1Trigger: { x: -14, y: 15.6 },
     backDoor: BACK_DOOR,
   };
@@ -369,7 +303,7 @@ export function paintOutdoorGround(ctx: CanvasRenderingContext2D, world: Outdoor
   for (let y = top; y < libH; y += 24) px(ctx, '#f2d36b', roadL + roadW / 2 - 1, y, 2, 12);
   for (let x = roadL + 2; x < roadL + roadW - 2; x += 8) px(ctx, '#f4f2ea', x, 6 * T, 5, 2 * T);
 
-  // 夜市：紅磚
+  // 夜市捷運站前：紅磚
   px(ctx, '#8f4a3c', 0, top, libW, -top);
   for (let y = top; y < 0; y += 8) {
     const offset = (y / 8) % 2 === 0 ? 0 : 8;
@@ -412,131 +346,6 @@ export function paintBackDoor(ctx: CanvasRenderingContext2D, door: [number, numb
 }
 
 // ── 戶外的東西（跟人物一起排前後） ──
-
-const STALL_COLORS: [string, string][] = [
-  ['#e25a4a', '#fff4e6'],
-  ['#2fb3a6', '#fff4e6'],
-  ['#f2a541', '#fff4e6'],
-  ['#5b6ee1', '#fff4e6'],
-  ['#e86a8a', '#fff4e6'],
-  ['#4fa35a', '#fff4e6'],
-  ['#c46a55', '#f6e2b8'],
-  ['#3b6f86', '#f6e2b8'],
-];
-
-// 攤位檯面上的食物（variant 跟 STALLS 一樣）；seconds 用來做烤架的火光、冒煙
-function paintStallFood(ctx: CanvasRenderingContext2D, x: number, y: number, variant: number, seconds: number): void {
-  const flick = Math.floor(seconds * 6) % 2;
-  switch (variant % 8) {
-    case 0: {
-      // 花生捲冰淇淋：一大塊花生糖 + 刨刀、三球冰淇淋、一疊潤餅皮
-      px(ctx, '#c98a3c', x, y, 12, 6);
-      px(ctx, '#e3ad5e', x + 1, y + 1, 10, 2);
-      for (let i = 0; i < 4; i += 1) px(ctx, '#8a5e36', x + 2 + i * 3, y + 3, 1, 1);
-      px(ctx, '#c3cad6', x + 12, y - 2, 2, 6);
-      ['#f4eee2', '#f59ab3', '#ffe39a'].forEach((c, i) => {
-        px(ctx, c, x + 16 + i * 5, y + 1, 4, 3);
-        px(ctx, '#ffffff', x + 17 + i * 5, y + 1, 1, 1);
-      });
-      px(ctx, '#f4eee2', x + 31, y + 2, 8, 4);
-      px(ctx, '#e3dccb', x + 31, y + 4, 8, 1);
-      px(ctx, '#57a862', x + 34, y, 3, 2);
-      break;
-    }
-    case 1: {
-      // 烤香腸：炭火烤架（會閃）+ 一排香腸 + 冒煙 + 大蒜
-      px(ctx, '#2b2d33', x, y + 1, 30, 6);
-      px(ctx, flick ? '#e8572a' : '#f6a531', x + 1, y + 4, 28, 2);
-      for (let i = 0; i < 5; i += 1) {
-        px(ctx, '#8a3b2f', x + 2 + i * 6, y + 1, 4, 3);
-        px(ctx, '#b0574a', x + 2 + i * 6, y + 1, 4, 1);
-      }
-      for (let i = 0; i < 3; i += 1) {
-        const rise = (seconds * 6 + i * 4) % 12;
-        px(ctx, `rgba(240,240,240,${0.55 - rise * 0.04})`, x + 6 + i * 9, Math.round(y - 2 - rise), 2, 2);
-      }
-      px(ctx, '#f4eee2', x + 33, y + 3, 3, 3);
-      px(ctx, '#f4eee2', x + 37, y + 3, 3, 3);
-      break;
-    }
-    case 2: {
-      // 芋圓王：大鍋芋圓（紫、橘、黃）+ 冒煙 + 一疊碗
-      px(ctx, '#55596a', x, y - 1, 18, 8);
-      px(ctx, '#c9a06b', x + 1, y, 16, 3);
-      ['#8a5ec4', '#f2a541', '#f6c945', '#8a5ec4', '#f2a541', '#f6c945', '#8a5ec4'].forEach((c, i) => px(ctx, c, x + 2 + i * 2, y + (i % 2), 2, 2));
-      for (let i = 0; i < 2; i += 1) {
-        const rise = (seconds * 5 + i * 5) % 10;
-        px(ctx, `rgba(255,255,255,${0.5 - rise * 0.05})`, x + 5 + i * 6, Math.round(y - 3 - rise), 2, 2);
-      }
-      for (let i = 0; i < 3; i += 1) px(ctx, '#f4eee2', x + 22 + i * 6, y + 2, 5, 3);
-      px(ctx, '#8a5ec4', x + 23, y + 2, 1, 1);
-      px(ctx, '#f2a541', x + 29, y + 2, 1, 1);
-      break;
-    }
-    case 3: // 雞排
-      for (const dx of [0, 13, 26]) {
-        px(ctx, '#b87a34', x + dx, y, 11, 6);
-        px(ctx, '#d99a4e', x + dx + 1, y + 1, 9, 2);
-      }
-      break;
-    case 4: // 珍奶
-      for (const dx of [0, 7, 14, 21, 28]) {
-        px(ctx, '#e9dcc4', x + dx + 2, y - 2, 4, 7);
-        px(ctx, '#3b2a20', x + dx + 2, y + 3, 4, 2);
-        px(ctx, '#e25a4a', x + dx + 4, y - 4, 1, 3);
-      }
-      break;
-    case 5: // 臭豆腐
-      for (const dx of [0, 6, 12, 18]) {
-        px(ctx, '#c98a3c', x + dx, y + 1, 5, 4);
-        px(ctx, '#e3ad5e', x + dx, y + 1, 5, 1);
-      }
-      px(ctx, '#57a862', x + 26, y + 2, 10, 3);
-      px(ctx, '#e25a4a', x + 28, y + 3, 4, 1);
-      break;
-    case 6: // 射氣球：後面一整面氣球牆
-      ['#e25a4a', '#fbbf24', '#2fb3a6', '#e86a8a', '#5b6ee1', '#4fa35a', '#f2a541', '#a78bfa'].forEach((c, i) =>
-        px(ctx, c, x + (i % 4) * 9 + 2, y - 8 + Math.floor(i / 4) * 6, 5, 5),
-      );
-      break;
-    default: // 蚵仔煎
-      for (const dx of [0, 14]) {
-        px(ctx, '#f4eee2', x + dx, y + 1, 12, 5);
-        px(ctx, '#e8d29c', x + dx + 1, y + 2, 10, 3);
-        px(ctx, '#e25a4a', x + dx + 3, y + 2, 5, 1);
-      }
-      px(ctx, '#2b2d33', x + 30, y + 1, 10, 5);
-  }
-}
-
-// 攤位分兩層畫，中間夾著老闆：後面是背板和柱子，前面是屋頂和檯面（擋住老闆的下半身）
-export function paintStall(ctx: CanvasRenderingContext2D, prop: OutdoorProp, layer: 'back' | 'front', seconds: number, night: boolean): void {
-  const x = prop.tx * TILE;
-  const y = prop.ty * TILE;
-  const w = prop.w * TILE;
-  const h = prop.h * TILE;
-  const variant = prop.variant ?? 0;
-  const [awning, stripe] = STALL_COLORS[variant % STALL_COLORS.length] ?? ['#e25a4a', '#fff4e6'];
-  if (layer === 'back') {
-    px(ctx, 'rgba(0,0,0,0.25)', x + 2, y + h - 2, w, 4);
-    px(ctx, '#4a3326', x + 2, y - 8, w - 4, 20);
-    px(ctx, '#5c3d22', x + 3, y - 7, w - 6, 18);
-    px(ctx, '#3a3d45', x + 1, y - 14, 2, h + 14);
-    px(ctx, '#3a3d45', x + w - 3, y - 14, 2, h + 14);
-    return;
-  }
-  // 檯面
-  px(ctx, '#6b4428', x + 2, y + 16, w - 4, h - 16);
-  px(ctx, '#9a6a43', x + 3, y + 17, w - 6, 4);
-  px(ctx, '#c3cad6', x + 2, y + 14, w - 4, 3);
-  paintStallFood(ctx, x + 4, y + 9, variant, seconds);
-  // 條紋屋頂 + 一排小燈
-  for (let i = 0; i < w; i += 6) px(ctx, (i / 6) % 2 === 0 ? awning : stripe, x + i, y - 20, Math.min(6, w - i), 8);
-  for (let i = 0; i < w; i += 6) px(ctx, (i / 6) % 2 === 0 ? awning : stripe, x + i + 3, y - 12, 3, 2);
-  px(ctx, 'rgba(0,0,0,0.2)', x, y - 12, w, 1);
-  const glow = night ? '#fff1a8' : '#fbd27a';
-  for (let i = 5; i < w - 2; i += 9) px(ctx, glow, x + i, y - 10, 3, 3);
-}
 
 function paintTower101(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, seconds: number, night: boolean): void {
   // 底座（佔地那幾格）往上疊八節，越上面越窄，最上面是尖塔
@@ -601,6 +410,49 @@ export function paintOutdoorProp(ctx: CanvasRenderingContext2D, prop: OutdoorPro
       px(ctx, '#ffffff', x + w / 2 - 1, y - 7, 2, 2);
       break;
     }
+    case 'marketMrt': {
+      // 夜市捷運站出入口：玻璃雨遮下兩座往下的電扶梯，上面掛著「夜市站」招牌（紅線往士林、藍線往廟口），屋簷掛燈籠
+      px(ctx, 'rgba(0,0,0,0.22)', x + 3, y + h - 2, w, 5);
+      px(ctx, '#d9dee8', x, y + 10, w, h - 14);
+      px(ctx, '#b9c0cc', x, y + h - 6, w, 4);
+      // 兩座電扶梯的入口
+      for (const ex of [x + 10, x + w / 2 + 6]) {
+        px(ctx, '#2f3340', ex, y + 18, w / 2 - 16, h - 24);
+        for (let sy = y + 20; sy < y + h - 6; sy += 4) px(ctx, '#4a5068', ex + 2, sy, w / 2 - 20, 1);
+        px(ctx, '#9aa3b2', ex, y + 18, 2, h - 24);
+        px(ctx, '#9aa3b2', ex + w / 2 - 18, y + 18, 2, h - 24);
+      }
+      // 玻璃雨遮（弧形）
+      px(ctx, '#8fb7d9', x - 4, y + 4, w + 8, 8);
+      px(ctx, '#c9e2f5', x - 4, y + 4, w + 8, 2);
+      for (let i = 0; i < w + 8; i += 12) px(ctx, '#5f7f9c', x - 4 + i, y + 4, 1, 8);
+      // 招牌：白底、紅藍兩條線
+      px(ctx, '#15171f', x + w / 2 - 34, y - 12, 68, 16);
+      px(ctx, '#ffffff', x + w / 2 - 33, y - 11, 66, 14);
+      px(ctx, '#e3002c', x + w / 2 - 33, y - 11, 4, 14);
+      px(ctx, '#0070bd', x + w / 2 + 29, y - 11, 4, 14);
+      ctx.fillStyle = '#1f2937';
+      ctx.font = '900 8px "PingFang TC", "Noto Sans TC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('夜市站', x + w / 2, y - 3.5);
+      // 捷運標誌
+      px(ctx, '#e25a4a', x + 2, y - 10, 10, 10);
+      px(ctx, '#ffffff', x + 4, y - 8, 1, 6);
+      px(ctx, '#ffffff', x + 9, y - 8, 1, 6);
+      px(ctx, '#ffffff', x + 5, y - 7, 1, 2);
+      px(ctx, '#ffffff', x + 8, y - 7, 1, 2);
+      px(ctx, '#ffffff', x + 6, y - 6, 2, 2);
+      // 屋簷下一排燈籠
+      for (let i = 0; i < 7; i += 1) {
+        const lx = x + 8 + i * ((w - 16) / 6);
+        const sway = Math.round(Math.sin(seconds * 1.4 + i) * 0.6);
+        px(ctx, '#3a3d45', lx, y + 12, 1, 2);
+        px(ctx, i % 2 ? '#e8a33d' : '#d9534f', lx - 2 + sway, y + 14, 5, 6);
+        px(ctx, night ? '#ffe9a8' : '#f6c76b', lx - 1 + sway, y + 15, 3, 3);
+      }
+      break;
+    }
     case 'f1station': {
       // F1 站：白色站房 + 格子旗屋簷 + 紅色招牌
       px(ctx, 'rgba(0,0,0,0.2)', x + 2, y + h - 2, w, 4);
@@ -649,37 +501,6 @@ export function paintOutdoorProp(ctx: CanvasRenderingContext2D, prop: OutdoorPro
       px(ctx, '#3a3d45', x + 2, y + 12, 2, 3);
       px(ctx, '#3a3d45', x + w - 4, y + 12, 2, 3);
       break;
-    case 'tableSet': {
-      // 夜市吃東西的折疊桌（佔中間那格，桌面往兩側伸出去一點）
-      px(ctx, 'rgba(0,0,0,0.18)', x - 4, y + 26, 24, 4);
-      px(ctx, '#9aa3b2', x - 6, y + 4, 28, 22);
-      px(ctx, '#d9d4c8', x - 5, y + 4, 26, 20);
-      px(ctx, '#f4eee2', x - 4, y + 5, 24, 4);
-      px(ctx, '#ffffff', x - 2, y + 11, 6, 4);
-      px(ctx, '#c98a3c', x - 1, y + 12, 4, 2);
-      px(ctx, '#e9dcc4', x + 10, y + 13, 4, 7);
-      px(ctx, '#3b2a20', x + 10, y + 18, 4, 2);
-      break;
-    }
-    case 'goldfish': {
-      // 撈金魚：藍色淺池，金魚游來游去
-      px(ctx, 'rgba(0,0,0,0.18)', x + 2, y + h - 2, w - 2, 4);
-      px(ctx, '#e3e8f0', x, y + 2, w, h - 4);
-      px(ctx, '#4fc3d9', x + 3, y + 5, w - 6, h - 10);
-      for (let i = 0; i < 7; i += 1) {
-        const fx = x + 6 + ((i * 17 + seconds * (8 + i)) % (w - 14));
-        const fy = y + 8 + ((i * 7) % (h - 18));
-        px(ctx, i % 3 === 0 ? '#ffffff' : '#f2a541', Math.round(fx), fy, 4, 2);
-        px(ctx, i % 3 === 0 ? '#e3e8f0' : '#e8572a', Math.round(fx) - 1, fy, 1, 2);
-      }
-      px(ctx, '#f4eee2', x + w - 10, y - 4, 6, 6);
-      break;
-    }
-    case 'stall': {
-      paintStall(ctx, prop, 'back', seconds, night);
-      paintStall(ctx, prop, 'front', seconds, night);
-      break;
-    }
     case 'lanternPole': {
       // 燈柱 + 往兩邊拉的燈籠串
       px(ctx, '#3a3d45', x + 7, y - 20, 2, 34);

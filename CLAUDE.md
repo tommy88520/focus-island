@@ -15,7 +15,7 @@ Quasar（Vue 3 + TS、`<script setup>`）SPA＋Pinia，Tailwind v4 跟 Quasar �
 
 ## 鐵律
 1. **座位順序不能動**：編號 NN ↔ 地圖 slot 順序，只能加在最後面，同時加大後端 `seatsPerZone`。
-   現在每區 162：圖書館 18、101 6、動物園 6、夜市 12、海灘 8、F1 22、環河公園 16、北投溫泉 16、F1 月台長椅 6、台北／台中／高雄大獎賽看台各 12、基隆廟口夜市 16（最後一塊）。
+   現在每區 162：圖書館 18、101 6、動物園 6、士林夜市 12（31–42，獨立地圖，主地圖上留著編號不畫）、海灘 8、F1 22、環河公園 16、北投溫泉 16、F1 月台長椅 6、台北／台中／高雄大獎賽看台各 12、基隆廟口夜市 16（最後一塊）。
 2. 同一人兩個分頁可以各坐一個位子（座位屬於分頁），不要加單分頁鎖。
 3. 座位只有換位子或斷線才放掉（沒有離開訊息），站起來只是保留中。
 4. WS 訊息種類、表情（`EMOTE_IDS` ↔ 後端 `allowedEmotes`）跟後端對好，加新的要後端先改。
@@ -36,11 +36,11 @@ Quasar（Vue 3 + TS、`<script setup>`）SPA＋Pinia，Tailwind v4 跟 Quasar �
   （`md:!hidden`、`!text-sm`）；`dark:` 跟 Quasar 的 `body--dark`。
 - 像素 UI：`app.scss` 的 `pixel-panel／btn／field／track`＋`--px-*` 顏色，同一元素不要再疊 Tailwind 的 `bg-／border-／shadow-`；`font-pixel` 只有英數。
 - 本機沒後端：座位用預設值畫；樓梯要 `/api/v1/library/floors` 有回應才出現。
-- 地圖有負座標（101 x<0、夜市 y<0），鏡頭／小地圖／光影用 world 範圍。
+- 地圖有負座標（101 x<0、夜市站 y<0），鏡頭／小地圖／光影用 world 範圍。
 
 ## 程式在哪
 - `pages/IndexPage.vue` 主頁；連線 `pages/index/composables/useLibrarySocket.ts`＋`actions/`。
-- 場景：`SeatScenePixel.vue`（主地圖）、`F1HubScene.vue`（F1 月台：選賽道）→ `F1Scene.vue`／`GrandPrixScene.vue`（台北台中高雄，賽道 `pixel/circuits.ts`＋`gpTrack.ts`、城市 `gpCity.ts`、地標 `gpArt.ts`、月台 `hubArt.ts`）、`MiaokouScene.vue`（基隆廟口夜市，資料 `pixel/miaokou.ts`、美術 `miaokouArt.ts`）、`RiverParkScene.vue`、`BeitouScene.vue`、`HomeScene.vue`（自己的家）；獨立地圖的 scene id 在 `sceneRemotes.ts` 的 `MAP_SCENES`（跟後端 allowedScenes 對好）；`pixel/`：`pixelMap`（座位家具）、`pixelWorld`（戶外）、`pixelArt`、`pixelThemes`；
+- 場景：`SeatScenePixel.vue`（主地圖）、`F1HubScene.vue`（F1 月台：選賽道）→ `F1Scene.vue`／`GrandPrixScene.vue`（台北台中高雄，賽道 `pixel/circuits.ts`＋`gpTrack.ts`、城市 `gpCity.ts`、地標 `gpArt.ts`、月台 `hubArt.ts`）、`MiaokouScene.vue`（基隆廟口夜市，資料 `pixel/miaokou.ts`、美術 `miaokouArt.ts`）、`ShilinScene.vue`（士林夜市，`pixel/shilin.ts`＋`shilinArt.ts`）、`RiverParkScene.vue`、`BeitouScene.vue`、`HomeScene.vue`（自己的家）；獨立地圖的 scene id 在 `sceneRemotes.ts` 的 `MAP_SCENES`（跟後端 allowedScenes 對好）；`pixel/`：`pixelMap`（座位家具）、`pixelWorld`（戶外）、`pixelArt`、`pixelThemes`；
   `seatNavigation.ts`（碰撞、A*）。
 - `composables/`：`useAmbientAudio`＋`synthAmbience`（音樂）、`useYouTubeTv`（YouTube）、`usePlayerPrefs`、`useAccount`（Google 登入）、`groupFocus`。
   分享位置 `pages/index/shareLocation.ts`。番茄鐘 `stores/pomodoro.ts`＋`workers/timer.worker.ts`。
