@@ -1,5 +1,5 @@
 <template>
-  <!-- F1 賽車場：從 101 旁的 F1 站過來的獨立地圖，不跟圖書館那張相連；只有自己看得到（不同步給別人） -->
+  <!-- F1 賽車場：從 F1 月台搭過來的獨立地圖（主地圖 101 旁的 F1 站 → 月台 → 這裡），回程的車站回月台 -->
   <div class="relative">
     <div
       ref="containerRef"
@@ -14,7 +14,8 @@
 
       <!-- 圈速 -->
       <!-- 手機上縮小：不要標題、字小一點，少擋地圖 -->
-      <div class="pixel-panel absolute right-2 top-2 px-2 py-1 text-right sm:px-3 sm:py-2">
+      <!-- 手機上放到按鈕列下面（不然會蓋到左上角的「好友」） -->
+      <div class="pixel-panel absolute right-2 top-14 px-2 py-1 text-right sm:top-2 sm:px-3 sm:py-2">
         <p class="hide-below-sm !mb-0 font-pixel text-[10px] uppercase text-[color:var(--px-accent-dark)] dark:!text-amber-300">🏁 {{ t.f1.title }}</p>
         <p class="!mb-0 font-pixel text-xs font-bold sm:mt-1 sm:text-sm">{{ t.f1.lap }} {{ formatLap(currentLap) }}</p>
         <p class="!mb-0 font-pixel text-[10px] text-[color:var(--px-muted)] sm:text-[11px]">{{ t.f1.last }} {{ formatLap(lastLap) }} · {{ t.f1.best }} {{ formatLap(bestLap) }}</p>
@@ -22,8 +23,8 @@
 
       <!-- 回程的車站 -->
       <div v-if="stationOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
-        <p class="!mb-2 !text-[11px] font-black">🚉 {{ t.f1.stationPrompt }}</p>
-        <button type="button" class="pixel-btn pixel-btn--primary h-9 px-4 text-xs" @click="emit('leave')">{{ t.f1.goBack }}</button>
+        <p class="!mb-2 !text-[11px] font-black">🚉 {{ t.f1Hub.backPrompt }}</p>
+        <button type="button" class="pixel-btn pixel-btn--primary h-9 px-4 text-xs" @click="emit('leave')">{{ t.f1Hub.backGo }}</button>
       </div>
 
       <button
@@ -600,7 +601,10 @@ function render(seconds: number): void {
   const focus = driving.value ? car : me;
   const follow = (size: number, world: number, at: number) => (world <= size ? (size - world) / 2 : Math.min(0, Math.max(size - world, size / 2 - at)));
   const ox = Math.round(follow(cssW, W * T * scale, focus.x * T * scale) * dpr) / dpr;
-  const oy = Math.round(follow(cssH, H * T * scale, focus.y * T * scale) * dpr) / dpr;
+  // 左上角有一排按鈕（全螢幕、我的家、好友）：地圖最上緣可以再往下捲一點，車站、車門才不會被蓋住
+  const TOP_PAD = 52;
+  const followY = (size: number, world: number, at: number) => (world <= size - TOP_PAD ? (size - world + TOP_PAD) / 2 : Math.min(TOP_PAD, Math.max(size - world, size / 2 - at)));
+  const oy = Math.round(followY(cssH, H * T * scale, focus.y * T * scale) * dpr) / dpr;
   Object.assign(view, { scale, ox, oy, dpr, w: cssW, h: cssH });
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -635,7 +639,7 @@ function render(seconds: number): void {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const screen = (x: number, y: number) => ({ x: ox + x * T * scale, y: oy + y * T * scale });
   const sp = screen((STATION.x0 + STATION.x1) / 2, STATION.y0 - 0.8);
-  pill(ctx, t.value.f1.stationName, sp.x, sp.y, '#fbbf24');
+  pill(ctx, `🚉 ${t.value.f1Hub.title}`, sp.x, sp.y, '#fbbf24');
   // 人站在車旁時，車的名牌往上疊在「我」上面，不要互相蓋住；觸控裝置寫「點車上車」
   const nearCarLabel = Math.hypot(me.x - car.x, me.y - car.y) < 1.6;
   const cp = screen(car.x, (nearCarLabel ? Math.min(me.y - 1, car.y - 0.8) : car.y - 0.8));

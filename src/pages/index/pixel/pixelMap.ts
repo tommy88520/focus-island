@@ -154,7 +154,14 @@ export const PARK_SEAT_COUNT = 16;
 // 北投溫泉（獨立地圖）：圖書館門口長椅 4、泡腳池 4、露天溫泉 8
 export const BEITOU_SEAT_START = PARK_SEAT_START + PARK_SEAT_COUNT;
 export const BEITOU_SEAT_COUNT = 16;
-export const SEATS_PER_ZONE = BEITOU_SEAT_START + BEITOU_SEAT_COUNT;
+// F1 月台（獨立地圖，從 F1 站搭過去，再選要去哪條賽道）：長椅 6（編號 105–110）
+export const HUB_SEAT_START = BEITOU_SEAT_START + BEITOU_SEAT_COUNT;
+export const HUB_SEAT_COUNT = 6;
+// 台北、台中、高雄大獎賽（各自一張獨立地圖）：看台各 12（111–122、123–134、135–146），順序就是 circuits.ts 的 GP_ORDER
+export const GP_SEAT_START = HUB_SEAT_START + HUB_SEAT_COUNT;
+export const GP_SEAT_COUNT = 12;
+export const GP_COUNT = 3;
+export const SEATS_PER_ZONE = GP_SEAT_START + GP_SEAT_COUNT * GP_COUNT;
 const DECK_ROWS = 2;
 const SAND_ROWS = 8;
 const SEA_ROWS = 4;

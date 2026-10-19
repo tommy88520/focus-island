@@ -3,7 +3,13 @@
 import type { MyPosition, RemotePlayer } from 'src/pages/index/composables/useLibrarySocket';
 import { readerColors, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
 
-export type SceneId = 'f1' | 'park' | 'beitou' | 'home';
+// 獨立地圖的 scene（跟後端 allowedScenes 對好）：f1hub＝F1 月台，gptpe／gptxg／gpkhh＝台北／台中／高雄大獎賽
+export const MAP_SCENES = ['f1', 'park', 'beitou', 'home', 'f1hub', 'gptpe', 'gptxg', 'gpkhh'] as const;
+export type SceneId = (typeof MAP_SCENES)[number];
+export type GpSceneId = 'gptpe' | 'gptxg' | 'gpkhh';
+export function isSceneId(value: unknown): value is SceneId {
+  return typeof value === 'string' && (MAP_SCENES as readonly string[]).includes(value);
+}
 
 // 走動時最多每 0.15 秒送一次、停下來那則一定送、站著不動每 20 秒補一次（跟主地圖一樣）
 export function createPositionSync(send: (pos: MyPosition) => void) {

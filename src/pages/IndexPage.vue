@@ -112,7 +112,39 @@
             :remote-players="librarySocket.remotePlayers.value"
             @position="librarySocket.sendPosition"
             @whisper="librarySocket.sendWhisper"
+            @leave="backToHub('f1')"
+            @end-focus="endFocusToLeave"
+          />
+          <F1HubScene
+            v-else-if="useCanvasScene && sceneLocation === 'f1hub'"
+            ref="hubSceneRef"
+            :seats="currentSeats.slice(HUB_SEAT_START, HUB_SEAT_START + HUB_SEAT_COUNT)"
+            :selected-seat-id="selectedSeatId"
+            :disabled="store.isRunning"
+            :get-mate-at-seat="librarySocket.getMateAtSeat"
+            :remote-players="librarySocket.remotePlayers.value"
+            :from="hubFrom"
+            @select="selectSeat"
+            @position="librarySocket.sendPosition"
+            @whisper="librarySocket.sendWhisper"
+            @go="sceneLocation = $event"
             @leave="sceneLocation = 'library'"
+            @end-focus="endFocusToLeave"
+          />
+          <GrandPrixScene
+            v-else-if="useCanvasScene && gpScene"
+            :key="gpScene"
+            ref="gpSceneRef"
+            :circuit="CIRCUITS[gpScene]"
+            :seats="currentSeats.slice(gpSeatStart(gpScene), gpSeatStart(gpScene) + GP_SEAT_COUNT)"
+            :selected-seat-id="selectedSeatId"
+            :disabled="store.isRunning"
+            :get-mate-at-seat="librarySocket.getMateAtSeat"
+            :remote-players="librarySocket.remotePlayers.value"
+            @select="selectSeat"
+            @position="librarySocket.sendPosition"
+            @whisper="librarySocket.sendWhisper"
+            @leave="backToHub(gpScene)"
             @end-focus="endFocusToLeave"
           />
           <RiverParkScene
@@ -166,7 +198,7 @@
             @position="librarySocket.sendPosition"
             @change-floor="currentFloor = $event"
             @change-zone="activeZoneId = $event"
-            @go-f1="sceneLocation = 'f1'"
+            @go-f1="goToHub"
             @go-park="sceneLocation = 'park'"
             @go-beitou="sceneLocation = 'beitou'"
             @whisper="librarySocket.sendWhisper"
@@ -288,7 +320,11 @@ import ZoneTabs, { type ZoneTabItem } from 'src/pages/index/components/ZoneTabs.
 import { enterSceneFullscreen, exitSceneFullscreen, sceneFullscreen, sceneNeedsBarGap, sceneRotated } from 'src/pages/index/composables/sceneFullscreen';
 import SeatScenePixel from 'src/pages/index/components/SeatScenePixel.vue';
 import F1Scene from 'src/pages/index/components/F1Scene.vue';
-import { BEITOU_SEAT_COUNT, BEITOU_SEAT_START, F1_SEAT_COUNT, F1_SEAT_START, LIBRARY_SEATS, PARK_SEAT_COUNT, PARK_SEAT_START, SEATS_PER_ZONE, type Area } from 'src/pages/index/pixel/pixelMap';
+import F1HubScene from 'src/pages/index/components/F1HubScene.vue';
+import GrandPrixScene from 'src/pages/index/components/GrandPrixScene.vue';
+import { CIRCUITS, GP_ORDER } from 'src/pages/index/pixel/circuits';
+import type { GpSceneId, SceneId } from 'src/pages/index/sceneRemotes';
+import { BEITOU_SEAT_COUNT, BEITOU_SEAT_START, F1_SEAT_COUNT, F1_SEAT_START, GP_SEAT_COUNT, GP_SEAT_START, HUB_SEAT_COUNT, HUB_SEAT_START, LIBRARY_SEATS, PARK_SEAT_COUNT, PARK_SEAT_START, SEATS_PER_ZONE, type Area } from 'src/pages/index/pixel/pixelMap';
 import SeatGrid, { type Seat } from 'src/pages/index/components/SeatGrid.vue';
 import FocusClockPanel from 'src/pages/index/components/FocusClockPanel.vue';
 import { useLibrarySocket, buildSeatId } from 'src/pages/index/composables/useLibrarySocket';
@@ -909,11 +945,27 @@ async function handleNotificationsToggle(on: boolean) {
 const account = useAccount();
 // 重整前在自己家、但已經登出了：回圖書館
 const savedScene = takeSavedScene();
-const sceneLocation = ref<'library' | 'f1' | 'park' | 'beitou' | 'home'>(
+type SceneLoc = 'library' | SceneId;
+const sceneLocation = ref<SceneLoc>(
   sharedLocation?.scene ?? (savedScene === 'home' && !account.session.value ? null : savedScene) ?? 'library',
 );
 // 從哪張地圖回家的，出門就回那裡
-const homeReturnTo = ref<'library' | 'f1' | 'park' | 'beitou'>('library');
+const homeReturnTo = ref<Exclude<SceneLoc, 'home'>>('library');
+// 現在在哪條大獎賽（台北／台中／高雄），不在就是 null
+const gpScene = computed<GpSceneId | null>(() => (GP_ORDER as string[]).includes(sceneLocation.value) ? (sceneLocation.value as GpSceneId) : null);
+function gpSeatStart(id: GpSceneId): number {
+  return GP_SEAT_START + GP_ORDER.indexOf(id) * GP_SEAT_COUNT;
+}
+// F1 月台：從主地圖的 F1 站搭過去；從賽道回來時站在那條賽道的車門前
+const hubFrom = ref<string | undefined>(undefined);
+function goToHub(): void {
+  hubFrom.value = undefined;
+  sceneLocation.value = 'f1hub';
+}
+function backToHub(from: string): void {
+  hubFrom.value = from;
+  sceneLocation.value = 'f1hub';
+}
 const loginOpen = ref(false);
 // 登入被伺服器判定失效：告訴他要重新登入（不要默默變成沒登入）
 watch(
@@ -974,8 +1026,16 @@ watch(sceneLocation, (to, from) => {
     playTransition('home', to === 'home' ? (visitHome.value ? `🏠 ${t.value.friends.visiting(visitHome.value.profile.name)}` : t.value.transition.home) : t.value.transition.goOut);
     return;
   }
-  const names: Record<string, string> = { park: t.value.riverPark.title, beitou: t.value.beitou.title, f1: t.value.f1.title, library: librarySocket.currentZone.value?.name ?? '' };
-  playTransition('mrt', names[to] ?? '', { line: to === 'f1' ? 'orange' : to === 'library' ? 'red' : 'green' });
+  const names: Record<string, string> = {
+    park: t.value.riverPark.title,
+    beitou: t.value.beitou.title,
+    f1: t.value.f1.title,
+    f1hub: t.value.f1Hub.title,
+    library: librarySocket.currentZone.value?.name ?? '',
+    ...Object.fromEntries(GP_ORDER.map((id) => [id, CIRCUITS[id].title[locale.value]])),
+  };
+  const f1Line = to === 'f1' || to === 'f1hub' || (GP_ORDER as string[]).includes(to);
+  playTransition('mrt', names[to] ?? '', { line: f1Line ? 'orange' : to === 'library' ? 'red' : 'green' });
 });
 // 回到圖書館就不用再記獨立地圖
 watch(sceneLocation, (location) => {
@@ -989,7 +1049,8 @@ watch(
   ([location, , canvas], [previousLocation]) => {
     // 從 F1 回來時場景會重建，它只在區域跟預設不同時才回報，所以先歸零
     if (location === 'library' && previousLocation !== 'library') sceneArea.value = 'library';
-    audio.setSoundscape(!canvas || location === 'park' || location === 'beitou' || location === 'home' ? null : location === 'f1' ? 'f1' : SOUNDSCAPES[sceneArea.value]);
+    const racing = location === 'f1' || (GP_ORDER as string[]).includes(location);
+    audio.setSoundscape(!canvas || location === 'park' || location === 'beitou' || location === 'home' || location === 'f1hub' ? null : racing ? 'f1' : SOUNDSCAPES[sceneArea.value]);
   },
 );
 // 開始專注就回到圖書館的位子上
@@ -997,35 +1058,28 @@ watch(
   () => store.isRunning,
   (running) => {
     // 在自己家的書桌前專注就留在家裡
-    if (running && sceneLocation.value !== 'home') sceneLocation.value = isF1Seat(selectedSeatId.value) ? 'f1' : isParkSeat(selectedSeatId.value) ? 'park' : isBeitouSeat(selectedSeatId.value) ? 'beitou' : 'library';
+    if (running && sceneLocation.value !== 'home') sceneLocation.value = seatScene(selectedSeatId.value) ?? 'library';
   },
 );
 
-// 座位編號落在 F1 那段的就是 F1 賽車場的看台座位
-function isF1Seat(seatId: string | null): boolean {
+// 座位編號落在哪一段，就是哪張獨立地圖的座位（F1 看台、環河公園、北投、F1 月台長椅、三條大獎賽的看台）；圖書館那張回 null
+function seatScene(seatId: string | null): Exclude<SceneLoc, 'library' | 'home'> | null {
   const n = Number(seatId?.split('-').pop());
-  return Number.isFinite(n) && n > F1_SEAT_START && n <= F1_SEAT_START + F1_SEAT_COUNT;
+  if (!Number.isFinite(n)) return null;
+  const within = (start: number, count: number) => n > start && n <= start + count;
+  if (within(F1_SEAT_START, F1_SEAT_COUNT)) return 'f1';
+  if (within(PARK_SEAT_START, PARK_SEAT_COUNT)) return 'park';
+  if (within(BEITOU_SEAT_START, BEITOU_SEAT_COUNT)) return 'beitou';
+  if (within(HUB_SEAT_START, HUB_SEAT_COUNT)) return 'f1hub';
+  return GP_ORDER.find((id) => within(gpSeatStart(id), GP_SEAT_COUNT)) ?? null;
 }
 
-// 座位編號落在環河公園那段的是環河公園的座位
-function isParkSeat(seatId: string | null): boolean {
-  const n = Number(seatId?.split('-').pop());
-  return Number.isFinite(n) && n > PARK_SEAT_START && n <= PARK_SEAT_START + PARK_SEAT_COUNT;
-}
-
-// 座位編號落在最後那段的是北投溫泉的座位
-function isBeitouSeat(seatId: string | null): boolean {
-  const n = Number(seatId?.split('-').pop());
-  return Number.isFinite(n) && n > BEITOU_SEAT_START && n <= BEITOU_SEAT_START + BEITOU_SEAT_COUNT;
-}
-
-// 上次坐的是 F1 看台／環河公園：一進來就回到那裡坐好
+// 上次坐的是獨立地圖的座位：一進來就回到那裡坐好
 watch(
   () => selectedSeatId.value,
   (id) => {
-    if (isF1Seat(id)) sceneLocation.value = 'f1';
-    else if (isParkSeat(id)) sceneLocation.value = 'park';
-    else if (isBeitouSeat(id)) sceneLocation.value = 'beitou';
+    const loc = seatScene(id);
+    if (loc) sceneLocation.value = loc;
   },
 );
 
@@ -1191,11 +1245,24 @@ interface SceneHandle {
 const f1SceneRef = ref<SceneHandle | null>(null);
 const parkSceneRef = ref<SceneHandle | null>(null);
 const beitouSceneRef = ref<SceneHandle | null>(null);
+const hubSceneRef = ref<SceneHandle | null>(null);
+const gpSceneRef = ref<SceneHandle | null>(null);
+// 現在這張地圖的元件（問座位、分享位置用）
+function activeScene(): SceneHandle | null {
+  const loc = sceneLocation.value;
+  if (loc === 'f1') return f1SceneRef.value;
+  if (loc === 'park') return parkSceneRef.value;
+  if (loc === 'beitou') return beitouSceneRef.value;
+  if (loc === 'f1hub') return hubSceneRef.value;
+  if (gpScene.value) return gpSceneRef.value;
+  if (loc === 'home') return homeSceneRef.value;
+  return pixelSceneRef.value;
+}
 // 點牆上的電視時打開音樂設定裡的 YouTube 網址欄
 const audioPlayerRef = ref<{ openYouTube: () => void } | null>(null);
 // 回傳 false＝人不在座位上（走在路上、騎車、游泳），不該開始專注；2D 座位格子沒有「人在哪」，照舊用選好的座位
 function claimSeatWhereIAm(): boolean {
-  const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : sceneLocation.value === 'park' ? parkSceneRef.value : sceneLocation.value === 'beitou' ? beitouSceneRef.value : sceneLocation.value === 'home' ? homeSceneRef.value : pixelSceneRef.value;
+  const scene = activeScene();
   if (!scene) return true;
   const spot = scene.seatForFocus();
   if (spot === 'lying') return true;
@@ -1269,7 +1336,7 @@ async function shareMyLocation() {
     $q.notify({ message: t.value.home.noShareAtHome, color: 'warning', position: 'top', timeout: 2200 });
     return;
   }
-  const scene = sceneLocation.value === 'f1' ? f1SceneRef.value : sceneLocation.value === 'park' ? parkSceneRef.value : sceneLocation.value === 'beitou' ? beitouSceneRef.value : pixelSceneRef.value;
+  const scene = activeScene();
   const at = scene?.positionForShare() ?? { x: 16, y: 5.2 };
   const link = buildShareLink({ floor: currentFloor.value, zoneId: activeZoneId.value, scene: sceneLocation.value, x: at.x, y: at.y, name: displayName.value });
   const isTouch = window.matchMedia('(pointer: coarse)').matches;

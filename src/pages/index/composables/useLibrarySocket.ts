@@ -1,4 +1,5 @@
 import { ref, computed, type ComputedRef, type Ref } from 'vue';
+import { isSceneId, type SceneId } from 'src/pages/index/sceneRemotes';
 import { backendApiUrl, backendWsUrl } from 'src/utils/backendUrl';
 import type { QVueGlobals } from 'quasar';
 import { useLocale, type LocaleKey } from 'src/composables/useLocale';
@@ -174,7 +175,7 @@ export interface RemotePlayer {
   // 手上拿著的夜市小吃
   item?: ShopItemId;
   // 在 F1 賽車場／環河公園（沒有的話在主地圖）；在 F1 開車時 car＝true、angle 是車頭方向
-  scene?: 'f1' | 'park' | 'beitou' | 'home';
+  scene?: SceneId;
   car?: boolean;
   angle?: number;
   hair?: number;
@@ -197,7 +198,7 @@ export interface MyPosition {
   vehicle?: RemoteVehicle | 'f1';
   lying?: boolean;
   pose?: 'floor';
-  scene?: 'f1' | 'park' | 'beitou' | 'home';
+  scene?: SceneId;
   angle?: number;
   item?: ShopItemId;
   hidden?: boolean;
@@ -214,7 +215,7 @@ export function toReaderState(raw: unknown, fallback: Reader['state']): Reader['
 export function normalizeSeatId(seatId?: string | null) {
   if (!seatId) return '';
   const value = seatId.trim();
-  const matched = value.match(/^(\d+)-?([A-Za-z])-?(\d{1,2})$/);
+  const matched = value.match(/^(\d+)-?([A-Za-z])-?(\d{1,3})$/);
   if (!matched) return value;
 
   const [, floorRaw = '0', zoneRaw = 'A', indexRaw = '0'] = matched;
@@ -968,7 +969,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
                 ...(['bike', 'cart', 'boat'].includes(pos.vehicle) ? { vehicle: pos.vehicle as RemoteVehicle } : {}),
                 ...(pos.lying === true ? { lying: true } : {}),
                 ...(pos.pose === 'floor' ? { floor: true } : {}),
-                ...(pos.scene === 'f1' || pos.scene === 'park' || pos.scene === 'beitou' || pos.scene === 'home' ? { scene: pos.scene as 'f1' | 'park' | 'beitou' | 'home' } : {}),
+                ...(isSceneId(pos.scene) ? { scene: pos.scene } : {}),
                 ...(pos.vehicle === 'f1' ? { car: true } : {}),
                 ...(typeof pos.angle === 'number' && Number.isFinite(pos.angle) ? { angle: pos.angle } : {}),
                 ...(typeof pos.item === 'string' && pos.item in SHOP_ITEM_EMOJI ? { item: pos.item as ShopItemId } : {}),
