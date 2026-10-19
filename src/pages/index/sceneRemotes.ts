@@ -4,7 +4,7 @@ import type { MyPosition, RemotePlayer } from 'src/pages/index/composables/useLi
 import { readerColors, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
 
 // 獨立地圖的 scene（跟後端 allowedScenes 對好）：f1hub＝F1 月台，gptpe／gptxg／gpkhh＝台北／台中／高雄大獎賽
-export const MAP_SCENES = ['f1', 'park', 'beitou', 'home', 'f1hub', 'gptpe', 'gptxg', 'gpkhh'] as const;
+export const MAP_SCENES = ['f1', 'park', 'beitou', 'home', 'f1hub', 'gptpe', 'gptxg', 'gpkhh', 'miaokou'] as const;
 export type SceneId = (typeof MAP_SCENES)[number];
 export type GpSceneId = 'gptpe' | 'gptxg' | 'gpkhh';
 export function isSceneId(value: unknown): value is SceneId {

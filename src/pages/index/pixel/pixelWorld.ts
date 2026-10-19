@@ -2,6 +2,7 @@
 // 座標跟圖書館同一套（格，1 格 = 16px），圖書館在 (0,0)～(32, libraryHeight)，戶外區用到負的座標。
 // 這裡放資料（家具、會動的人車動物）和畫法；碰撞照樣交給 mapObstacles。
 
+import { MIAOKOU_ITEMS } from './miaokou';
 import { TILE } from './pixelMap';
 import { px, seeded } from './pixelUtil';
 
@@ -97,7 +98,21 @@ export type ShopItemId =
   | 'misua'
   | 'goldfish'
   | 'tropicalFish'
-  | 'pufferfish';
+  | 'pufferfish'
+  // 基隆廟口夜市（miaokou.ts）
+  | 'nutritionSandwich'
+  | 'tempura'
+  | 'dingBianCuo'
+  | 'bubbleIce'
+  | 'miniSausage'
+  | 'eelSoup'
+  | 'douqianSoup'
+  | 'braisedPorkRice'
+  | 'curryRice'
+  | 'butterCrab'
+  | 'mungBeanCake'
+  | 'pineappleCake'
+  | 'taroMochi';
 
 export interface ShopItem {
   id: ShopItemId;
@@ -192,6 +207,7 @@ export const FISH: { id: ShopItemId; emoji: string; chance: number; name: { 'zh-
 export const SHOP_ITEM_EMOJI: Record<ShopItemId, string> = Object.fromEntries([
   ...STALLS.flatMap((s) => s.items.map((item) => [item.id, item.emoji])),
   ...FISH.map((fish) => [fish.id, fish.emoji]),
+  ...MIAOKOU_ITEMS.filter((item) => !STALLS.some((s) => s.items.some((it) => it.id === item.id))).map((item) => [item.id, item.emoji]),
 ]) as Record<ShopItemId, string>;
 
 export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, worldBottom: number): OutdoorWorld {

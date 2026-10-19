@@ -284,6 +284,16 @@ const translations = {
       hintDesktop: 'WASD／方向鍵移動 · 走到賽車旁選塗裝、按 E 上車 · 點 VIP 看台座位坐下專注 · 開車時方向鍵指哪就往哪開、往車尾方向按就倒車 · 從左往右通過起終點線開始計時',
       hintTouch: '用左下角搖桿移動 · 走到自己的賽車旁選塗裝、點車上車 · 開車時搖桿指哪就往哪開、往車尾推就倒車',
     },
+    miaokou: {
+      title: '基隆廟口夜市',
+      station: '基隆站',
+      templeTitle: '奠濟宮 · 求籤',
+      templeHint: '在心裡默念想問的事，再按求籤。',
+      draw: '求籤',
+      drawAgain: '再求一支',
+      hintDesktop: 'WASD／方向鍵移動 · 走到攤位前買小吃（用專注幣）· 點紅色小板凳或廟埕長椅坐下專注 · 奠濟宮香爐前可以求籤 · 南邊基隆站搭車回去',
+      hintTouch: '用左下角搖桿移動 · 走到攤位前買小吃 · 點小板凳坐下專注 · 香爐前求籤',
+    },
     f1Hub: {
       title: 'F1 月台',
       goPrompt: (name: string) => `搭車前往${name}？`,
@@ -738,6 +748,16 @@ const translations = {
       pickCar: 'Pick your car',
       hintDesktop: 'WASD / arrows to move · walk up to your car to pick a paint job, E to drive · click a VIP seat to sit and focus · the car heads where you point, push toward the tail to reverse · cross the start line left to right to start timing',
       hintTouch: 'Move with the joystick · walk up to your car to pick a paint job, tap it to drive · the car heads where you point the stick, push toward the tail to reverse',
+    },
+    miaokou: {
+      title: 'Keelung Miaokou Night Market',
+      station: 'Keelung Station',
+      templeTitle: 'Dianji Temple · Fortune',
+      templeHint: 'Think of your question, then draw a fortune stick.',
+      draw: 'Draw a fortune',
+      drawAgain: 'Draw again',
+      hintDesktop: 'WASD / arrows to move · walk up to a stall to buy snacks with focus coins · click a red stool or temple bench to sit and focus · draw a fortune at the incense burner · Keelung Station (south) takes you back',
+      hintTouch: 'Joystick to move · walk up to a stall to buy snacks · tap a stool to focus · draw a fortune at the burner',
     },
     f1Hub: {
       title: 'F1 Platform',

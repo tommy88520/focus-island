@@ -8,7 +8,7 @@ export interface TransitionState {
   kind: TransitionKind;
   label: string;
   // 捷運線的顏色（紅線＝分區、綠線＝公園／北投、橘＝F1）
-  line?: 'red' | 'green' | 'orange';
+  line?: 'red' | 'green' | 'orange' | 'blue';
   // 搭電梯／走樓梯：往上還往下
   up?: boolean;
   startedAt: number;

@@ -138,7 +138,7 @@
         </div>
         <p v-if="!isTouch" class="!mb-0 mt-2 text-[10px] text-white/50">{{ t.seatScene.elevatorKeys }}</p>
       </div>
-      <!-- 捷運站：路線圖。紅線是同一層的各分區，轉乘綠線到環河公園、北投溫泉；點一站就搭過去 -->
+      <!-- 捷運站：路線圖。紅線是同一層的各分區，轉乘綠線到環河公園、北投溫泉，藍線到基隆廟口夜市；點一站就搭過去 -->
       <div v-if="mrtOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(28rem,calc(100%-1rem))] -translate-x-1/2 px-2 pb-2.5 pt-3">
         <p class="!mb-2.5 text-center !text-[11px] font-black tracking-wide">🚇 {{ t.seatScene.mrtPrompt }}</p>
         <div class="!flex !flex-nowrap items-start">
@@ -402,6 +402,7 @@ const emit = defineEmits<{
   // 在捷運站搭車去環河公園
   'go-park': [];
   'go-beitou': [];
+  'go-miaokou': [];
   whisper: [to: string, phrase: WhisperId];
   // 走進另一個區域（圖書館／沙灘／101／動物園／夜市），父層用來切換場景環境音
   area: [area: Area];
@@ -544,7 +545,7 @@ const elevatorOpen = ref(false);
 // 走到 101 旁的捷運站口會跳出分區選單
 const mrtOpen = ref(false);
 // 捷運路線圖上的站：紅線是這層樓的分區，綠線通往獨立地圖
-const MRT_LINE_COLORS = { red: '#e3002c', green: '#008659' } as const;
+const MRT_LINE_COLORS = { red: '#e3002c', green: '#008659', blue: '#0070bd' } as const;
 const mrtStations = computed(() => [
   ...props.zones.map((zone) => ({
     key: zone.id,
@@ -556,6 +557,7 @@ const mrtStations = computed(() => [
   })),
   { key: 'park', name: t.value.riverPark.title, emoji: '🌸', line: 'green' as const, here: false, go: goPark },
   { key: 'beitou', name: t.value.beitou.title, emoji: '♨️', line: 'green' as const, here: false, go: goBeitou },
+  { key: 'miaokou', name: t.value.miaokou.station, emoji: '🏮', line: 'blue' as const, here: false, go: goMiaokou },
 ]);
 const f1Open = ref(false);
 // 剛從 F1 賽車場回來時站在 F1 站口：先走開再走回來才會再跳出面板
@@ -979,6 +981,14 @@ function goBeitou(): void {
   emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
   savePosition(performance.now() / 1000, true);
   emit('go-beitou');
+}
+
+// 去基隆廟口夜市：同上
+function goMiaokou(): void {
+  mrtOpen.value = false;
+  emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
+  savePosition(performance.now() / 1000, true);
+  emit('go-miaokou');
 }
 
 // 電梯也能換到同一層的其他分區：從那一區的電梯口出來

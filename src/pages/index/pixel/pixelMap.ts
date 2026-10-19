@@ -161,7 +161,10 @@ export const HUB_SEAT_COUNT = 6;
 export const GP_SEAT_START = HUB_SEAT_START + HUB_SEAT_COUNT;
 export const GP_SEAT_COUNT = 12;
 export const GP_COUNT = 3;
-export const SEATS_PER_ZONE = GP_SEAT_START + GP_SEAT_COUNT * GP_COUNT;
+// 基隆廟口夜市（獨立地圖）：攤位前的小板凳 12 + 廟埕長椅 4（147–162），順序是 miaokou.ts 的 MIAOKOU_SEATS
+export const MIAOKOU_SEAT_START = GP_SEAT_START + GP_SEAT_COUNT * GP_COUNT;
+export const MIAOKOU_SEAT_COUNT = 16;
+export const SEATS_PER_ZONE = MIAOKOU_SEAT_START + MIAOKOU_SEAT_COUNT;
 const DECK_ROWS = 2;
 const SAND_ROWS = 8;
 const SEA_ROWS = 4;
