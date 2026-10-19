@@ -1,4 +1,4 @@
-// 圖書館外面的世界：左邊 101 一帶、右邊動物園、上面夜市捷運站（搭去士林夜市、基隆廟口夜市；下面的海灘在 pixelMap 裡）。
+// 圖書館外面的世界：左邊 101 一帶、右邊動物園站（搭去動物園）、上面夜市捷運站（搭去士林夜市、基隆廟口夜市；下面的海灘在 pixelMap 裡）。
 // 座標跟圖書館同一套（格，1 格 = 16px），圖書館在 (0,0)～(32, libraryHeight)，戶外區用到負的座標。
 // 這裡放資料（家具、會動的人車動物）和畫法；碰撞照樣交給 mapObstacles。
 
@@ -18,6 +18,7 @@ export type OutdoorKind =
   | 'office'
   | 'mrt'
   | 'marketMrt'
+  | 'zooMrt'
   | 'f1station'
   | 'streetTree'
   | 'youbike'
@@ -25,11 +26,7 @@ export type OutdoorKind =
   | 'lanternPole'
   | 'lanternString'
   | 'streetLamp'
-  | 'enclosure'
-  | 'pool'
-  | 'bamboo'
-  | 'zooTree'
-  | 'rock';
+  | 'zooTree';
 
 export interface OutdoorProp {
   kind: OutdoorKind;
@@ -41,7 +38,7 @@ export interface OutdoorProp {
   variant?: number;
 }
 
-export type WalkerKind = 'person' | 'taxi' | 'panda' | 'pandaEat' | 'pandaCub' | 'penguin' | 'giraffe' | 'elephant';
+export type WalkerKind = 'person' | 'taxi';
 
 // 會動的東西：在兩個點之間來回（taxi 是單向一直開，到頭從另一端再出現）
 export interface Walker {
@@ -68,6 +65,8 @@ export interface OutdoorWorld {
   mrtTrigger: { x: number; y: number };
   // 夜市捷運站入口：走到這裡選要去士林夜市還是基隆廟口夜市
   marketMrtTrigger: { x: number; y: number };
+  // 動物園站入口：走到這裡搭文湖線去動物園
+  zooMrtTrigger: { x: number; y: number };
   // F1 站入口：走到這裡可以去 F1 賽車場
   f1Trigger: { x: number; y: number };
   // 圖書館後牆的門（通往夜市捷運站），x 範圍
@@ -193,16 +192,14 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
     ...[-3, 8].map((y) => prop('streetLamp', R + 5, y)),
     prop('streetLamp', 1, libraryHeight),
     prop('streetLamp', R - 2, libraryHeight),
-    // ── 動物園 ──
-    prop('enclosure', R + 6, -11, 9, 7, true, 0),
-    prop('enclosure', R + 6, -2, 9, 7, true, 1),
-    prop('enclosure', R + 6, 11, 9, 6, true, 2),
-    prop('pool', R + 1, -11, 4, 4),
-    ...[-10, -8, -6].map((y, i) => prop('bamboo', R + 13, y, 1, 1, false, i)),
+    // ── 動物園站（動物園搬成獨立地圖；這裡是搭文湖線過去的車站，旁邊留著樹）──
+    prop('zooMrt', R + 5, 1, 8, 4),
     prop('zooTree', R + 2, 2),
     prop('zooTree', R + 3, 15),
     prop('zooTree', R + 14, 7),
-    prop('rock', R + 9, 1, 2, 1, false),
+    ...[-9, -4, 12].map((y) => prop('zooTree', R + 13, y)),
+    ...[-10, -6].map((y) => prop('zooTree', R + 7, y)),
+    prop('bench', R + 8, 9, 2, 1),
   ];
 
   const walkers: Walker[] = [
@@ -216,16 +213,7 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
     { kind: 'person', from: { x: 28, y: -1.6 }, to: { x: 3, y: -1.6 }, speed: 0.8, phase: 0.4, look: 3 },
     { kind: 'person', from: { x: 14.5, y: -5.4 }, to: { x: 14.5, y: -0.8 }, speed: 0.7, phase: 0.7, look: 6 },
     { kind: 'person', from: { x: 17.6, y: -0.8 }, to: { x: 17.6, y: -5.4 }, speed: 0.9, phase: 0.2, look: 4 },
-    // 動物園裡的動物
-    { kind: 'panda', from: { x: R + 8, y: -7 }, to: { x: R + 12, y: -7.5 }, speed: 0.35, phase: 0, look: 0 },
-    { kind: 'panda', from: { x: R + 7.5, y: -9.6 }, to: { x: R + 10.2, y: -9.6 }, speed: 0.3, phase: 0.5, look: 1 },
-    // 坐著啃竹子的熊貓，和跟在旁邊跑的小熊貓（圓仔）
-    { kind: 'pandaEat', from: { x: R + 12, y: -8.6 }, to: { x: R + 12, y: -8.6 }, speed: 1, phase: 0, look: 0 },
-    { kind: 'pandaCub', from: { x: R + 8, y: -5.4 }, to: { x: R + 11.5, y: -5.2 }, speed: 0.7, phase: 0.3, look: 0 },
-    { kind: 'giraffe', from: { x: R + 8, y: 2 }, to: { x: R + 13, y: 2.5 }, speed: 0.45, phase: 0.2, look: 0 },
-    { kind: 'elephant', from: { x: R + 8, y: 15 }, to: { x: R + 13, y: 15.5 }, speed: 0.3, phase: 0.6, look: 0 },
-    { kind: 'penguin', from: { x: R + 1.6, y: -6.5 }, to: { x: R + 4.4, y: -6.5 }, speed: 0.6, phase: 0, look: 0 },
-    { kind: 'penguin', from: { x: R + 4.2, y: -6.8 }, to: { x: R + 2, y: -6.8 }, speed: 0.5, phase: 0.5, look: 1 },
+    // 往動物園站的人
     { kind: 'person', from: { x: R + 3, y: -3 }, to: { x: R + 3, y: 13 }, speed: 0.9, phase: 0.1, look: 6 },
   ];
 
@@ -241,11 +229,11 @@ export function createOutdoorWorld(libraryWidth: number, libraryHeight: number, 
       { x: -4.5, y: -0.4, text: { 'zh-TW': '捷運 台北101/世貿站', 'en-US': 'MRT Taipei 101' } },
       { x: -14, y: 12.4, text: { 'zh-TW': '🏁 F1 站', 'en-US': '🏁 F1 Station' } },
       { x: 16, y: -11.6, text: { 'zh-TW': '🏮 夜市捷運站（士林／廟口）', 'en-US': '🏮 Night Market MRT (Shilin / Miaokou)' } },
-      { x: R + 8, y: 8.6, text: { 'zh-TW': '台北市立動物園', 'en-US': 'Taipei Zoo' } },
-      { x: R + 10.5, y: -11.4, text: { 'zh-TW': '🐼 熊貓館', 'en-US': '🐼 Panda House' } },
+      { x: R + 9, y: -0.6, text: { 'zh-TW': '🐼 捷運 動物園站（文湖線）', 'en-US': '🐼 MRT Taipei Zoo (Brown Line)' } },
     ],
     mrtTrigger: { x: -4.5, y: 2.5 },
     marketMrtTrigger: { x: 16, y: -5.3 },
+    zooMrtTrigger: { x: R + 9, y: 5.7 },
     f1Trigger: { x: -14, y: 15.6 },
     backDoor: BACK_DOOR,
   };
@@ -410,8 +398,10 @@ export function paintOutdoorProp(ctx: CanvasRenderingContext2D, prop: OutdoorPro
       px(ctx, '#ffffff', x + w / 2 - 1, y - 7, 2, 2);
       break;
     }
-    case 'marketMrt': {
-      // 夜市捷運站出入口：玻璃雨遮下兩座往下的電扶梯，上面掛著「夜市站」招牌（紅線往士林、藍線往廟口），屋簷掛燈籠
+    case 'marketMrt':
+    case 'zooMrt': {
+      // 捷運站出入口：玻璃雨遮下兩座往下的電扶梯。夜市站：招牌兩邊紅線（士林）藍線（廟口），屋簷掛燈籠；動物園站：文湖線咖啡色
+      const zoo = prop.kind === 'zooMrt';
       px(ctx, 'rgba(0,0,0,0.22)', x + 3, y + h - 2, w, 5);
       px(ctx, '#d9dee8', x, y + 10, w, h - 14);
       px(ctx, '#b9c0cc', x, y + h - 6, w, 4);
@@ -429,13 +419,13 @@ export function paintOutdoorProp(ctx: CanvasRenderingContext2D, prop: OutdoorPro
       // 招牌：白底、紅藍兩條線
       px(ctx, '#15171f', x + w / 2 - 34, y - 12, 68, 16);
       px(ctx, '#ffffff', x + w / 2 - 33, y - 11, 66, 14);
-      px(ctx, '#e3002c', x + w / 2 - 33, y - 11, 4, 14);
-      px(ctx, '#0070bd', x + w / 2 + 29, y - 11, 4, 14);
+      px(ctx, zoo ? '#c48c31' : '#e3002c', x + w / 2 - 33, y - 11, 4, 14);
+      px(ctx, zoo ? '#c48c31' : '#0070bd', x + w / 2 + 29, y - 11, 4, 14);
       ctx.fillStyle = '#1f2937';
       ctx.font = '900 8px "PingFang TC", "Noto Sans TC", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('夜市站', x + w / 2, y - 3.5);
+      ctx.fillText(zoo ? '動物園站' : '夜市站', x + w / 2, y - 3.5);
       // 捷運標誌
       px(ctx, '#e25a4a', x + 2, y - 10, 10, 10);
       px(ctx, '#ffffff', x + 4, y - 8, 1, 6);
@@ -443,8 +433,18 @@ export function paintOutdoorProp(ctx: CanvasRenderingContext2D, prop: OutdoorPro
       px(ctx, '#ffffff', x + 5, y - 7, 1, 2);
       px(ctx, '#ffffff', x + 8, y - 7, 1, 2);
       px(ctx, '#ffffff', x + 6, y - 6, 2, 2);
-      // 屋簷下一排燈籠
+      // 屋簷下一排燈籠（動物園站換成一排小熊貓吊飾）
       for (let i = 0; i < 7; i += 1) {
+        if (zoo) {
+          const lx = x + 8 + i * ((w - 16) / 6);
+          px(ctx, '#3a3d45', lx, y + 12, 1, 2);
+          px(ctx, '#f8f6f0', lx - 2, y + 14, 5, 4);
+          px(ctx, '#2b2d33', lx - 2, y + 13, 1, 1);
+          px(ctx, '#2b2d33', lx + 2, y + 13, 1, 1);
+          px(ctx, '#2b2d33', lx - 1, y + 15, 1, 1);
+          px(ctx, '#2b2d33', lx + 1, y + 15, 1, 1);
+          continue;
+        }
         const lx = x + 8 + i * ((w - 16) / 6);
         const sway = Math.round(Math.sin(seconds * 1.4 + i) * 0.6);
         px(ctx, '#3a3d45', lx, y + 12, 1, 2);
@@ -550,112 +550,10 @@ export function paintOutdoorProp(ctx: CanvasRenderingContext2D, prop: OutdoorPro
       px(ctx, night ? '#fff1a8' : '#cfd5de', x + 11, y - 22, 4, 2);
       break;
     }
-    case 'enclosure': {
-      // 木頭圍欄圍起來的展區：裡面依動物不同鋪不同地面
-      const ground = variant === 0 ? '#6fa158' : variant === 1 ? '#c9a66b' : '#b9a17a';
-      px(ctx, ground, x + 2, y + 2, w - 4, h - 4);
-      if (variant === 2) {
-        px(ctx, '#4fc3d9', x + w - 3 * TILE, y + h - 2 * TILE, 2 * TILE, TILE);
-        px(ctx, '#2b9cc4', x + w - 3 * TILE + 2, y + h - 2 * TILE + 2, 2 * TILE - 4, TILE - 4);
-      }
-      for (let fx = x; fx < x + w; fx += 6) {
-        px(ctx, '#8a5e36', fx, y, 2, 6);
-        px(ctx, '#8a5e36', fx, y + h - 6, 2, 6);
-      }
-      for (let fy = y; fy < y + h; fy += 6) {
-        px(ctx, '#8a5e36', x, fy, 2, 6);
-        px(ctx, '#8a5e36', x + w - 2, fy, 2, 6);
-      }
-      px(ctx, '#b48a5c', x, y + 2, w, 1);
-      px(ctx, '#b48a5c', x, y + h - 4, w, 1);
-      break;
-    }
-    case 'pool':
-      px(ctx, '#e3e8f0', x, y, w, h);
-      px(ctx, '#4fc3d9', x + 3, y + 3, w - 6, h - 6);
-      px(ctx, '#7fd8e6', x + 6, y + 6, w - 20, 2);
-      px(ctx, '#ffffff', x + 3, y + h - 14, w - 6, 11);
-      break;
-    case 'bamboo':
-      for (const dx of [0, 5, 10]) {
-        px(ctx, '#4f9a5c', x + dx, y - 14 + variant * 2, 2, 28);
-        px(ctx, '#2f6b3a', x + dx, y - 6, 2, 1);
-        px(ctx, '#6fbf72', x + dx + 2, y - 12, 4, 2);
-      }
-      break;
-    case 'rock':
-      px(ctx, '#7c7a75', x + 2, y + 6, w - 4, 9);
-      px(ctx, '#a19e97', x + 4, y + 6, w - 12, 3);
-      break;
   }
 }
 
-// ── 熊貓：手畫的像素圖（正面、大頭、八字眼圈、腮紅），小熊貓是縮小版 ──
-
-const PANDA_ROWS = [
-  '....kk........kk....',
-  '...kkkk......kkkk...',
-  '...kkkkwwwwwwkkkk...',
-  '....kwwwwwwwwwwk....',
-  '...wwwwwwwwwwwwww...',
-  '..wwwwwwwwwwwwwwww..',
-  '..wwkkkwwwwwwkkkww..',
-  '..wkkekkwwwwkkekkw..',
-  '..wkkkkkwwwwkkkkkw..',
-  '..wwkkkwwkkwwkkkww..',
-  '..wpwwwwwwwwwwwwpw..',
-  '...wwwwwwkkwwwwww...',
-  '....wwwwwwwwwwww....',
-  '...kkkwwwwwwwwkkk...',
-  '..kkkkkwwwwwwkkkkk..',
-  '..kkkkwwwwwwwwkkkk..',
-  '...kkwwwwwwwwwwkk...',
-  '...wwwwwwwwwwwwww...',
-  '...gwwwwwwwwwwwwg...',
-  '..kkkkwwwwwwwwkkkk..',
-  '..kkpkkwwwwwwkkpkk..',
-  '...kkk........kkk...',
-];
-
-const CUB_ROWS = [
-  '.kk.....kk.',
-  'kkkwwwwwkkk',
-  '.wwwwwwwww.',
-  'wwkkwwwkkww',
-  'wkekwwwkekw',
-  'wwkkwkwkkww',
-  'wpwwwwwwwpw',
-  '.wwwwwwwww.',
-  '.kkwwwwwkk.',
-  'kkkwwwwwkkk',
-  '.wwwwwwwww.',
-  '.kk.....kk.',
-];
-
-const PANDA_PALETTE: Record<string, string> = { k: '#2b2d33', w: '#f8f6f0', g: '#dcd8cf', p: '#f4a3a3', e: '#ffffff' };
-const pandaCache = new Map<string, HTMLCanvasElement>();
-
-function pandaSprite(kind: 'adult' | 'cub'): HTMLCanvasElement {
-  const cached = pandaCache.get(kind);
-  if (cached) return cached;
-  const rows = kind === 'cub' ? CUB_ROWS : PANDA_ROWS;
-  const canvas = document.createElement('canvas');
-  canvas.width = rows[0]?.length ?? 0;
-  canvas.height = rows.length;
-  const c = canvas.getContext('2d');
-  if (c) {
-    rows.forEach((row, y) => {
-      for (let x = 0; x < row.length; x += 1) {
-        const color = PANDA_PALETTE[row[x] ?? '.'];
-        if (color) px(c, color, x, y);
-      }
-    });
-  }
-  pandaCache.set(kind, canvas);
-  return canvas;
-}
-
-// ── 會動的：路人、計程車、動物 ──
+// ── 會動的：路人、計程車 ──
 
 export function paintWalker(
   ctx: CanvasRenderingContext2D,
@@ -668,7 +566,6 @@ export function paintWalker(
 ): void {
   const fx = x * TILE;
   const fy = y * TILE;
-  const step = Math.floor(seconds * 4) % 2;
   switch (walker.kind) {
     case 'person': {
       const facing = Math.abs(dx) > 0.01 ? (dx > 0 ? 'right' : 'left') : walker.to.y > walker.from.y ? 'down' : 'up';
@@ -687,69 +584,6 @@ export function paintWalker(
       px(ctx, down ? '#fff4d6' : '#e25a4a', fx + 5, down ? fy + 12 : fy - 16, 4, 2);
       break;
     }
-    case 'panda':
-    case 'pandaCub': {
-      // 一步一搖地走：左右晃一格、上下跳一格
-      const sprite = pandaSprite(walker.kind === 'pandaCub' ? 'cub' : 'adult');
-      const waddle = step === 0 ? -1 : 1;
-      const hop = Math.floor(seconds * 4) % 2;
-      px(ctx, 'rgba(0,0,0,0.15)', fx - sprite.width / 2 + 1, fy - 2, sprite.width - 2, 3);
-      ctx.drawImage(sprite, Math.round(fx - sprite.width / 2 + waddle * (Math.abs(dx) > 0.01 ? 1 : 0)), Math.round(fy - sprite.height - hop));
-      break;
-    }
-    case 'pandaEat': {
-      // 坐著抱竹子啃：竹子一上一下，嘴巴跟著動
-      const sprite = pandaSprite('adult');
-      const chew = Math.floor(seconds * 3) % 2;
-      const left = Math.round(fx - sprite.width / 2);
-      const top = Math.round(fy - sprite.height);
-      px(ctx, 'rgba(0,0,0,0.15)', left + 1, fy - 2, sprite.width - 2, 3);
-      ctx.drawImage(sprite, left, top);
-      px(ctx, '#57a862', left + 14, top + 6 - chew, 2, 15);
-      px(ctx, '#2f6b3a', left + 14, top + 11 - chew, 2, 1);
-      px(ctx, '#6fbf72', left + 16, top + 4 - chew, 3, 2);
-      px(ctx, '#6fbf72', left + 11, top + 5 - chew, 3, 1);
-      // 抱著竹子的黑手掌
-      px(ctx, '#2b2d33', left + 12, top + 14, 5, 3);
-      if (chew) px(ctx, '#2b2d33', left + 9, top + 11, 2, 1);
-      break;
-    }
-    case 'penguin': {
-      px(ctx, 'rgba(0,0,0,0.15)', fx - 4, fy - 1, 8, 2);
-      px(ctx, '#2b2d33', fx - 4, fy - 13, 8, 12);
-      px(ctx, '#f4f2ea', fx - 2, fy - 10, 4, 8);
-      px(ctx, '#f2a541', fx - 1, fy - 11, 2, 1);
-      px(ctx, '#f2a541', fx - 3 + step, fy - 1, 2, 1);
-      px(ctx, '#f2a541', fx + 1 - step, fy - 1, 2, 1);
-      break;
-    }
-    case 'giraffe': {
-      const flip = dx < 0 ? -1 : 1;
-      px(ctx, 'rgba(0,0,0,0.15)', fx - 10, fy - 2, 20, 3);
-      px(ctx, '#e3b04b', fx - 9, fy - 14, 18, 8);
-      for (const [sx, sy] of [[-6, -12], [0, -10], [4, -13]] as const) px(ctx, '#a8722f', fx + sx, fy + sy, 3, 3);
-      for (const lx of [-8, -4, 3, 7]) px(ctx, '#c99a3c', fx + lx, fy - 6, 2, 6 + (lx % 2 === 0 ? step : 0));
-      // 長脖子往上
-      px(ctx, '#e3b04b', fx + flip * 6 - 2, fy - 34, 5, 22);
-      px(ctx, '#a8722f', fx + flip * 6 - 1, fy - 28, 2, 2);
-      px(ctx, '#e3b04b', fx + flip * 6 - 3 + flip * 3, fy - 38, 8, 5);
-      px(ctx, '#5c3d22', fx + flip * 6, fy - 41, 1, 3);
-      px(ctx, '#5c3d22', fx + flip * 6 + 3, fy - 41, 1, 3);
-      break;
-    }
-    case 'elephant': {
-      const flip = dx < 0 ? -1 : 1;
-      px(ctx, 'rgba(0,0,0,0.18)', fx - 13, fy - 2, 26, 4);
-      px(ctx, '#8f949e', fx - 12, fy - 18, 24, 14);
-      px(ctx, '#a9aeb7', fx - 10, fy - 17, 14, 3);
-      for (const lx of [-11, -5, 3, 8]) px(ctx, '#7a7f89', fx + lx, fy - 5, 4, 5 + (lx < 0 ? step : 1 - step));
-      const hx = fx + flip * 11;
-      px(ctx, '#8f949e', hx - 5, fy - 20, 10, 12);
-      px(ctx, '#7a7f89', hx - flip * 6 - 2, fy - 19, 5, 9);
-      px(ctx, '#8f949e', hx + flip * 3 - 1, fy - 10, 3, 9);
-      px(ctx, '#f4f2ea', hx + flip * 2, fy - 11, 2, 3);
-      px(ctx, '#2b2d33', hx + flip * 1, fy - 16, 1, 1);
-      break;
-    }
+
   }
 }

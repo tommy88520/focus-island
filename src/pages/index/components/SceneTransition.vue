@@ -62,7 +62,7 @@ const props = defineProps<{ loading: boolean }>();
 const { t } = useLocale();
 
 const MIN_MS = 1300;
-const LINE_COLORS = { red: '#e3002c', green: '#008659', orange: '#f39800', blue: '#0070bd' } as const;
+const LINE_COLORS = { red: '#e3002c', green: '#008659', orange: '#f39800', blue: '#0070bd', brown: '#c48c31' } as const;
 const shown = ref<TransitionState | null>(null);
 let timer: number | undefined;
 

@@ -145,8 +145,11 @@ export interface PixelMap {
 export const TILE = 16;
 export const WALL_ROWS = 3;
 const BASE_HEIGHT = 18;
-// 每個分區的座位數：圖書館 18 + 101 6 + 動物園 6 + 士林夜市 12 + 海灘 8 + F1 22 + 環河公園 16 + …（跟後端 seatsPerZone 一樣）
+// 每個分區的座位數：圖書館 18 + 101 6 + 動物園 6（獨立地圖） + 士林夜市 12 + 海灘 8 + F1 22 + 環河公園 16 + …（跟後端 seatsPerZone 一樣）
 export const LIBRARY_SEATS = 18;
+// 動物園（獨立地圖）的長椅（編號 25–30）：以前在主地圖右邊，搬過去時編號不變，順序是 zoo.ts 的 ZOO_SEATS
+export const ZOO_SEAT_START = LIBRARY_SEATS + 6;
+export const ZOO_SEAT_COUNT = 6;
 // 士林夜市（獨立地圖）的折疊桌塑膠椅（編號 31–42）：以前就在主地圖上，搬過去時編號不變，順序是 shilin.ts 的 SHILIN_SEATS
 export const SHILIN_SEAT_START = LIBRARY_SEATS + 12;
 export const SHILIN_SEAT_COUNT = 12;
@@ -276,13 +279,13 @@ export function createPixelMap(
     { kind: 'bench', tx: -3, ty: 15, facing: 'down' },
     { kind: 'chair', tx: -6, ty: 8, facing: 'right' },
     { kind: 'chair', tx: -4, ty: 8, facing: 'left' },
-    // 動物園：三張長椅
-    { kind: 'bench', tx: R + 2, ty: -4, facing: 'down' },
-    { kind: 'bench', tx: R + 3, ty: -4, facing: 'down' },
-    { kind: 'bench', tx: R + 2, ty: 4, facing: 'down' },
-    { kind: 'bench', tx: R + 3, ty: 4, facing: 'down' },
-    { kind: 'bench', tx: R + 3, ty: 13, facing: 'down' },
-    { kind: 'bench', tx: R + 4, ty: 13, facing: 'down' },
+    // 動物園：搬到獨立地圖了，這 6 格只是佔著編號（offMap）
+    { kind: 'bench', tx: R + 2, ty: -4, facing: 'down', offMap: true },
+    { kind: 'bench', tx: R + 3, ty: -4, facing: 'down', offMap: true },
+    { kind: 'bench', tx: R + 2, ty: 4, facing: 'down', offMap: true },
+    { kind: 'bench', tx: R + 3, ty: 4, facing: 'down', offMap: true },
+    { kind: 'bench', tx: R + 3, ty: 13, facing: 'down', offMap: true },
+    { kind: 'bench', tx: R + 4, ty: 13, facing: 'down', offMap: true },
     // 士林夜市：搬到獨立地圖了，這 12 格只是佔著編號（offMap）
     ...[3, 9, 15].flatMap((x): SeatSlot[] => [
       { kind: 'plasticStool', tx: x - 1, ty: -4, facing: 'right', offMap: true },

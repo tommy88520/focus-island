@@ -138,7 +138,7 @@
         </div>
         <p v-if="!isTouch" class="!mb-0 mt-2 text-[10px] text-white/50">{{ t.seatScene.elevatorKeys }}</p>
       </div>
-      <!-- 捷運站：路線圖。紅線是同一層的各分區和劍潭（士林夜市），轉乘綠線到環河公園、北投溫泉，藍線到基隆廟口夜市；點一站就搭過去 -->
+      <!-- 捷運站：路線圖。紅線是同一層的各分區和劍潭（士林夜市），轉乘綠線到環河公園、北投溫泉，藍線到基隆廟口夜市，文湖線到動物園；點一站就搭過去 -->
       <div v-if="mrtOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(28rem,calc(100%-1rem))] -translate-x-1/2 px-2 pb-2.5 pt-3">
         <p class="!mb-2.5 text-center !text-[11px] font-black tracking-wide">🚇 {{ t.seatScene.mrtPrompt }}</p>
         <div class="!flex !flex-nowrap items-start">
@@ -192,6 +192,11 @@
             </span>
           </button>
         </div>
+      </div>
+      <!-- 動物園站：搭文湖線去動物園（獨立地圖） -->
+      <div v-if="zooMrtOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
+        <p class="!mb-2 !text-[11px] font-black">🐼 {{ t.seatScene.zooMrtPrompt }}</p>
+        <button type="button" class="pixel-btn pixel-btn--primary h-9 px-4 text-xs" @click="goZoo">{{ t.seatScene.zooMrtGo }}</button>
       </div>
       <!-- F1 站：搭車去另一張獨立的 F1 賽車場地圖 -->
       <div v-if="f1Open" class="pixel-panel absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-4 py-3 text-center">
@@ -357,6 +362,7 @@ const emit = defineEmits<{
   'go-beitou': [];
   'go-miaokou': [];
   'go-shilin': [];
+  'go-zoo': [];
   whisper: [to: string, phrase: WhisperId];
   // 走進另一個區域（圖書館／沙灘／101／動物園／夜市），父層用來切換場景環境音
   area: [area: Area];
@@ -499,7 +505,7 @@ const elevatorOpen = ref(false);
 // 走到 101 旁的捷運站口會跳出分區選單
 const mrtOpen = ref(false);
 // 捷運路線圖上的站：紅線是這層樓的分區，綠線通往獨立地圖
-const MRT_LINE_COLORS = { red: '#e3002c', green: '#008659', blue: '#0070bd' } as const;
+const MRT_LINE_COLORS = { red: '#e3002c', green: '#008659', blue: '#0070bd', brown: '#c48c31' } as const;
 const mrtStations = computed(() => [
   ...props.zones.map((zone) => ({
     key: zone.id,
@@ -513,10 +519,14 @@ const mrtStations = computed(() => [
   { key: 'park', name: t.value.riverPark.title, emoji: '🌸', line: 'green' as const, here: false, go: goPark },
   { key: 'beitou', name: t.value.beitou.title, emoji: '♨️', line: 'green' as const, here: false, go: goBeitou },
   { key: 'miaokou', name: t.value.miaokou.station, emoji: '🏮', line: 'blue' as const, here: false, go: goMiaokou },
+  { key: 'zoo', name: t.value.zoo.station, emoji: '🐼', line: 'brown' as const, here: false, go: goZoo },
 ]);
 // 夜市捷運站（主地圖北邊）：只有士林、廟口兩站
 const marketMrtOpen = ref(false);
 let marketMrtLock = false;
+// 動物園站（主地圖右邊）：搭文湖線去動物園
+const zooMrtOpen = ref(false);
+let zooMrtLock = false;
 const marketStops = computed(() => [
   { key: 'shilin', name: t.value.seatScene.shilinName, stop: t.value.seatScene.shilinStop, emoji: '🍗', line: 'red' as const, go: goShilin },
   { key: 'miaokou', name: t.value.seatScene.miaokouName, stop: t.value.seatScene.miaokouStop, emoji: '🏮', line: 'blue' as const, go: goMiaokou },
@@ -579,8 +589,7 @@ const MINIMAP_OUTDOOR_COLORS: Partial<Record<OutdoorKind, string>> = {
   office: '#59606e',
   mrt: '#e25a4a',
   marketMrt: '#e25a4a',
-  enclosure: '#8a5e36',
-  pool: '#4fc3d9',
+  zooMrt: '#c48c31',
   streetTree: '#3d7a4c',
   zooTree: '#2f6b3a',
 };
@@ -903,6 +912,11 @@ function insideMrtZone(x: number, y: number): boolean {
   return Math.hypot(x - trigger.x, y - trigger.y) < 0.9;
 }
 
+function insideZooMrtZone(x: number, y: number): boolean {
+  const trigger = map.world.zooMrtTrigger;
+  return Math.hypot(x - trigger.x, y - trigger.y) < 1.1;
+}
+
 function insideMarketMrtZone(x: number, y: number): boolean {
   const trigger = map.world.marketMrtTrigger;
   return Math.hypot(x - trigger.x, y - trigger.y) < 1.1;
@@ -957,6 +971,15 @@ function goShilin(): void {
   emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
   savePosition(performance.now() / 1000, true);
   emit('go-shilin');
+}
+
+// 去動物園：同上
+function goZoo(): void {
+  mrtOpen.value = false;
+  zooMrtOpen.value = false;
+  emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
+  savePosition(performance.now() / 1000, true);
+  emit('go-zoo');
 }
 
 // 去基隆廟口夜市：同上
@@ -1076,11 +1099,13 @@ function spawnPlayer(): void {
   stairLock = insideStairZone(player.x, player.y) !== undefined;
   mrtLock = insideMrtZone(player.x, player.y);
   marketMrtLock = insideMarketMrtZone(player.x, player.y);
+  zooMrtLock = insideZooMrtZone(player.x, player.y);
   f1Lock = insideF1Zone(player.x, player.y);
   elevatorLock = insideElevatorZone(player.x, player.y);
   elevatorOpen.value = false;
   mrtOpen.value = false;
   marketMrtOpen.value = false;
+  zooMrtOpen.value = false;
 }
 
 // 站起來：座位在伺服器端仍保留，所以只是人離開椅子，站到椅子後方
@@ -1584,6 +1609,10 @@ function updatePlayer(dt: number): void {
   if (!inMarketMrt) marketMrtLock = false;
   const showMarketMrt = active && inMarketMrt && !marketMrtLock;
   if (showMarketMrt !== marketMrtOpen.value) marketMrtOpen.value = showMarketMrt;
+  const inZooMrt = !riding && player.state !== 'seated' && player.state !== 'sitting' && insideZooMrtZone(player.x, player.y);
+  if (!inZooMrt) zooMrtLock = false;
+  const showZooMrt = active && inZooMrt && !zooMrtLock;
+  if (showZooMrt !== zooMrtOpen.value) zooMrtOpen.value = showZooMrt;
   const inF1Zone = !riding && player.state !== 'seated' && player.state !== 'sitting' && insideF1Zone(player.x, player.y);
   if (!inF1Zone) f1Lock = false;
   const showF1 = active && inF1Zone && !f1Lock;
@@ -2105,14 +2134,13 @@ function drawLying(c: CanvasRenderingContext2D, colors: AvatarColors, footX: num
   paintSunglasses(c, Math.round(footX - AVATAR_SIZE.w / 2), Math.round(footY - AVATAR_SIZE.h));
 }
 
-// 戶外的建築、動物園，以及走來走去的路人、計程車、動物
+// 戶外的建築，以及走來走去的路人、計程車
 function outdoorDrawables(seconds: number): Drawable[] {
   const night = lightingNow() !== 'day';
   const list: Drawable[] = [];
   for (const prop of map.world.props) {
     list.push({
-      // 展區和水池是地面，要畫在裡面的動物底下
-      sortY: prop.kind === 'enclosure' || prop.kind === 'pool' ? prop.ty : prop.ty + prop.h,
+      sortY: prop.ty + prop.h,
       draw: (c: CanvasRenderingContext2D) => paintOutdoorProp(c, prop, seconds, night),
     });
   }
@@ -2210,7 +2238,7 @@ function drawNightLighting(c: CanvasRenderingContext2D, seconds: number, tint = 
   }
   // 戶外：夜市站的燈籠、101 的路燈與辦公室、捷運站
   for (const prop of world.props) {
-    if (prop.kind === 'marketMrt') glow((prop.tx + prop.w / 2) * TILE, prop.ty * TILE + 12, 70, 'rgba(255, 200, 120, 0.4)');
+    if (prop.kind === 'marketMrt' || prop.kind === 'zooMrt') glow((prop.tx + prop.w / 2) * TILE, prop.ty * TILE + 12, 70, 'rgba(255, 200, 120, 0.4)');
     if (prop.kind === 'lanternPole') glow(prop.tx * TILE + 8, prop.ty * TILE - 14, 56, `rgba(255, 120, 80, ${0.34 + Math.sin(seconds * 2 + prop.tx) * 0.04})`);
     if (prop.kind === 'lanternString') {
       const count = Math.max(3, Math.round((prop.w * TILE) / 14));
