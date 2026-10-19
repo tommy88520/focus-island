@@ -3,7 +3,7 @@
 > 固定 7 段、整份改寫、**≤4KB**。細節、使用者原話在 `docs/HANDOFF_ARCHIVE.md`（grep）。步驟見 `.claude/skills/`。
 
 ## 1. 版本
-- **v1.6.2**：程式最後一次改動 `1eb5be4`（10-19），已部署在家機、網站 200。版號在 `package.json`，發版 bump＋`git tag`。
+- **v1.6.3**：程式最後一次改動 `5662015`（10-19），已部署在家機、網站 200。版號在 `package.json`，發版 bump＋`git tag`。
 - 後端最後一次程式改動 `98ad4d0`（WATCH 訊息），已部署。
 - **push 不會自動上線**，要跑部署腳本（`CLAUDE.md`「部署」）。換電腦開工先 `git pull`，`package-lock` 有變就 `npm install`。
 
