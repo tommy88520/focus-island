@@ -129,3 +129,12 @@ body.body--dark {
 html {
   overscroll-behavior-y: none;
 }
+
+// 手機：地圖上跳出來的面板（買東西、撈金魚、搭車、租腳踏車…）改到畫面上方，
+// 不然會蓋住左下角的搖桿（人在畫面中間，上方面板也不會擋到自己）
+@media (pointer: coarse) {
+  .scene-box .pixel-panel.bottom-3 {
+    top: 3.5rem;
+    bottom: auto;
+  }
+}
