@@ -127,7 +127,8 @@
           />
         </label>
 
-        <div>
+        <!-- 改名字：主頁在人物面板（衣櫃、設定頁的角色外觀），這裡只有嵌入的小工具才有 -->
+        <div v-if="displayName !== undefined">
           <label for="display-name" class="mb-2 block text-[10px] font-black uppercase tracking-[0.2em] text-[color:var(--px-muted)]">
             {{ t.focusClockPanel.displayNameLabel }}
           </label>
@@ -172,7 +173,7 @@ const props = defineProps<{
   focusDurationOptions: readonly number[];
   selectedFocusDurationMinutes: number;
   autoRestartOnFinish: boolean;
-  displayName: string;
+  displayName?: string;
   // 一起專注（跟著時鐘）與通知；嵌入的小工具沒有座位，不提供
   groupFocusAvailable: boolean;
   groupFocus: boolean;
@@ -195,12 +196,12 @@ const emit = defineEmits<{
 
 const showAdvancedFocusControls = ref(false);
 const isEditingDisplayName = ref(false);
-const displayNameInput = ref(props.displayName);
+const displayNameInput = ref(props.displayName ?? '');
 
 watch(
   () => props.displayName,
   (name) => {
-    if (!isEditingDisplayName.value) displayNameInput.value = name;
+    if (!isEditingDisplayName.value) displayNameInput.value = name ?? '';
   },
 );
 
@@ -209,7 +210,7 @@ const progressPercent = computed(() =>
 ));
 
 function applyDisplayName() {
-  const normalized = displayNameInput.value.trim().slice(0, 20) || props.displayName;
+  const normalized = displayNameInput.value.trim().slice(0, 20) || (props.displayName ?? '');
   displayNameInput.value = normalized;
   isEditingDisplayName.value = false;
   emit('apply-display-name', normalized);

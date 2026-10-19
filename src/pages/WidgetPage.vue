@@ -33,6 +33,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
+import { useDisplayName } from 'src/composables/useDisplayName';
 import { Dark, useQuasar } from 'quasar';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 import { useAmbientAudio } from 'src/pages/index/composables/useAmbientAudio';
@@ -67,11 +68,10 @@ const storedUserId = localStorage.getItem('lib_uid');
 const userId = ref(storedUserId && /^[A-Za-z0-9_-]{1,64}$/.test(storedUserId) ? storedUserId : createRandomId('user'));
 localStorage.setItem('lib_uid', userId.value);
 
-// Shares the 'lib_display_name' key with IndexPage.vue — same origin, so a
-// name set on the full site (or in a previous widget session) carries over.
-const displayName = ref(
-  localStorage.getItem('lib_display_name') || `${t.value.indexPage.displayNameDefaultPrefix}${userId.value.slice(-4)}`,
-);
+// 名字跟主頁共用（useDisplayName）：在主站改的名字這裡也一樣
+const nameApi = useDisplayName();
+nameApi.ensureDefault(userId.value);
+const displayName = nameApi.displayName;
 
 const audio = useAmbientAudio(() => store.isRunning);
 
@@ -144,8 +144,7 @@ function handleFocusDurationSelect(minutes: number) {
 }
 
 function applyDisplayName(name: string) {
-  displayName.value = name;
-  localStorage.setItem('lib_display_name', name);
+  nameApi.setDisplayName(name);
 }
 
 function toggleFocus() {

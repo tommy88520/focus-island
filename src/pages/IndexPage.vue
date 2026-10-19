@@ -17,7 +17,7 @@
               class="pixel-btn h-7 min-w-0 shrink whitespace-nowrap px-2 text-[11px]"
               @click="leaveScene"
             >
-              {{ visitHome ? `🏠 ${t.friends.backHome}` : sceneLocation === 'home' ? `🗺️ ${t.home.backToMap}` : `🚇 ${t.indexPage.backToLibrary}` }}
+              {{ visitHome && !visitFromMapScene ? `🏠 ${t.friends.backHome}` : visitHome ? `🗺️ ${t.home.backToMap}` : sceneLocation === 'home' ? `🗺️ ${t.home.backToMap}` : `🚇 ${t.indexPage.backToLibrary}` }}
             </button>
             <!-- 樓層、分區收成一顆，點開才有分頁，地圖才大（電腦、手機都一樣） -->
             <button
@@ -79,15 +79,16 @@
           >
             <q-icon :name="sceneFullscreen ? 'fullscreen_exit' : 'fullscreen'" size="20px" />
           </button>
-          <!-- 回自己家：每張地圖左上角都有（沒登入先跳登入） -->
-          <button
-            v-if="useCanvasScene && sceneLocation !== 'home'"
-            type="button"
-            class="pixel-btn absolute left-[3.25rem] top-2 z-20 h-9 whitespace-nowrap px-2.5 text-xs"
-            @click="goHome"
-          >
-            🏠 {{ t.home.goHome }}
-          </button>
+          <!-- 回自己家、好友：每張地圖左上角都有（沒登入先跳登入）；家裡的好友鈕在家裡右上角 -->
+          <div v-if="useCanvasScene && sceneLocation !== 'home'" class="absolute left-[3.25rem] top-2 z-20 !flex !flex-nowrap gap-1.5">
+            <button type="button" class="pixel-btn h-9 whitespace-nowrap px-2.5 text-xs" @click="goHome">
+              🏠 {{ t.home.goHome }}
+            </button>
+            <button type="button" class="pixel-btn h-9 whitespace-nowrap px-2.5 text-xs" @click="openFriends">
+              👥 {{ t.friends.button }}<span v-if="friendsApi.incoming.value.length" class="ml-1 rounded-full bg-[#e25a4a] px-1.5 text-[10px] font-black text-white">{{ friendsApi.incoming.value.length }}</span>
+            </button>
+          </div>
+          <FriendsPanel v-if="friendsOpen && sceneLocation !== 'home'" @close="friendsOpen = false" @visit="visitFromMap" />
           <HomeScene
             v-if="useCanvasScene && sceneLocation === 'home'"
             ref="homeSceneRef"
@@ -190,7 +191,7 @@
           </div>
           </Teleport>
         </section>
-        <LoginDialog v-if="!account.session.value" v-model="loginOpen" :title="t.home.loginTitle" :hint="t.home.loginHint" @logged-in="enterHome" />
+        <LoginDialog v-if="!account.session.value" v-model="loginOpen" :title="t.home.loginTitle" :hint="t.home.loginHint" @logged-in="afterLogin" />
       </main>
     </div>
   </div>
@@ -227,7 +228,6 @@
         :focus-duration-options="focusDurationOptions"
         :selected-focus-duration-minutes="selectedFocusDurationMinutes"
         :auto-restart-on-finish="autoRestartOnFinish"
-        :display-name="displayName"
         :group-focus-available="true"
         :group-focus="playerPrefs.groupFocus"
         :group-status="groupStatus"
@@ -237,7 +237,6 @@
         @reset-focus-timer="resetFocusTimer"
         @select-focus-duration="handleFocusDurationSelect"
         @update:auto-restart-on-finish="autoRestartOnFinish = $event"
-        @apply-display-name="applyDisplayName"
         @update:group-focus="playerPrefs.groupFocus = $event"
         :notifications="playerPrefs.notifications"
         @update:notifications="handleNotificationsToggle"
@@ -273,9 +272,11 @@ import AmbientAudioPlayer from 'src/pages/index/components/AmbientAudioPlayer.vu
 import YouTubeTv from 'src/pages/index/components/YouTubeTv.vue';
 import WatchTogetherBar from 'src/pages/index/components/WatchTogetherBar.vue';
 import { useWatchTogether } from 'src/pages/index/composables/useWatchTogether';
+import { useDisplayName } from 'src/composables/useDisplayName';
 import RiverParkScene from 'src/pages/index/components/RiverParkScene.vue';
 import BeitouScene from 'src/pages/index/components/BeitouScene.vue';
 import HomeScene from 'src/pages/index/components/HomeScene.vue';
+import FriendsPanel from 'src/pages/index/components/FriendsPanel.vue';
 import SceneTransition from 'src/pages/index/components/SceneTransition.vue';
 import { playTransition, transition } from 'src/pages/index/sceneTransition';
 import LoginDialog from 'src/pages/index/components/LoginDialog.vue';
@@ -365,9 +366,10 @@ const storedUserId = localStorage.getItem('lib_uid');
 const userId = ref(storedUserId && /^[A-Za-z0-9_-]{1,64}$/.test(storedUserId) ? storedUserId : createRandomId('user'));
 localStorage.setItem('lib_uid', userId.value);
 
-const displayName = ref(
-  localStorage.getItem('lib_display_name') || `${t.value.indexPage.displayNameDefaultPrefix}${userId.value.slice(-4)}`,
-);
+// 名字：衣櫃、設定頁也改得到（共用一份）
+const nameApi = useDisplayName();
+nameApi.ensureDefault(userId.value);
+const displayName = nameApi.displayName;
 
 // --- 背景音樂 ---
 const audio = useAmbientAudio(() => store.isRunning);
@@ -932,15 +934,26 @@ async function startVisit(code: string): Promise<void> {
     return;
   }
   const go = () => {
+    if (sceneLocation.value !== 'home') {
+      librarySocket.sendPosition({ x: 0, y: 0, facing: 'down', moving: false, hidden: true });
+      homeReturnTo.value = sceneLocation.value;
+      visitFromMapScene.value = true;
+      mobileNavOpen.value = false;
+    }
     visitHome.value = home;
     sceneLocation.value = 'home';
   };
   if (homeSceneRef.value) homeSceneRef.value.guardThen(go);
   else go();
 }
+// 從地圖直接去朋友家的（不是從自己家出發）：離開朋友家直接回地圖
+const visitFromMapScene = ref(false);
 // 沒在家就不算在朋友家
 watch(sceneLocation, (loc) => {
-  if (loc !== 'home') visitHome.value = null;
+  if (loc !== 'home') {
+    visitHome.value = null;
+    visitFromMapScene.value = false;
+  }
 });
 // 告訴伺服器我在誰的家（自己家＝我的帳號代號、朋友家＝他的），家裡的人才看得到彼此；出門就清掉
 watch(
@@ -1093,16 +1106,14 @@ watch(
   },
 );
 
-function applyDisplayName(name: string) {
-  displayName.value = name;
-  localStorage.setItem('lib_display_name', name);
-
+// 改名（在衣櫃或設定頁）：坐著的話馬上讓同房間的人看到新名字
+watch(displayName, () => {
   if (selectedSeatId.value) {
     // 只是改名字，不代表使用者離開了專注狀態 —— 之前這裡寫死 'READY'，
     // 專注中改名會讓其他人看到你「假離座」。
     librarySocket.sendMove(selectedSeatId.value, store.isRunning ? 'FOCUS' : 'READY');
   }
-}
+});
 
 async function reconnectRoomSession() {
   syncCurrentRoomInfo();
@@ -1200,10 +1211,32 @@ function notifyNotSeated() {
 // 🏠 我的家：沒登入先登入；進去前先把自己在地圖上標成「不在這裡」
 function goHome(): void {
   if (!account.session.value) {
+    loginAction = 'home';
     loginOpen.value = true;
     return;
   }
   enterHome();
+}
+
+// 地圖上的「好友」：好友是跟著帳號的，沒登入先登入
+const friendsOpen = ref(false);
+let loginAction: 'home' | 'friends' = 'home';
+function openFriends(): void {
+  if (!account.session.value) {
+    loginAction = 'friends';
+    loginOpen.value = true;
+    return;
+  }
+  friendsOpen.value = true;
+}
+function afterLogin(): void {
+  if (loginAction === 'friends') friendsOpen.value = true;
+  else enterHome();
+}
+// 從地圖直接去朋友家：回來時直接回到原本的地圖（不用先經過自己家）
+function visitFromMap(code: string): void {
+  friendsOpen.value = false;
+  void startVisit(code);
 }
 
 function enterHome(): void {
@@ -1216,9 +1249,10 @@ function enterHome(): void {
 
 // 上方的「回地圖／搭車回去」：在家裡要先問有沒有沒存的（防呆）
 function leaveScene(): void {
-  // 在朋友家：回自己家
+  // 在朋友家：從地圖來的回地圖，從自己家來的回自己家
   if (visitHome.value) {
-    visitHome.value = null;
+    if (visitFromMapScene.value) sceneLocation.value = homeReturnTo.value;
+    else visitHome.value = null;
     return;
   }
   if (sceneLocation.value === 'home') {

@@ -50,6 +50,7 @@
         <h2 class="!mb-0 !text-lg !font-black">{{ t.settingsPage.avatarTitle }}</h2>
         <p class="!mb-0 mt-1 text-xs text-[color:var(--px-muted)]">{{ t.settingsPage.avatarHint }}</p>
         <!-- 設定頁改了就直接存（家裡的衣櫃才有「儲存」） -->
+        <NameField class="mt-3" />
         <LookEditor class="mt-1" :model-value="prefs" @update:model-value="Object.assign(prefs, $event)" />
       </section>
 
@@ -105,6 +106,7 @@ import { renderGoogleButton } from 'src/composables/googleIdentity';
 import { useLocale } from 'src/composables/useLocale';
 import { DAILY_GOAL_OPTIONS, usePlayerPrefs } from 'src/composables/usePlayerPrefs';
 import LookEditor from 'src/pages/index/components/LookEditor.vue';
+import NameField from 'src/pages/index/components/NameField.vue';
 import { usePomodoroStore } from 'src/stores/pomodoro';
 
 const { t, locale } = useLocale();

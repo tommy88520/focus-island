@@ -64,6 +64,7 @@
             <button type="button" class="pixel-btn pixel-btn--primary h-8 px-3 text-xs" @click="saveLook()">{{ t.home.save }}</button>
           </div>
         </div>
+        <NameField class="mt-2" />
         <LookEditor v-model="lookDraft" class="mt-2" />
       </div>
 
@@ -147,6 +148,7 @@ import { useLocale } from 'src/composables/useLocale';
 import { DAILY_GOAL_OPTIONS, usePlayerPrefs, type GardenPlacement, type Look } from 'src/composables/usePlayerPrefs';
 import { localPoint } from 'src/pages/index/composables/sceneFullscreen';
 import LookEditor from 'src/pages/index/components/LookEditor.vue';
+import NameField from 'src/pages/index/components/NameField.vue';
 import FriendsPanel from 'src/pages/index/components/FriendsPanel.vue';
 import { useFriends, type FriendHome } from 'src/composables/useFriends';
 import type { MyPosition, RemotePlayer } from 'src/pages/index/composables/useLibrarySocket';

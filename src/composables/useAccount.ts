@@ -4,6 +4,7 @@
 
 import { ref, watch } from 'vue';
 import { backendApiUrl, backendWsUrl } from 'src/utils/backendUrl';
+import { useDisplayName } from 'src/composables/useDisplayName';
 import { usePlayerPrefs, type PlayerPrefs, applyCoinFloor } from 'src/composables/usePlayerPrefs';
 import { usePomodoroStore, type DailyHistoryEntry, type SyncedProgress } from 'src/stores/pomodoro';
 
@@ -119,14 +120,11 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
 export function useAccount() {
   const prefs = usePlayerPrefs();
   const store = usePomodoroStore();
+  // 名字也同步（沒改過名字的預設名字也算，朋友那邊才看得到一樣的名字）
+  const name = useDisplayName();
 
   function localData(): CloudData {
-    let displayName: string | undefined;
-    try {
-      displayName = localStorage.getItem(DISPLAY_NAME_KEY) ?? undefined;
-    } catch {
-      displayName = undefined;
-    }
+    const displayName = name.displayName.value || undefined;
     return { v: 1, prefs: { ...prefs.value }, progress: store.syncSnapshot(), ...(displayName ? { displayName } : {}) };
   }
 
@@ -155,6 +153,7 @@ export function useAccount() {
       } catch {
         // ignore storage errors
       }
+      name.reload();
     }
     return merged;
   }
@@ -230,7 +229,7 @@ export function useAccount() {
       syncing.value = false;
     }
     watch(
-      () => [JSON.stringify(prefs.value), store.todayCompletedSessions, store.lifetimeSessions, Math.floor(store.todayFocusedSeconds / 60)],
+      () => [JSON.stringify(prefs.value), name.displayName.value, store.todayCompletedSessions, store.lifetimeSessions, Math.floor(store.todayFocusedSeconds / 60)],
       () => {
         window.clearTimeout(syncTimer);
         syncTimer = window.setTimeout(() => void upload(), SYNC_DEBOUNCE_MS);
