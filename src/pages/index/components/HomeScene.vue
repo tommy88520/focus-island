@@ -161,11 +161,10 @@ type Facing = 'up' | 'down' | 'left' | 'right';
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
 // theme：管理員給的客製化（後端 users.perks.homeTheme），'villa' 是有浴室、雙人床的大宅
-// visit：去好友家（唯讀：不能換裝、改設定、布置花園；屋主站在家裡）
+// visit：去好友家（唯讀：不能換裝、改設定、布置花園）；屋主只有真的在家（連線在這個家）才看得到
 // remotePlayers：同一個家裡的其他人（伺服器只把同一個家的位置送過來）
 const props = defineProps<{ disabled: boolean; theme?: 'villa' | undefined; visit?: FriendHome | null | undefined; remotePlayers: Record<string, RemotePlayer> }>();
 const VILLA = (props.visit ? props.visit.profile.theme : props.theme) === 'villa';
-const OWNER = { x: 10, y: 8.6 };
 const emit = defineEmits<{ leave: []; visit: [code: string]; position: [position: MyPosition] }>();
 const syncPosition = createPositionSync((pos) => emit('position', pos));
 const viewRemotes = createRemoteView();
@@ -240,7 +239,6 @@ const blocked = (x: number, y: number): boolean => {
     if (inRect(x, y, TUB) || inRect(x, y, SINK) || inRect(x, y, TOILET)) return true;
   }
   if (PLANTS.some((p) => Math.abs(x - p.x) < 0.5 && Math.abs(y - p.y) < 0.4)) return true;
-  if (props.visit && Math.abs(x - OWNER.x) < 0.45 && Math.abs(y - OWNER.y) < 0.35) return true;
   // 花園裡擺的東西（樹、燈只擋樹幹那一小塊）
   if (y > HOUSE_BOTTOM + 0.3) {
     const i = occupiedBy(Math.floor(x), Math.floor(y), placements.value);
@@ -789,10 +787,11 @@ function drawVillaChair(c: CanvasRenderingContext2D): void {
   px(c, '#f4ede2', cx - 4, cy - 11, 8, 1);
 }
 
-function drawFurniture(c: CanvasRenderingContext2D, lit: boolean, colors: AvatarColors, seconds = 0): void {
+// colors：被子（屋主衣服的顏色）；me：自己躺在床上時頭要畫成自己的樣子（去朋友家躺不能變成屋主）
+function drawFurniture(c: CanvasRenderingContext2D, lit: boolean, colors: AvatarColors, me: AvatarColors, seconds = 0): void {
   if (VILLA) {
     const sleepers = shownRemotes.filter((r) => r.remote.lying).map((r) => remoteColors(r.remote));
-    drawVillaBed(c, colors, sleepers[0] ?? null);
+    drawVillaBed(c, colors, me, sleepers[0] ?? null);
   }
   else {
     // 床：被子用自己衣服的顏色
@@ -846,7 +845,7 @@ function drawFurniture(c: CanvasRenderingContext2D, lit: boolean, colors: Avatar
 
 // villa 的雙人床：深色木頭床頭板、白色床單、兩顆枕頭、蓬蓬的棉被（顏色跟著衣服）；躺著的話頭在左邊枕頭上、身體在被子裡
 // other：躺在右邊枕頭的人（朋友來家裡一起躺）
-function drawVillaBed(c: CanvasRenderingContext2D, colors: AvatarColors, other: AvatarColors | null = null): void {
+function drawVillaBed(c: CanvasRenderingContext2D, colors: AvatarColors, me: AvatarColors, other: AvatarColors | null = null): void {
   const b = BED;
   const x = b.x0 * T;
   const y = b.y0 * T;
@@ -876,7 +875,7 @@ function drawVillaBed(c: CanvasRenderingContext2D, colors: AvatarColors, other: 
   pillow(x + w / 2 + 3);
   // 躺著：頭放在左邊枕頭上（棉被會蓋住身體）
   if (lying.value) {
-    c.drawImage(getAvatarFrame(colors, 'down', 'idle'), 0, 0, AVATAR_SIZE.w, 12, Math.round(x + 5 + (w / 2 - 8) / 2 - AVATAR_SIZE.w / 2), y + 2, AVATAR_SIZE.w, 12);
+    c.drawImage(getAvatarFrame(me, 'down', 'idle'), 0, 0, AVATAR_SIZE.w, 12, Math.round(x + 5 + (w / 2 - 8) / 2 - AVATAR_SIZE.w / 2), y + 2, AVATAR_SIZE.w, 12);
   }
   if (other) {
     c.drawImage(getAvatarFrame(other, 'down', 'idle'), 0, 0, AVATAR_SIZE.w, 12, Math.round(x + w / 2 + 3 + (w / 2 - 8) / 2 - AVATAR_SIZE.w / 2), y + 2, AVATAR_SIZE.w, 12);
@@ -1051,10 +1050,10 @@ function render(seconds: number): void {
       }
     }
   }
-  // 去別人家：被子是屋主的顏色，屋主站在地毯上
+  // 去別人家：被子是屋主的顏色
   const ownerLook = props.visit?.profile.look;
   const ownerColors = ownerLook ? lookColors(ownerLook.hair, ownerLook.shirt, ownerLook) : null;
-  drawFurniture(c, lit, ownerColors ?? colors, seconds);
+  drawFurniture(c, lit, ownerColors ?? colors, colors, seconds);
   const items: { y: number; draw: () => void }[] = [];
   for (const p of placements.value) {
     const item = GARDEN_ITEM_BY_ID[p.id];
@@ -1062,8 +1061,6 @@ function render(seconds: number): void {
     items.push({ y: p.y + item.h, draw: () => drawGardenItem(c, p.id, p.x, p.y, seconds, lit) });
   }
   items.push({ y: seated.value ? CHAIR.y : me.y + 0.35, draw: () => drawPerson(c, colors) });
-  // 屋主本人在家（真的連線在這裡）就不用畫假人
-  const ownerHere = !!props.visit && shownRemotes.some((r) => r.remote.userId === props.visit?.profile.userId);
   for (const r of shownRemotes) {
     if (r.remote.lying && VILLA) continue;
     const rc = remoteColors(r.remote);
@@ -1082,15 +1079,6 @@ function render(seconds: number): void {
         const frame = r.remote.moving ? (Math.floor(seconds / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
         px(c, 'rgba(0,0,0,0.18)', Math.round(r.x * T - 5), Math.round(r.y * T + 3), 10, 2);
         c.drawImage(getAvatarFrame(rc, r.remote.facing, frame), Math.round(r.x * T - AVATAR_SIZE.w / 2), Math.round(r.y * T + 5 - AVATAR_SIZE.h));
-      },
-    });
-  }
-  if (ownerColors && !ownerHere) {
-    items.push({
-      y: OWNER.y + 0.35,
-      draw: () => {
-        px(c, 'rgba(0,0,0,0.18)', Math.round(OWNER.x * T - 5), Math.round(OWNER.y * T + 3), 10, 2);
-        c.drawImage(getAvatarFrame(ownerColors, 'down', 'idle'), Math.round(OWNER.x * T - AVATAR_SIZE.w / 2), Math.round(OWNER.y * T + 5 - AVATAR_SIZE.h));
       },
     });
   }
@@ -1126,11 +1114,6 @@ function render(seconds: number): void {
     pill(ctx, t.value.home.wardrobe, lw.x, lw.y, '#fbbf24');
     const ls = screen((SHELF.x0 + SHELF.x1) / 2, SHELF.y1 + 1.4);
     pill(ctx, t.value.home.bookshelf, ls.x, ls.y, '#60a5fa');
-  } else {
-    if (!ownerHere) {
-      const lo = screen(OWNER.x, OWNER.y - 1.1);
-      pill(ctx, props.visit.profile.name, lo.x, lo.y, '#2dd4bf');
-    }
   }
   // 家裡其他人的名牌
   for (const r of shownRemotes) {
