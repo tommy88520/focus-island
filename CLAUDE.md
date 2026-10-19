@@ -36,6 +36,7 @@ Quasar（Vue 3 + TS、`<script setup>`）SPA＋Pinia，Tailwind v4 跟 Quasar �
   （`md:!hidden`、`!text-sm`）；`dark:` 跟 Quasar 的 `body--dark`。
 - 像素 UI：`app.scss` 的 `pixel-panel／btn／field／track`＋`--px-*` 顏色，同一元素不要再疊 Tailwind 的 `bg-／border-／shadow-`；`font-pixel` 只有英數。
 - 本機沒後端：座位用預設值畫；樓梯要 `/api/v1/library/floors` 有回應才出現。
+- 預先畫好的圖（地圖底圖、有字的建築）用 `pixelUtil` 的 `layerCanvas`＋`drawLayer`（照畫面倍數×螢幕像素畫），不要開 1 倍畫布再放大，字和線會糊；畫布用 `canvasDpr()`。
 - 地圖有負座標（101 x<0、夜市站 y<0），鏡頭／小地圖／光影用 world 範圍。
 
 ## 程式在哪
