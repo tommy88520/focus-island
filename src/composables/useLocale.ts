@@ -288,7 +288,7 @@ const translations = {
       getOut: '下車',
       getIn: '上車出發',
       pickCar: '選你的賽車',
-      hintDesktop: 'WASD／方向鍵移動 · 走到賽車旁選塗裝、按 E 上車 · 點 VIP 看台座位坐下專注 · 開車時方向鍵指哪就往哪開、往車尾方向按就倒車 · 從左往右通過起終點線開始計時',
+      hintDesktop: 'WASD／方向鍵移動 · 走到賽車旁選塗裝、按 E 上車 · 點 VIP 看台座位坐下專注 · 開車：↑ 油門、↓ 煞車／倒車、← → 轉方向 · 從左往右通過起終點線開始計時',
       hintTouch: '用左下角搖桿移動 · 走到自己的賽車旁選塗裝、點車上車 · 開車時搖桿指哪就往哪開、往車尾推就倒車',
     },
     zoo: {
@@ -328,7 +328,7 @@ const translations = {
       boarding: '即將發車',
       hintDesktop: 'WASD／方向鍵移動 · 走到車門前選要去哪條賽道（E 出發）· 點長椅坐下專注 · 右下角樓梯回圖書館',
       hintTouch: '用左下角搖桿移動 · 點車門走過去選賽道 · 點長椅坐下專注',
-      gpHintDesktop: 'WASD／方向鍵移動 · 走到維修道上自己的賽車旁邊選塗裝、按 E 上車 · 開車時方向鍵指哪就往哪開、往車尾方向按就倒車 · 順著賽道方向通過起終點線開始計時 · 綠色 DRS 直線跑得更快 · 點看台座位坐下專注',
+      gpHintDesktop: 'WASD／方向鍵移動 · 走到維修道上自己的賽車旁邊選塗裝、按 E 上車 · 開車：↑ 油門、↓ 煞車／倒車、← → 轉方向 · 順著賽道方向通過起終點線開始計時 · 綠色 DRS 直線跑得更快 · 點看台座位坐下專注',
       gpHintTouch: '用左下角搖桿移動 · 走到自己的賽車旁選塗裝、點車上車 · 開車時搖桿指哪就往哪開、往車尾推就倒車 · 綠色 DRS 直線跑得更快',
     },
     riverPark: {
@@ -779,7 +779,7 @@ const translations = {
       getOut: 'Get out',
       getIn: 'Drive',
       pickCar: 'Pick your car',
-      hintDesktop: 'WASD / arrows to move · walk up to your car to pick a paint job, E to drive · click a VIP seat to sit and focus · the car heads where you point, push toward the tail to reverse · cross the start line left to right to start timing',
+      hintDesktop: 'WASD / arrows to move · walk up to your car to pick a paint job, E to drive · click a VIP seat to sit and focus · driving: ↑ gas, ↓ brake / reverse, ← → steer · cross the start line left to right to start timing',
       hintTouch: 'Move with the joystick · walk up to your car to pick a paint job, tap it to drive · the car heads where you point the stick, push toward the tail to reverse',
     },
     zoo: {
@@ -819,7 +819,7 @@ const translations = {
       boarding: 'BOARDING',
       hintDesktop: 'WASD / arrows to move · walk to a train door to pick a circuit (E to go) · tap a bench to focus · stairs bottom-right go back to the library',
       hintTouch: 'Joystick to move · tap a train door to pick a circuit · tap a bench to focus',
-      gpHintDesktop: 'WASD / arrows to move · walk up to your car in the pit lane to pick a paint job, E to drive · steer toward where you point, push toward the tail to reverse · cross the start line in race direction to start timing · green DRS straights are faster · tap a stand seat to focus',
+      gpHintDesktop: 'WASD / arrows to move · walk up to your car in the pit lane to pick a paint job, E to drive · driving: ↑ gas, ↓ brake / reverse, ← → steer · cross the start line in race direction to start timing · green DRS straights are faster · tap a stand seat to focus',
       gpHintTouch: 'Joystick to move · walk up to your car to pick a paint job, tap it to drive · steer toward where you point, push toward the tail to reverse · green DRS straights are faster',
     },
     riverPark: {

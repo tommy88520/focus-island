@@ -69,6 +69,7 @@
 </template>
 
 <script setup lang="ts">
+import { steerCar } from 'src/pages/index/pixel/carControl';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { MyPosition, Reader, RemotePlayer, ProfilePerson, WhisperId } from 'src/pages/index/composables/useLibrarySocket';
 import { createPositionSync, createRemoteView, remoteColors, remoteLabel, type ShownRemote } from 'src/pages/index/sceneRemotes';
@@ -291,37 +292,11 @@ function getOut(): void {
 
 // 開車：方向鍵（或搖桿）指哪個方向，車頭就轉過去並加速；在賽道外面會慢很多，DRS 直線比較快
 function updateCar(dt: number, now: number): void {
-  const { x, y } = input();
-  const pushing = x !== 0 || y !== 0;
   const near = GEO.nearest(car.x, car.y);
   const onTrack = near.dist <= TRACK_HALF + 0.3;
   drsOn.value = onTrack && car.speed > 0 && C.drs.includes(near.origin);
   const top = onTrack ? (drsOn.value ? 20 : 16) : 4;
-  if (pushing) {
-    const target = Math.atan2(y, x);
-    const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
-    const diff = wrap(target - car.angle);
-    const backward = Math.abs(diff) > 2.4;
-    if (backward && car.speed > 0.6) {
-      // 往車尾方向推：先煞車
-      car.speed -= Math.min(car.speed, dt * 14);
-    } else if (backward) {
-      // 停住之後繼續往車尾推＝倒車：車頭不轉過去，車尾對準推的方向，最快 5
-      const back = wrap(target + Math.PI - car.angle);
-      car.angle += Math.sign(back) * Math.min(Math.abs(back), dt * 2.2);
-      car.speed += (-5 - car.speed) * Math.min(1, dt * 1.8);
-    } else if (car.speed < -0.2) {
-      // 倒車中改往前推：先煞住再往前開
-      car.speed += Math.min(-car.speed, dt * 14);
-    } else {
-      car.angle += Math.sign(diff) * Math.min(Math.abs(diff), dt * 3.2);
-      // 方向差太多先減速轉彎
-      const want = Math.abs(diff) > 1.6 ? top * 0.3 : top;
-      car.speed += (want - car.speed) * Math.min(1, dt * 1.6);
-    }
-  } else {
-    car.speed -= car.speed * Math.min(1, dt * 1.2);
-  }
+  steerCar(car, dt, keys, stick, top);
   if (!onTrack && car.speed > top) car.speed -= (car.speed - top) * Math.min(1, dt * 4);
   const nx = car.x + Math.cos(car.angle) * car.speed * dt;
   const ny = car.y + Math.sin(car.angle) * car.speed * dt;
