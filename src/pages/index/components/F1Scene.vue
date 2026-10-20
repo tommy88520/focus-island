@@ -264,6 +264,15 @@ function getIn(): void {
   currentLap.value = null;
 }
 
+// 一進來就站在自己的車旁邊（選車面板直接跳出來），不用從車站走一大段去找車
+function standByCar(): void {
+  const spot = [[0, 1.2], [0, -1.2], [-1.5, 0], [1.5, 0]].map(([dx = 0, dy = 0]) => ({ x: car.x + dx, y: car.y + dy })).find((p) => !blocked(p.x, p.y));
+  if (!spot) return;
+  me.x = spot.x;
+  me.y = spot.y;
+  me.facing = spot.y > car.y + 0.5 ? 'up' : spot.y < car.y - 0.5 ? 'down' : spot.x > car.x ? 'left' : 'right';
+}
+
 function getOut(): void {
   driving.value = false;
   car.speed = 0;
@@ -831,7 +840,7 @@ onMounted(() => {
   ctx = canvasRef.value?.getContext('2d') ?? null;
   isTouch.value = window.matchMedia('(pointer: coarse)').matches;
   ground = paintGround();
-  // 一抵達就站在車站旁：先走開才會再跳出回程面板
+  // 找不到車旁的空位時人還站在車站旁：先走開才會再跳出回程面板
   stationLock = true;
   // 朋友分享的位置：站到他旁邊；不然上次就坐在看台上的話直接坐回去
   const arrival = takeArrival('f1');
@@ -844,6 +853,7 @@ onMounted(() => {
       stationLock = false;
     }
   } else if (mine >= 0) sitAt(mine);
+  else standByCar();
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', clearKeys);

@@ -87,6 +87,10 @@
             <button type="button" class="pixel-btn h-9 whitespace-nowrap px-2.5 text-xs" @click="openFriends">
               👥 {{ t.friends.button }}<span v-if="friendsApi.incoming.value.length" class="ml-1 rounded-full bg-[#e25a4a] px-1.5 text-[10px] font-black text-white">{{ friendsApi.incoming.value.length }}</span>
             </button>
+            <!-- 賽車那幾張（F1 月台、賽道）：一鍵搭車回圖書館，不用走回地圖邊的車站；專注中不給（要先站起來結束專注） -->
+            <button v-if="racingScene && !store.isRunning" type="button" class="pixel-btn h-9 whitespace-nowrap px-2.5 text-xs" @click="leaveScene">
+              🚇 {{ t.indexPage.backToLibraryShort }}
+            </button>
           </div>
           <FriendsPanel v-if="friendsOpen && sceneLocation !== 'home'" @close="friendsOpen = false" @visit="visitFromMap" />
           <HomeScene
@@ -1010,6 +1014,7 @@ const sceneLocation = ref<SceneLoc>(
 const homeReturnTo = ref<Exclude<SceneLoc, 'home'>>('library');
 // 現在在哪條大獎賽（台北／台中／高雄），不在就是 null
 const gpScene = computed<GpSceneId | null>(() => (GP_ORDER as string[]).includes(sceneLocation.value) ? (sceneLocation.value as GpSceneId) : null);
+const racingScene = computed(() => sceneLocation.value === 'f1hub' || sceneLocation.value === 'f1' || gpScene.value !== null);
 function gpSeatStart(id: GpSceneId): number {
   return GP_SEAT_START + GP_ORDER.indexOf(id) * GP_SEAT_COUNT;
 }
