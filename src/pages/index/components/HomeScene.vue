@@ -219,7 +219,7 @@ const SHELF_FRONT = { x: (SHELF.x0 + SHELF.x1) / 2, y: 4.3 };
 const WARDROBE_FRONT = { x: 17.6, y: 4.6 };
 
 // villa 花園中間的美人魚噴水池：池子擋路（橢圓），四周這塊不能擺東西，已經擺在上面的先不畫
-const FOUNTAIN_AREA: Rect | null = VILLA ? { x0: 6, y0: 15, x1: 14, y1: 20 } : null;
+const FOUNTAIN_AREA: Rect | null = VILLA ? { x0: 4, y0: 14, x1: 16, y1: 21 } : null;
 const inFountain = (x: number, y: number) => {
   if (!VILLA) return false;
   const f = MERMAID_FOUNTAIN;
