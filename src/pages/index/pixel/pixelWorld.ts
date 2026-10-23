@@ -162,7 +162,9 @@ export type ShopItemId =
   | 'iceCreamCone'
   | 'sunCake'
   | 'daMianGeng'
-  | 'pearlMilkTea';
+  | 'pearlMilkTea'
+  | 'duckRice'
+  | 'beefNoodles';
 
 export interface ShopItem {
   id: ShopItemId;

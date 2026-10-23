@@ -23,4 +23,12 @@ export const TAICHUNG_ITEMS = {
   pearlMilkTea: { id: 'pearlMilkTea', emoji: '🧋', price: 60, name: { 'zh-TW': '珍珠奶茶', 'en-US': 'Bubble milk tea' } },
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS)];
+// 高雄（鹽埕、愛河、駁二）：鴨肉珍、港園牛肉麵、愛河邊的木瓜牛奶和咖啡
+export const KAOHSIUNG_ITEMS = {
+  duckRice: { id: 'duckRice', emoji: '🍚', price: 50, name: { 'zh-TW': '鴨肉飯', 'en-US': 'Duck rice' } },
+  beefNoodles: { id: 'beefNoodles', emoji: '🍜', price: 120, name: { 'zh-TW': '牛肉拌麵', 'en-US': 'Beef noodles (dry)' } },
+  papayaMilk: { id: 'papayaMilk', emoji: '🥛', price: 60, name: { 'zh-TW': '木瓜牛奶', 'en-US': 'Papaya milk' } },
+  icedCoffee: TAINAN_ITEMS.icedCoffee,
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS)];
