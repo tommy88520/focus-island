@@ -31,4 +31,13 @@ export const KAOHSIUNG_ITEMS = {
   icedCoffee: TAINAN_ITEMS.icedCoffee,
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS)];
+// 新北淡水（老街、河岸）：阿婆鐵蛋、可口魚丸、文化阿給、河岸咖啡的酸梅湯
+export const TAMSUI_ITEMS = {
+  ironEggs: { id: 'ironEggs', emoji: '🥚', price: 80, name: { 'zh-TW': '鐵蛋', 'en-US': 'Iron eggs' } },
+  fishBallSoup: { id: 'fishBallSoup', emoji: '🍲', price: 40, name: { 'zh-TW': '魚丸湯', 'en-US': 'Fish ball soup' } },
+  aGei: { id: 'aGei', emoji: '🍢', price: 45, name: { 'zh-TW': '阿給', 'en-US': 'A-gei (stuffed tofu)' } },
+  plumJuice: { id: 'plumJuice', emoji: '🍹', price: 30, name: { 'zh-TW': '酸梅湯', 'en-US': 'Sour plum drink' } },
+  icedCoffee: TAINAN_ITEMS.icedCoffee,
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS)];

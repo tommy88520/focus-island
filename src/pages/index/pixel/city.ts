@@ -6,7 +6,7 @@ import type { SoundscapeKind } from 'src/pages/index/composables/synthAmbience';
 
 // 城市的順序 = 座位編號的順序（每個城市 CITY_SEAT_COUNT 位，接在主地圖四四南村 188 號後面）：只能加在最後面，不能調換
 // 也是獨立地圖的 scene id（跟後端 allowedScenes 對好）
-export const CITY_ORDER = ['tainan', 'taichung', 'kaohsiung'] as const;
+export const CITY_ORDER = ['tainan', 'taichung', 'kaohsiung', 'tamsui'] as const;
 export type CityId = (typeof CITY_ORDER)[number];
 export const CITY_SEAT_COUNT = 12;
 
@@ -105,6 +105,8 @@ export interface CityDef {
   title: Text2;
   stop: Text2;
   emoji: string;
+  // 從台北車站搭哪條線過去（路線圖上放在哪一排、過場的列車顏色）：hsr 高鐵（預設）、red 捷運紅線、tra 台鐵
+  line?: 'hsr' | 'red' | 'tra';
   // 搭車的地方：站到這點旁邊跳出「要去哪裡」；剛到的人站在 arrive
   station: { x: number; y: number; name: Text2; arrive: { x: number; y: number } };
   background: string;

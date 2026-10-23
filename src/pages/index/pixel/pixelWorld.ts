@@ -164,7 +164,11 @@ export type ShopItemId =
   | 'daMianGeng'
   | 'pearlMilkTea'
   | 'duckRice'
-  | 'beefNoodles';
+  | 'beefNoodles'
+  | 'ironEggs'
+  | 'fishBallSoup'
+  | 'aGei'
+  | 'plumJuice';
 
 export interface ShopItem {
   id: ShopItemId;

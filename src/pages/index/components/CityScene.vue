@@ -56,7 +56,7 @@
 
       <!-- 車站：回台北、去別的城市 -->
       <div v-else-if="stationOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(24rem,calc(100%-1rem))] -translate-x-1/2 px-3 pb-3 pt-3 text-center" @click.stop>
-        <p class="!mb-2 !text-[11px] font-black">🚄 {{ t.city.stationPrompt(city.station.name[locale]) }}</p>
+        <p class="!mb-2 !text-[11px] font-black">{{ lineEmoji }} {{ t.city.stationPrompt(city.station.name[locale]) }}</p>
         <div class="!flex flex-wrap justify-center gap-1.5">
           <button type="button" class="pixel-btn pixel-btn--primary h-9 whitespace-nowrap px-3 text-xs" @click="emit('leave')">🚉 {{ t.city.backToTaipei }}</button>
           <button v-for="other in otherCities" :key="other.id" type="button" class="pixel-btn h-9 whitespace-nowrap px-3 text-xs" @click="emit('go', other.id)">{{ other.emoji }} {{ other.stop[locale] }}</button>
@@ -128,6 +128,7 @@ const city = props.city;
 const W = city.W;
 const H = city.H;
 const SEATS = city.seats;
+const lineEmoji = city.line === 'red' ? '🚇' : city.line === 'tra' ? '🚆' : '🚄';
 const otherCities = computed<CityDef[]>(() => (CITY_ORDER as readonly CityId[]).filter((id) => id !== city.id).map((id) => CITIES[id]));
 
 const inRect = (x: number, y: number, r: Rect) => x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1;
@@ -598,7 +599,7 @@ function render(seconds: number): void {
     pill(ctx, l.text[locale.value], p.x, p.y, l.color);
   }
   const sp = screen(city.station.x, city.station.y - 1.2);
-  pill(ctx, `🚄 ${city.station.name[locale.value]}`, sp.x, sp.y, '#fbbf24');
+  pill(ctx, `${lineEmoji} ${city.station.name[locale.value]}`, sp.x, sp.y, '#fbbf24');
   if (city.fortune) {
     const fp = screen(city.fortune.label.x, city.fortune.label.y);
     pill(ctx, `🙏 ${city.fortune.title[locale.value]}`, fp.x, fp.y, '#f2c14e');

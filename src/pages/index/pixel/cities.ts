@@ -6,9 +6,11 @@ import type { CityDef, CityId } from './city';
 import { TAINAN } from './tainanArt';
 import { TAICHUNG } from './taichungArt';
 import { KAOHSIUNG } from './kaohsiungArt';
+import { TAMSUI } from './tamsuiArt';
 
 export const CITIES: Record<CityId, CityDef> = {
   tainan: TAINAN,
   taichung: TAICHUNG,
   kaohsiung: KAOHSIUNG,
+  tamsui: TAMSUI,
 };

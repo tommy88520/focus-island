@@ -485,16 +485,21 @@ const mrtLines = computed(() => {
         ...props.zones.map((zone) => ({ key: zone.id, name: zone.name, emoji: '📚', here: zone.id === currentZoneId.value, go: () => rideMrt(zone.id) })),
         { key: 'shilin', name: s.shilinStop, emoji: '🍗', here: false, go: goShilin },
         { key: 'beitou', name: t.value.beitou.title, emoji: '♨️', here: false, go: goBeitou },
+        ...cityStops('red'),
       ],
     },
     { id: 'green' as const, name: s.lineGreen, stops: [{ key: 'park', name: t.value.riverPark.title, emoji: '🌸', here: false, go: goPark }] },
-    { id: 'blue' as const, name: s.lineTra, stops: [{ key: 'miaokou', name: s.miaokouStop, emoji: '🏮', here: false, go: goMiaokou }] },
+    { id: 'blue' as const, name: s.lineTra, stops: [{ key: 'miaokou', name: s.miaokouStop, emoji: '🏮', here: false, go: goMiaokou }, ...cityStops('tra')] },
     { id: 'brown' as const, name: s.lineBrown, stops: [{ key: 'zoo', name: t.value.zoo.station, emoji: '🐼', here: false, go: goZoo }] },
     { id: 'orange' as const, name: s.lineF1, stops: [{ key: 'f1', name: t.value.f1Hub.title, emoji: '🏎️', here: false, go: goF1 }] },
     // 高鐵：台灣各城市的指標地圖
-    { id: 'hsr' as const, name: s.lineHsr, stops: CITY_ORDER.map((id) => ({ key: id, name: CITIES[id].stop[locale.value], emoji: CITIES[id].emoji, here: false, go: () => goCity(id) })) },
+    { id: 'hsr' as const, name: s.lineHsr, stops: cityStops('hsr') },
   ];
 });
+// 城市地圖放在它真的會搭的那條線上（淡水在紅線、東部走台鐵、其他高鐵）
+function cityStops(line: 'hsr' | 'red' | 'tra') {
+  return CITY_ORDER.filter((id) => (CITIES[id].line ?? 'hsr') === line).map((id) => ({ key: id, name: CITIES[id].stop[locale.value], emoji: CITIES[id].emoji, here: false, go: () => goCity(id) }));
+}
 // 小地圖標題：目前在哪一區
 const areaTitle = computed(() => {
   const s = t.value.seatScene;
