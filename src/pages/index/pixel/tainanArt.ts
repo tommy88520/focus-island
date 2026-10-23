@@ -530,16 +530,17 @@ function dachengSprite(): HTMLCanvasElement {
       px(c, '#5a2a18', inset - 6, y + depth - 1, cw - (inset - 6) * 2, 2);
     };
     roof(wallTop - 12, 0, 14);
-    // 兩層屋頂中間：木頭的「大成殿」直匾
+    // 兩層屋頂中間的木牆
     px(c, '#6b2a1c', ox + 14, wallTop - 24, w - 28, 12);
+    // 上層屋頂（歇山）
+    roof(wallTop - 46, 22, 18);
+    // 「大成殿」直匾：掛在上層屋簷下（蓋在屋簷前面）
     px(c, '#15100c', cw / 2 - 6, wallTop - 30, 12, 20);
     px(c, '#c9a24a', cw / 2 - 6, wallTop - 30, 12, 1);
     px(c, '#c9a24a', cw / 2 - 6, wallTop - 11, 12, 1);
     text(c, '大', cw / 2, wallTop - 26, '#f2d27a', `900 5px ${SERIF_TC}`);
     text(c, '成', cw / 2, wallTop - 20.5, '#f2d27a', `900 5px ${SERIF_TC}`);
     text(c, '殿', cw / 2, wallTop - 15, '#f2d27a', `900 5px ${SERIF_TC}`);
-    // 上層屋頂（歇山）
-    roof(wallTop - 46, 22, 18);
     // 正脊：燕尾兩端高高翹起、中間通天筒
     const ry = wallTop - 48;
     c.strokeStyle = '#7a3220';
