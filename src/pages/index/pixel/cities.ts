@@ -7,10 +7,12 @@ import { TAINAN } from './tainanArt';
 import { TAICHUNG } from './taichungArt';
 import { KAOHSIUNG } from './kaohsiungArt';
 import { TAMSUI } from './tamsuiArt';
+import { SUNMOON } from './sunmoonArt';
 
 export const CITIES: Record<CityId, CityDef> = {
   tainan: TAINAN,
   taichung: TAICHUNG,
   kaohsiung: KAOHSIUNG,
   tamsui: TAMSUI,
+  sunmoon: SUNMOON,
 };

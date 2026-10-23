@@ -168,7 +168,10 @@ export type ShopItemId =
   | 'ironEggs'
   | 'fishBallSoup'
   | 'aGei'
-  | 'plumJuice';
+  | 'plumJuice'
+  | 'teaEgg'
+  | 'redJadeTea'
+  | 'boarSausage';
 
 export interface ShopItem {
   id: ShopItemId;

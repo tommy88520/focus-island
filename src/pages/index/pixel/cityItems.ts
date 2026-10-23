@@ -40,4 +40,11 @@ export const TAMSUI_ITEMS = {
   icedCoffee: TAINAN_ITEMS.icedCoffee,
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS)];
+// 南投日月潭：玄光寺的阿婆茶葉蛋、水社的紅茶和香腸
+export const SUNMOON_ITEMS = {
+  teaEgg: { id: 'teaEgg', emoji: '🥚', price: 15, name: { 'zh-TW': '茶葉蛋', 'en-US': 'Tea egg' } },
+  redJadeTea: { id: 'redJadeTea', emoji: '🫖', price: 60, name: { 'zh-TW': '日月潭紅茶（紅玉）', 'en-US': 'Sun Moon Lake black tea (Ruby)' } },
+  boarSausage: { id: 'boarSausage', emoji: '🌭', price: 40, name: { 'zh-TW': '山豬肉香腸', 'en-US': 'Wild boar sausage' } },
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS)];
