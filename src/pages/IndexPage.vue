@@ -1100,7 +1100,7 @@ watch(sceneLocation, (to, from) => {
     ...Object.fromEntries(GP_ORDER.map((id) => [id, CIRCUITS[id].title[locale.value]])),
   };
   const f1Line = to === 'f1' || to === 'f1hub' || (GP_ORDER as string[]).includes(to);
-  playTransition('mrt', names[to] ?? '', { line: f1Line ? 'orange' : to === 'library' || to === 'shilin' ? 'red' : to === 'miaokou' ? 'blue' : to === 'zoo' ? 'brown' : 'green' });
+  playTransition('mrt', names[to] ?? '', { line: f1Line ? 'orange' : to === 'library' || to === 'shilin' || to === 'beitou' ? 'red' : to === 'miaokou' ? 'blue' : to === 'zoo' ? 'brown' : 'green' });
 });
 // 回到圖書館就不用再記獨立地圖
 watch(sceneLocation, (location) => {
@@ -1108,7 +1108,8 @@ watch(sceneLocation, (location) => {
 });
 // 人在大地圖的哪一區，決定場景環境音（海浪、車流、夜市人聲…）
 const sceneArea = ref<Area>('library');
-const SOUNDSCAPES: Record<Area, SoundscapeKind | null> = { library: null, beach: 'beach', taipei101: 'city', zoo: 'city', nightmarket: 'city' };
+// 四四南村：樹葉、鳥叫、蟬（晚上蟋蟀），跟動物園同一組
+const SOUNDSCAPES: Record<Area, SoundscapeKind | null> = { library: null, beach: 'beach', taipei101: 'city', village: 'zoo', station: 'city' };
 watch(
   [sceneLocation, sceneArea, () => useCanvasScene.value],
   ([location, , canvas], [previousLocation]) => {

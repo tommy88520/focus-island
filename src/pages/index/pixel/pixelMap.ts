@@ -5,7 +5,8 @@ import type { Rect } from 'src/pages/index/composables/seatNavigation';
 import { createOutdoorWorld, outdoorAreaAt, type OutdoorAreaId, type OutdoorWorld } from './pixelWorld';
 
 export type Facing = 'up' | 'down' | 'left' | 'right';
-export type SeatKind = 'chair' | 'stool' | 'pouf' | 'armchair' | 'bench' | 'plasticStool' | 'beachChair';
+// floor：坐在台北車站大廳的地板上；rattan：四四南村的藤椅
+export type SeatKind = 'chair' | 'stool' | 'pouf' | 'armchair' | 'bench' | 'plasticStool' | 'beachChair' | 'floor' | 'rattan';
 
 export interface SeatSlot {
   kind: SeatKind;
@@ -172,7 +173,13 @@ export const GP_COUNT = 3;
 // 基隆廟口夜市（獨立地圖）：攤位前的小板凳 12 + 廟埕長椅 4（147–162），順序是 miaokou.ts 的 MIAOKOU_SEATS
 export const MIAOKOU_SEAT_START = GP_SEAT_START + GP_SEAT_COUNT * GP_COUNT;
 export const MIAOKOU_SEAT_COUNT = 16;
-export const SEATS_PER_ZONE = MIAOKOU_SEAT_START + MIAOKOU_SEAT_COUNT;
+// 主地圖的台北車站：大廳地板 6、站前廣場長椅 4（163–172）
+export const STATION_SEAT_START = MIAOKOU_SEAT_START + MIAOKOU_SEAT_COUNT;
+export const STATION_SEAT_COUNT = 10;
+// 主地圖的四四南村：好丘平台 8、榕樹下象棋 4、大草坪長椅 4（173–188）
+export const VILLAGE_SEAT_START = STATION_SEAT_START + STATION_SEAT_COUNT;
+export const VILLAGE_SEAT_COUNT = 16;
+export const SEATS_PER_ZONE = VILLAGE_SEAT_START + VILLAGE_SEAT_COUNT;
 const DECK_ROWS = 2;
 const SAND_ROWS = 8;
 const SEA_ROWS = 4;
@@ -267,7 +274,7 @@ export function createPixelMap(
 
   props.push(...beachProps(beach));
 
-  // 座位：圖書館 18 個之後依序是 101、動物園、夜市、海灘（F1 賽車場的在 F1Scene 裡）。
+  // 座位：圖書館 18 個之後依序是 101、動物園、夜市、海灘（51–162 在各張獨立地圖），163 起是台北車站、四四南村。
   // 座位編號（{room}-{NN}）跟這個順序一一對應，不要調換順序
   const R = MAP_WIDTH;
   const s = beach.sandTop;
@@ -298,7 +305,30 @@ export function createPixelMap(
   ];
   props.push({ kind: 'roundTable', tx: -5, ty: 8, w: 1, h: 1, blocks: true });
   for (const x of [-10, -6, R + 4, R + 8]) props.push({ kind: 'umbrella', tx: x, ty: s + 2, w: 1, h: 1, blocks: false, variant: x < 0 ? 0 : 1 });
-  const seats = [...base, ...outdoor].slice(0, seatCount);
+  const seats: SeatSlot[] = [...base, ...outdoor];
+  // 51–162 在獨立地圖（F1、公園、北投、月台、大獎賽、廟口）：這張地圖只佔編號
+  while (seats.length < STATION_SEAT_START) seats.push({ kind: 'bench', tx: 0, ty: 0, facing: 'down', offMap: true });
+  seats.push(
+    // 台北車站大廳：坐在黑白格子地板上（閘門前面留路）
+    ...[12, 13, 14, 18, 19, 20].map((tx): SeatSlot => ({ kind: 'floor', tx, ty: -7, facing: 'down' })),
+    // 站前廣場兩塊草坪上的長椅
+    ...[6, 7, 24, 25].map((tx): SeatSlot => ({ kind: 'bench', tx, ty: -2, facing: 'down' })),
+    // 好丘平台：兩張木桌各 4 張椅子
+    ...[39, 44].flatMap((tx): SeatSlot[] => [
+      { kind: 'chair', tx, ty: -1, facing: 'down' },
+      { kind: 'chair', tx: tx + 1, ty: -1, facing: 'down' },
+      { kind: 'chair', tx, ty: 1, facing: 'up' },
+      { kind: 'chair', tx: tx + 1, ty: 1, facing: 'up' },
+    ]),
+    // 榕樹下下象棋：兩張藤椅、兩張塑膠椅
+    { kind: 'rattan', tx: 33, ty: -1, facing: 'right' },
+    { kind: 'rattan', tx: 35, ty: -1, facing: 'left' },
+    { kind: 'plasticStool', tx: 34, ty: -2, facing: 'down' },
+    { kind: 'plasticStool', tx: 34, ty: 0, facing: 'up' },
+    // 大草坪的長椅（面向週末市集）
+    ...[35, 36, 39, 40].map((tx): SeatSlot => ({ kind: 'bench', tx, ty: 14, facing: 'down' })),
+  );
+  seats.splice(seatCount);
 
   return {
     theme,
@@ -457,7 +487,7 @@ export function mapObstacles(map: PixelMap): Rect[] {
   rects.push({ x0: door1, x1: map.width, z0: 0, z1: WALL_ROWS });
   for (const prop of map.world.props) {
     if (!prop.blocks) continue;
-    const thin = prop.kind === 'streetTree' || prop.kind === 'zooTree' || prop.kind === 'lanternPole';
+    const thin = prop.kind === 'streetTree' || prop.kind === 'banyan' || prop.kind === 'streetLamp';
     const inset = thin ? 0.25 : 0.04;
     rects.push({ x0: prop.tx + inset, x1: prop.tx + prop.w - inset, z0: prop.ty + inset, z1: prop.ty + prop.h - inset });
   }
