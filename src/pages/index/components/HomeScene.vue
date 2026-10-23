@@ -12,6 +12,7 @@
 
       <!-- 右上：自己家是「布置花園」「好友」；去別人家是「誰的家」 -->
       <div v-if="!gardenDraft && !panel && !visit" class="absolute right-2 top-2 z-10 !flex !flex-nowrap gap-1.5">
+        <button v-if="!VILLA" type="button" class="pixel-btn h-9 whitespace-nowrap px-2.5 text-xs" @click="panel = 'upgrade'">🏡 {{ t.home.upgrade }}</button>
         <button type="button" class="pixel-btn h-9 px-2.5 text-xs" @click="openFriends">
           👥 {{ t.friends.button }}<span v-if="incomingCount" class="ml-1 rounded-full bg-[#e25a4a] px-1.5 text-[10px] font-black text-white">{{ incomingCount }}</span>
         </button>
@@ -24,6 +25,27 @@
       </div>
 
       <FriendsPanel v-if="panel === 'friends'" @close="closePanel" @visit="emit('visit', $event)" />
+
+      <!-- 升級大宅：用專注幣買（浴室、雙人床、書桌、噴水池、花園） -->
+      <div v-if="panel === 'upgrade'" class="pixel-panel absolute inset-x-2 bottom-2 z-10 p-3 sm:left-1/2 sm:right-auto sm:w-[24rem] sm:-translate-x-1/2" @click.stop>
+        <div class="!flex !flex-nowrap items-center justify-between gap-2">
+          <p class="!mb-0 text-sm font-black">🏡 {{ t.home.upgradeTitle }}</p>
+          <button type="button" class="text-[color:var(--px-muted)]" :aria-label="t.seatScene.profileClose" @click="closePanel">
+            <q-icon name="close" size="18px" />
+          </button>
+        </div>
+        <ul class="!mb-2 mt-2 space-y-1 !pl-0 text-xs font-bold" style="list-style: none">
+          <li v-for="line in t.home.upgradePerks" :key="line">{{ line }}</li>
+        </ul>
+        <p class="!mb-2 text-[11px] leading-snug text-[color:var(--px-muted)]">{{ t.home.upgradeNote }}</p>
+        <div class="!flex !flex-nowrap items-center justify-between gap-2">
+          <span class="text-xs font-black">🪙 {{ prefs.coins }}</span>
+          <button type="button" class="pixel-btn pixel-btn--primary h-9 whitespace-nowrap px-4 text-xs" :disabled="upgrading || prefs.coins < VILLA_PRICE" @click="buyVilla">
+            {{ upgrading ? t.home.upgrading : t.home.upgradeBuy(VILLA_PRICE) }}
+          </button>
+        </div>
+        <p v-if="prefs.coins < VILLA_PRICE" class="!mb-0 mt-1.5 text-[11px] text-[color:var(--px-muted)]">{{ t.home.notEnough(VILLA_PRICE, prefs.coins) }}</p>
+      </div>
 
       <!-- 布置花園：選東西、放上去；儲存才扣幣 -->
       <div v-if="gardenDraft" class="pixel-panel absolute inset-x-2 bottom-2 z-10 p-2 sm:left-1/2 sm:right-auto sm:w-[32rem] sm:-translate-x-1/2">
@@ -151,6 +173,7 @@ import LookEditor from 'src/pages/index/components/LookEditor.vue';
 import NameField from 'src/pages/index/components/NameField.vue';
 import FriendsPanel from 'src/pages/index/components/FriendsPanel.vue';
 import { useFriends, type FriendHome } from 'src/composables/useFriends';
+import { useAccount } from 'src/composables/useAccount';
 import type { MyPosition, RemotePlayer } from 'src/pages/index/composables/useLibrarySocket';
 import { createPositionSync, createRemoteView, remoteColors, remoteLabel, type ShownRemote } from 'src/pages/index/sceneRemotes';
 import SceneHint from 'src/pages/index/components/SceneHint.vue';
@@ -158,6 +181,8 @@ import { AVATAR_SIZE, getAvatarFrame, lookColors, SEATED_ROWS, type AvatarColors
 import { drawGardenItem, drawMermaidFountain, GARDEN_ITEM_BY_ID, GARDEN_ITEMS, MERMAID_FOUNTAIN, paintFountainPlaza, STARTER_GARDEN, VILLA_GARDEN } from 'src/pages/index/pixel/homeArt';
 import { px, seeded, pillTextWidth, fillPillText, canvasDpr, drawLayer, layerCanvas } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
+import { useYouTubeTv } from 'src/pages/index/composables/useYouTubeTv';
+import { sceneRotated } from 'src/pages/index/composables/sceneFullscreen';
 
 type Facing = 'up' | 'down' | 'left' | 'right';
 type Rect = { x0: number; y0: number; x1: number; y1: number };
@@ -167,12 +192,19 @@ type Rect = { x0: number; y0: number; x1: number; y1: number };
 // remotePlayers：同一個家裡的其他人（伺服器只把同一個家的位置送過來）
 const props = defineProps<{ disabled: boolean; theme?: 'villa' | undefined; visit?: FriendHome | null | undefined; remotePlayers: Record<string, RemotePlayer> }>();
 const VILLA = (props.visit ? props.visit.profile.theme : props.theme) === 'villa';
-const emit = defineEmits<{ leave: []; visit: [code: string]; position: [position: MyPosition] }>();
+const emit = defineEmits<{ leave: []; visit: [code: string]; position: [position: MyPosition]; 'open-tv': [] }>();
+const { tvScreen, showing: youtubeShowing } = useYouTubeTv();
 const syncPosition = createPositionSync((pos) => emit('position', pos));
 const viewRemotes = createRemoteView();
 let shownRemotes: ShownRemote[] = [];
 // 坐在書桌前的（站在椅子上、面向上、沒在走）
 const remoteAtDesk = (r: ShownRemote) => Math.hypot(r.x - CHAIR.x, r.y - CHAIR.y) < 0.3 && !r.remote.moving;
+// 坐在沙發哪一個位子上（站在位子上、沒在走）
+const remoteOnSofa = (r: ShownRemote): number | null => {
+  if (r.remote.moving) return null;
+  const i = SOFA_SPOTS.findIndex((spot) => Math.hypot(r.x - spot.x, r.y - spot.y) < 0.3);
+  return i < 0 ? null : i;
+};
 const { incoming } = useFriends();
 const incomingCount = computed(() => incoming.value.length);
 const { t, locale } = useLocale();
@@ -211,6 +243,17 @@ const PLANTS = [
   { x: 1.6, y: 9.8 },
   { x: 18.4, y: 9.8 },
 ];
+// 客廳右邊：矮櫃上一台大電視（螢幕朝我們）＋前面一張雙人沙發（背對畫面、面向電視）。
+// 放 YouTube 時影片疊在電視螢幕上（TV_SCREEN，單位 px）；朋友在家裡也能按「邀請家裡的人一起看」
+const TV_STAND: Rect = { x0: 13.6, y0: 8.15, x1: 18.4, y1: 8.75 };
+const TV_SCREEN = { x: 16 * T - 28, y: Math.round(TV_STAND.y0 * T) - 39, w: 56, h: 32 };
+const SOFA: Rect = { x0: 14.4, y0: 9.75, x1: 17.6, y1: 10.45 };
+const SOFA_SPOTS = [
+  { x: 15.25, y: 10 },
+  { x: 16.75, y: 10 },
+];
+// 走到沙發前面（電視跟沙發中間）按 E 或點沙發就坐下
+const SOFA_FRONT = { x: 16, y: 9.3 };
 // 花園：可以擺東西的格子（避開步道、籬笆）
 const GARDEN = { x0: 1, y0: 12, x1: 19, y1: 23 };
 const PATH = { x0: 9, x1: 11 };
@@ -257,6 +300,7 @@ const blocked = (x: number, y: number): boolean => {
     if (inRect(x, y, TUB) || inRect(x, y, SINK) || inRect(x, y, TOILET)) return true;
   }
   if (PLANTS.some((p) => Math.abs(x - p.x) < 0.5 && Math.abs(y - p.y) < 0.4)) return true;
+  if (inRect(x, y, TV_STAND) || inRect(x, y, SOFA)) return true;
   if (inFountain(x, y)) return true;
   // 花園裡擺的東西（樹、燈只擋樹幹那一小塊）
   if (y > HOUSE_BOTTOM + 0.3) {
@@ -273,6 +317,8 @@ const seated = ref(false);
 const lying = ref(false);
 // 泡在浴缸裡（villa）
 const bathing = ref(false);
+// 坐在沙發上（第幾個位子）：看電視用，也可以專注
+const onSofa = ref<number | null>(null);
 let route: { x: number; y: number }[] = [];
 let arriveAction: (() => void) | null = null;
 let stuckFor = 0;
@@ -292,7 +338,7 @@ function input(): { x: number; y: number } {
 
 // 走過去：房子和花園之間要先走到門口
 function walkTo(to: { x: number; y: number }, onArrive: (() => void) | null = null): void {
-  if (seated.value || lying.value || bathing.value) standUp();
+  if (seated.value || lying.value || bathing.value || onSofa.value !== null) standUp();
   const inside = (y: number) => y < HOUSE_BOTTOM;
   const doorX = (DOOR.x0 + DOOR.x1) / 2;
   const pts: { x: number; y: number }[] = [];
@@ -311,6 +357,7 @@ function sitAtDesk(): void {
   route = [];
   arriveAction = null;
   bathing.value = false;
+  onSofa.value = null;
   seated.value = true;
   me.x = CHAIR.x;
   me.y = CHAIR.y;
@@ -322,6 +369,7 @@ function lieDown(): void {
   arriveAction = null;
   seated.value = false;
   bathing.value = false;
+  onSofa.value = null;
   lying.value = true;
 }
 
@@ -333,7 +381,25 @@ function bathe(): void {
   bathing.value = true;
 }
 
+// 坐沙發：挑空的那個位子（朋友坐了一邊就坐另一邊）
+function sitOnSofa(): void {
+  const taken = new Set(shownRemotes.map(remoteOnSofa).filter((i) => i !== null));
+  const free = SOFA_SPOTS.findIndex((_, i) => !taken.has(i));
+  if (free < 0) return;
+  route = [];
+  arriveAction = null;
+  onSofa.value = free;
+  me.facing = 'up';
+}
+
 function standUp(): void {
+  if (onSofa.value !== null) {
+    onSofa.value = null;
+    me.x = SOFA_FRONT.x;
+    me.y = SOFA_FRONT.y;
+    me.facing = 'down';
+    return;
+  }
   if (bathing.value) {
     bathing.value = false;
     me.x = TUB_SIDE.x;
@@ -353,7 +419,7 @@ function standUp(): void {
 
 // 按專注時父層來問：坐在書桌前就可以（家裡不用搶座位）；在屋裡的話直接幫你坐到書桌前；在花園才回 null（提示要進屋坐）
 function seatForFocus(): string | null {
-  if (lying.value) return 'lying';
+  if (lying.value || onSofa.value !== null) return 'lying';
   if (!seated.value && me.y < HOUSE_BOTTOM) sitAtDesk();
   return seated.value ? 'lying' : null;
 }
@@ -376,13 +442,13 @@ function step(dx: number, dy: number, dt: number): void {
 }
 
 function updateWalk(dt: number): void {
-  if (props.disabled && !seated.value && !lying.value) sitAtDesk();
+  if (props.disabled && !seated.value && !lying.value && onSofa.value === null) sitAtDesk();
   if (panel.value) {
     me.moving = false;
     return;
   }
   const { x, y } = input();
-  if (seated.value || lying.value || bathing.value) {
+  if (seated.value || lying.value || bathing.value || onSofa.value !== null) {
     me.moving = false;
     if ((x === 0 && y === 0) || props.disabled) return;
     standUp();
@@ -420,7 +486,37 @@ function updateWalk(dt: number): void {
 }
 
 // ── 衣櫃、書架面板 ──
-const panel = ref<'wardrobe' | 'settings' | 'friends' | null>(null);
+const panel = ref<'wardrobe' | 'settings' | 'friends' | 'upgrade' | null>(null);
+
+// ── 升級大宅（自己家才有） ──
+const VILLA_PRICE = 1500;
+const account = useAccount();
+const upgrading = ref(false);
+async function buyVilla(): Promise<void> {
+  if (upgrading.value || VILLA || props.visit) return;
+  if (prefs.value.coins < VILLA_PRICE) {
+    $q.notify({ message: t.value.home.notEnough(VILLA_PRICE, prefs.value.coins), color: 'warning', icon: 'savings', position: 'top', timeout: 2500 });
+    return;
+  }
+  upgrading.value = true;
+  prefs.value.coins -= VILLA_PRICE;
+  // 大宅的櫻花、玫瑰補在花園空的格子（原本擺的都留著）；先標記好，換成大宅時才不會整個花園被換掉
+  const garden = prefs.value.garden.map((p) => ({ ...p }));
+  for (const p of VILLA_GARDEN) if (occupiedBy(p.x, p.y, garden) < 0) garden.push({ ...p });
+  const hadVillaGarden = prefs.value.villaGarden;
+  prefs.value.villaGarden = true;
+  const ok = await account.upgradeHome();
+  upgrading.value = false;
+  if (!ok) {
+    prefs.value.coins += VILLA_PRICE;
+    prefs.value.villaGarden = hadVillaGarden;
+    $q.notify({ message: t.value.home.upgradeFailed, color: 'negative', position: 'top', timeout: 3000 });
+    return;
+  }
+  prefs.value.garden = garden;
+  // perks 換了，父層會用新的 key 把家重建成大宅
+  $q.notify({ message: t.value.home.upgraded, color: 'positive', position: 'top', timeout: 3000 });
+}
 
 function openFriends(): void {
   panel.value = 'friends';
@@ -1038,7 +1134,7 @@ function drawBathroom(c: CanvasRenderingContext2D, lit: boolean, bathers: Avatar
 }
 
 function drawPerson(c: CanvasRenderingContext2D, colors: AvatarColors): void {
-  if (lying.value || bathing.value) return;
+  if (lying.value || bathing.value || onSofa.value !== null) return;
   if (seated.value) {
     c.drawImage(getAvatarFrame(colors, 'up', 'idle'), 0, 0, AVATAR_SIZE.w, SEATED_ROWS, Math.round(CHAIR.x * T - AVATAR_SIZE.w / 2), Math.round(CHAIR.y * T + 2 - SEATED_ROWS), AVATAR_SIZE.w, SEATED_ROWS);
     if (VILLA) {
@@ -1054,6 +1150,117 @@ function drawPerson(c: CanvasRenderingContext2D, colors: AvatarColors): void {
   const frame = me.moving ? (Math.floor(me.walkClock / 0.14) % 2 === 0 ? 'walkA' : 'walkB') : 'idle';
   px(c, 'rgba(0,0,0,0.18)', Math.round(me.x * T - 5), Math.round(me.y * T + 3), 10, 2);
   c.drawImage(getAvatarFrame(colors, me.facing, frame), Math.round(me.x * T - AVATAR_SIZE.w / 2), Math.round(me.y * T + 5 - AVATAR_SIZE.h));
+}
+
+// 客廳的電視：矮櫃（villa 白色烤漆、一般的是木頭）上一台黑框大電視，前面一條聲霸；
+// 沒在放的時候螢幕是暗的、有一道反光和紅色待機燈；放 YouTube 時影片疊在螢幕上（看 reportTvScreen）
+function drawTv(c: CanvasRenderingContext2D, lit: boolean): void {
+  const x0 = Math.round(TV_STAND.x0 * T);
+  const x1 = Math.round(TV_STAND.x1 * T);
+  const y0 = Math.round(TV_STAND.y0 * T);
+  const y1 = Math.round(TV_STAND.y1 * T);
+  const w = x1 - x0;
+  const [top, face, edge, knob] = VILLA ? ['#f7f4ee', '#e6e0d4', '#cfc6b6', '#c9a227'] : ['#b5835a', '#94633f', '#74492c', '#e8c27a'];
+  px(c, 'rgba(0,0,0,0.2)', x0 + 2, y1 + 2, w, 3);
+  // 腳
+  px(c, VILLA ? '#b89a6e' : '#5a3a22', x0 + 3, y1, 2, 3);
+  px(c, VILLA ? '#b89a6e' : '#5a3a22', x1 - 5, y1, 2, 3);
+  // 頂面、正面（三格抽屜）
+  px(c, top, x0, y0 - 2, w, 4);
+  px(c, face, x0, y0 + 2, w, y1 - y0 - 2);
+  px(c, edge, x0, y1 - 1, w, 1);
+  for (let i = 1; i < 3; i += 1) px(c, edge, x0 + Math.round((w * i) / 3), y0 + 3, 1, y1 - y0 - 4);
+  for (let i = 0; i < 3; i += 1) px(c, knob, x0 + Math.round((w * (i + 0.5)) / 3) - 2, y0 + 5, 4, 1);
+  // 櫃子兩邊的擺飾：左邊一盆小植物、右邊一疊書
+  px(c, '#d97a4a', x0 + 1, y0 - 6, 6, 4);
+  px(c, '#4f9a4a', x0 + 1, y0 - 11, 3, 5);
+  px(c, '#6fb85e', x0 + 4, y0 - 12, 3, 6);
+  px(c, '#4a7fd0', x1 - 8, y0 - 4, 7, 2);
+  px(c, '#e25a4a', x1 - 7, y0 - 6, 6, 2);
+  px(c, '#f6c945', x1 - 8, y0 - 8, 7, 2);
+  // 電視腳座＋聲霸
+  const s = TV_SCREEN;
+  const cx = s.x + s.w / 2;
+  px(c, '#2a2d34', cx - 9, y0 - 3, 18, 2);
+  px(c, '#2a2d34', cx - 2, s.y + s.h + 2, 4, y0 - 3 - (s.y + s.h + 2));
+  px(c, '#1c1e24', cx - 15, y0, 30, 3);
+  px(c, '#3a3d45', cx - 14, y0, 28, 1);
+  // 黑框＋螢幕（暗的，一道斜斜的反光）
+  px(c, '#101218', s.x - 2, s.y - 2, s.w + 4, s.h + 4);
+  const g = c.createLinearGradient(s.x, s.y, s.x + s.w, s.y + s.h);
+  g.addColorStop(0, '#2b3442');
+  g.addColorStop(1, '#151a22');
+  c.fillStyle = g;
+  c.fillRect(s.x, s.y, s.w, s.h);
+  c.fillStyle = 'rgba(255,255,255,0.07)';
+  c.beginPath();
+  c.moveTo(s.x + 8, s.y);
+  c.lineTo(s.x + 26, s.y);
+  c.lineTo(s.x + 10, s.y + s.h);
+  c.lineTo(s.x, s.y + s.h);
+  c.lineTo(s.x, s.y + 10);
+  c.closePath();
+  c.fill();
+  px(c, lit ? '#ff5a5a' : '#c94444', s.x + s.w - 3, s.y + s.h + 1, 1, 1);
+}
+
+// 客廳的雙人沙發（背對畫面、面向電視）：先畫坐墊，坐著的人畫在坐墊上，椅背跟扶手擋住下半身
+function drawSofa(c: CanvasRenderingContext2D, sitters: (AvatarColors | null)[]): void {
+  const x0 = Math.round(SOFA.x0 * T);
+  const x1 = Math.round(SOFA.x1 * T);
+  const y0 = Math.round(SOFA.y0 * T);
+  const y1 = Math.round(SOFA.y1 * T);
+  const w = x1 - x0;
+  const [main, shade, light] = VILLA ? ['#7d97ad', '#64798c', '#a3b9cb'] : ['#6f8f5e', '#58744a', '#8fae7c'];
+  px(c, 'rgba(0,0,0,0.2)', x0 + 1, y1, w, 3);
+  // 坐墊（從後面看，椅背上方露出來的那一塊）
+  c.fillStyle = light;
+  c.beginPath();
+  c.roundRect(x0 + 4, y0 - 6, w - 8, 9, 3);
+  c.fill();
+  px(c, main, x0 + w / 2, y0 - 5, 1, 7);
+  // 坐著的人（背對我們，只畫上半身）
+  sitters.forEach((col, i) => {
+    const spot = SOFA_SPOTS[i];
+    if (!col || !spot) return;
+    c.drawImage(getAvatarFrame(col, 'up', 'idle'), 0, 0, AVATAR_SIZE.w, SEATED_ROWS, Math.round(spot.x * T - AVATAR_SIZE.w / 2), Math.round(spot.y * T - 2 - SEATED_ROWS), AVATAR_SIZE.w, SEATED_ROWS);
+  });
+  // 椅背：朝我們的這一面，中間一道縫、上緣一條亮邊
+  c.fillStyle = shade;
+  c.beginPath();
+  c.roundRect(x0, y0, w, y1 - y0 + 1, 3);
+  c.fill();
+  c.fillStyle = main;
+  c.beginPath();
+  c.roundRect(x0, y0, w, y1 - y0 - 2, 3);
+  c.fill();
+  px(c, light, x0 + 3, y0 + 1, w - 6, 1);
+  px(c, shade, x0 + w / 2, y0 + 3, 1, y1 - y0 - 6);
+  // 扶手
+  for (const ax of [x0 - 2, x1 - 4]) {
+    c.fillStyle = shade;
+    c.beginPath();
+    c.roundRect(ax, y0 - 7, 6, y1 - y0 + 8, 2);
+    c.fill();
+    px(c, light, ax + 1, y0 - 6, 4, 1);
+  }
+  // 腳
+  px(c, '#4a3220', x0 + 1, y1, 2, 2);
+  px(c, '#4a3220', x1 - 3, y1, 2, 2);
+}
+
+// 電視螢幕在視窗上的位置，給 YouTubeTv 把影片疊上去：整台在畫面裡才算看得到（不然桌機跳右下角小視窗、手機裁切）
+function reportTvScreen(canvas: HTMLCanvasElement): void {
+  const rect = canvas.getBoundingClientRect();
+  const s = TV_SCREEN;
+  const x = rect.left + view.ox + s.x * view.scale;
+  const y = rect.top + view.oy + s.y * view.scale;
+  const w = s.w * view.scale;
+  const h = s.h * view.scale;
+  // 全螢幕轉 90 度時影片疊不準、開著面板（衣櫃、好友…）會蓋住：交給角落的小視窗
+  const onMap = !sceneRotated.value && !panel.value;
+  const visible = onMap && x >= rect.left && y >= rect.top && x + w <= rect.right && y + h <= rect.bottom;
+  Object.assign(tvScreen, { visible, onMap, loading: false, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h), clipL: rect.left, clipT: rect.top, clipR: rect.right, clipB: rect.bottom });
 }
 
 // 名牌不能超出畫面（手機很窄，靠邊的名牌會被切掉）：左右夾在畫面裡
@@ -1135,9 +1342,16 @@ function render(seconds: number): void {
     items.push({ y: p.y + item.h, draw: () => drawGardenItem(c, p.id, p.x, p.y, seconds, lit) });
   }
   if (VILLA) items.push({ y: MERMAID_FOUNTAIN.cy + MERMAID_FOUNTAIN.ry, draw: () => drawMermaidFountain(c, seconds, lit) });
+  items.push({ y: TV_STAND.y1, draw: () => drawTv(c, lit) });
+  const sofaSitters: (AvatarColors | null)[] = SOFA_SPOTS.map((_, i) => (onSofa.value === i ? colors : null));
+  for (const r of shownRemotes) {
+    const i = remoteOnSofa(r);
+    if (i !== null && !sofaSitters[i]) sofaSitters[i] = remoteColors(r.remote);
+  }
+  items.push({ y: SOFA.y1, draw: () => drawSofa(c, sofaSitters) });
   items.push({ y: seated.value ? CHAIR.y : me.y + 0.35, draw: () => drawPerson(c, colors) });
   for (const r of shownRemotes) {
-    if ((r.remote.lying || r.remote.bath) && VILLA) continue;
+    if (((r.remote.lying || r.remote.bath) && VILLA) || remoteOnSofa(r) !== null) continue;
     const rc = remoteColors(r.remote);
     if (remoteAtDesk(r)) {
       items.push({
@@ -1174,6 +1388,7 @@ function render(seconds: number): void {
         c.fillRect(x - r, y - r, r * 2, r * 2);
       };
       glow((DESK.x1 - 0.8) * T, DESK.y0 * T, 60, 'rgba(255, 210, 140, 0.4)');
+      if (youtubeShowing.value) glow(TV_SCREEN.x + TV_SCREEN.w / 2, TV_SCREEN.y + TV_SCREEN.h / 2, 70, 'rgba(150, 190, 255, 0.3)');
       glow(10 * T, 6 * T, 120, 'rgba(255, 200, 120, 0.18)');
       for (const p of placements.value) if (p.id === 'lamp') glow(p.x * T + 8, p.y * T - 10, 44, 'rgba(255, 210, 140, 0.45)');
     }
@@ -1192,7 +1407,9 @@ function render(seconds: number): void {
   }
   // 家裡其他人的名牌
   for (const r of shownRemotes) {
-    const at = r.remote.bath && VILLA ? { x: (TUB.x0 + TUB.x1) / 2, y: TUB.y0 - 0.2 } : r.remote.lying && VILLA ? { x: BED.x0 + ((BED.x1 - BED.x0) * 3) / 4, y: BED.y0 - 0.1 } : remoteAtDesk(r) ? { x: CHAIR.x, y: CHAIR.y - 0.9 } : { x: r.x, y: r.y - 1.1 };
+    const sofa = remoteOnSofa(r);
+    const sofaSpot = sofa === null ? undefined : SOFA_SPOTS[sofa];
+    const at = r.remote.bath && VILLA ? { x: (TUB.x0 + TUB.x1) / 2, y: TUB.y0 - 0.2 } : r.remote.lying && VILLA ? { x: BED.x0 + ((BED.x1 - BED.x0) * 3) / 4, y: BED.y0 - 0.1 } : remoteAtDesk(r) ? { x: CHAIR.x, y: CHAIR.y - 0.9 } : sofaSpot ? { x: sofaSpot.x, y: sofaSpot.y - 0.9 } : { x: r.x, y: r.y - 1.1 };
     const p = screen(at.x, at.y);
     pill(ctx, remoteLabel(r), p.x, p.y, '#2dd4bf');
   }
@@ -1202,7 +1419,15 @@ function render(seconds: number): void {
   }
   const lg = screen(GATE.x, GATE.y + 0.6);
   pill(ctx, t.value.home.gate, lg.x, lg.y, '#2dd4bf');
-  const mp = bathing.value
+  // 暗著的電視螢幕中間掛牌子：點電視放 YouTube（正在放就收起來）
+  if (!youtubeShowing.value) {
+    const lt = screen((TV_SCREEN.x + TV_SCREEN.w / 2) / T, (TV_SCREEN.y + TV_SCREEN.h / 2) / T);
+    pill(ctx, t.value.seatScene.youtubeTv, lt.x, lt.y + 10, '#f87171');
+  }
+  const mySofa = onSofa.value === null ? undefined : SOFA_SPOTS[onSofa.value];
+  const mp = mySofa
+    ? screen(mySofa.x, mySofa.y - 0.9)
+    : bathing.value
     ? screen((TUB.x0 + TUB.x1) / 2, TUB.y0 - 0.2)
     : lying.value
     ? screen(BED.x0 + (BED.x1 - BED.x0) / 4 + 0.1, BED.y0 - 0.1)
@@ -1218,6 +1443,7 @@ function render(seconds: number): void {
     pill(ctx, `🛁 ${t.value.home.bath}`, lt.x, lt.y, '#38bdf8');
   }
   pill(ctx, t.value.common.meLabel, mp.x, mp.y, '#fbbf24');
+  reportTvScreen(canvas);
 }
 
 let rafId = 0;
@@ -1228,10 +1454,13 @@ function frame(time: number): void {
   const dt = last ? Math.min(0.05, seconds - last) : 0;
   last = seconds;
   updateWalk(dt);
-  if (!props.visit) rememberScene('home', positionForShare(), seated.value || lying.value || bathing.value, seconds);
+  if (!props.visit) rememberScene('home', positionForShare(), seated.value || lying.value || bathing.value || onSofa.value !== null, seconds);
   shownRemotes = viewRemotes(props.remotePlayers, 'home', dt);
+  const sofaSpot = onSofa.value === null ? undefined : SOFA_SPOTS[onSofa.value];
   syncPosition(
-    bathing.value
+    sofaSpot
+      ? { x: sofaSpot.x, y: sofaSpot.y, facing: 'up', moving: false, scene: 'home' }
+      : bathing.value
       ? { x: TUB_SIDE.x, y: TUB_SIDE.y, facing: 'down', moving: false, pose: 'bath', scene: 'home' }
       : lying.value
       ? { x: BED_SIDE.x, y: BED_SIDE.y, facing: 'down', moving: false, lying: true, scene: 'home' }
@@ -1271,7 +1500,7 @@ function ignoreKey(event: KeyboardEvent): boolean {
 
 // 靠近什麼就用什麼：書桌坐下、衣櫃換裝、書架設定
 function interact(): void {
-  if (seated.value || lying.value || bathing.value) {
+  if (seated.value || lying.value || bathing.value || onSofa.value !== null) {
     if (!props.disabled) standUp();
     return;
   }
@@ -1279,6 +1508,7 @@ function interact(): void {
   if (VILLA && inBathroom(me.x, me.y) && near(TUB_SIDE, 1.5)) bathe();
   else if (VILLA && near(BED_SIDE, 2.2)) lieDown();
   else if (near(CHAIR, 2.6)) sitAtDesk();
+  else if (near(SOFA_FRONT, 1.3)) sitOnSofa();
   else if (!props.visit && near(WARDROBE_FRONT)) openWardrobe();
   else if (!props.visit && near(SHELF_FRONT)) panel.value = 'settings';
 }
@@ -1313,8 +1543,15 @@ function handleClick(event: MouseEvent): void {
     editAt(x, y);
     return;
   }
+  // 點電視：打開音樂設定的 YouTube 網址欄（專注中也可以）
+  const s = TV_SCREEN;
+  if (x * T > s.x - 2 && x * T < s.x + s.w + 2 && y * T > s.y - 2 && y * T < s.y + s.h + 4) {
+    emit('open-tv');
+    return;
+  }
   if (props.disabled) return;
-  if (!props.visit && inRect(x, y, WARDROBE, 0.6)) walkTo(WARDROBE_FRONT, openWardrobe);
+  if (inRect(x, y, SOFA, 0.3)) walkTo(SOFA_FRONT, sitOnSofa);
+  else if (!props.visit && inRect(x, y, WARDROBE, 0.6)) walkTo(WARDROBE_FRONT, openWardrobe);
   else if (!props.visit && inRect(x, y, SHELF, 0.6)) walkTo(SHELF_FRONT, () => (panel.value = 'settings'));
   else if (inRect(x, y, DESK, 0.6) || Math.hypot(x - CHAIR.x, y - CHAIR.y) < 0.8) walkTo({ x: CHAIR.x, y: CHAIR.y + 0.9 }, sitAtDesk);
   else if (VILLA && inRect(x, y, BED, 0.3)) walkTo(BED_SIDE, lieDown);
@@ -1388,6 +1625,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(rafId);
+  tvScreen.visible = false;
+  tvScreen.onMap = false;
   window.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('keyup', onKeyUp);
   window.removeEventListener('blur', clearKeys);

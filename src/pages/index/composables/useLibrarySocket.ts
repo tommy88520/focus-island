@@ -135,6 +135,8 @@ export interface IncomingWatch {
   t: number;
   playing: boolean;
   stop: boolean;
+  // 家裡（自己家或朋友家）的邀請：後端只送給同一個家的人
+  home: boolean;
   at: number;
 }
 export interface WatchState {
@@ -849,7 +851,11 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
 
           // 有人進了我在的家：馬上告訴他我在哪
           case 'HOMEJOIN': {
-            if (msg.sessionId !== sessionId) resendPosition();
+            if (msg.sessionId !== sessionId) {
+              // 家裡正在分享 YouTube 的人也要馬上報一次
+              peerJoinedAt.value = Date.now();
+              resendPosition();
+            }
             break;
           }
 
@@ -921,6 +927,7 @@ export function useLibrarySocket(options: UseLibrarySocketOptions) {
               t: typeof w.t === 'number' && Number.isFinite(w.t) ? Math.max(0, w.t) : 0,
               playing: w.playing === true,
               stop,
+              home: w.home === true,
               at: Date.now(),
             };
             break;

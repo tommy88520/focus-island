@@ -2,7 +2,7 @@
   <!-- 一起看 YouTube：疊在底部工具列上面的一小條。三種：我在分享／我在跟別人看／別人邀請（按了才看） -->
   <div v-if="watch.hosting.value || watch.followingName.value || invite" class="pixel-panel watch-bar mb-1.5 px-2.5 py-2 text-[11px]">
     <div v-if="watch.hosting.value" class="!flex !flex-nowrap items-center gap-2">
-      <span class="min-w-0 flex-1 truncate font-bold">{{ t.watchTogether.sharing }}</span>
+      <span class="min-w-0 flex-1 truncate font-bold">{{ watch.atHome.value ? t.watchTogether.sharingHome : t.watchTogether.sharing }}</span>
       <button type="button" class="pixel-btn h-8 shrink-0 px-3 text-[11px]" @click="watch.stopHosting()">{{ t.watchTogether.stopShare }}</button>
     </div>
     <div v-else-if="watch.followingName.value" class="!flex !flex-nowrap items-center gap-2">

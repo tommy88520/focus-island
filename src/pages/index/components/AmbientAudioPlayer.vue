@@ -103,7 +103,7 @@
             :class="{ 'pixel-btn--primary': !watchTogether.hosting.value }"
             @click="toggleShare"
           >
-            {{ watchTogether.hosting.value ? `📡 ${t.watchTogether.stopShare}` : t.watchTogether.invite }}
+            {{ watchTogether.hosting.value ? `📡 ${t.watchTogether.stopShare}` : watchTogether.atHome.value ? t.watchTogether.inviteHome : t.watchTogether.invite }}
           </button>
           <p class="mt-2 text-[10px] text-[color:var(--px-muted)]">{{ t.ambientAudioPlayer.youtubeHint }}</p>
         </form>

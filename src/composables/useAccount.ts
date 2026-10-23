@@ -40,7 +40,7 @@ function readSession(): string {
 
 const session = ref(readSession());
 
-// 管理員給的客製化（後端 users.perks，使用者自己改不到）。先用上次存的，/me 回來再更新
+// 家的升級（後端 users.perks）：大宅用專注幣買（POST /me/home-upgrade），其他是管理員給的。先用上次存的，/me 回來再更新
 export interface Perks {
   homeTheme?: 'villa';
 }
@@ -200,6 +200,20 @@ export function useAccount() {
     window.location.reload();
   }
 
+  // 升級成大宅：專注幣由呼叫的人先扣（失敗要退回）；成功就換上新的 perks，馬上同步一次（幣才不會被雲端舊的蓋回去）
+  async function upgradeHome(): Promise<boolean> {
+    try {
+      const res = await request('/api/v1/me/home-upgrade', { method: 'POST' });
+      if (!res.ok) return false;
+      const body = (await res.json()) as { perks?: unknown };
+      setPerks(body.perks);
+      void upload();
+      return perks.value.homeTheme === 'villa';
+    } catch {
+      return false;
+    }
+  }
+
   async function deleteAccount(): Promise<boolean> {
     const res = await request('/api/v1/me', { method: 'DELETE' });
     if (!res.ok) return false;
@@ -247,5 +261,5 @@ export function useAccount() {
     });
   }
 
-  return { session, syncing, perks, sessionLost, loginWithGoogle, logout, deleteAccount, startSync };
+  return { session, syncing, perks, sessionLost, loginWithGoogle, logout, deleteAccount, upgradeHome, startSync };
 }

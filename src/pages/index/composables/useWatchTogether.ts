@@ -9,6 +9,7 @@ import type { IncomingWatch, WatchState } from './useLibrarySocket';
  * - 其他人只會看到一張邀請小卡，**按了才跟著看**（不自動播）；擋掉的人、開勿擾、設定裡關掉邀請就看不到；
  * - 跟著看的時候：對方換片就換、播放／暫停跟著、差超過 4 秒就跳過去；自己按暫停不會被硬拉回去，等對方下一次按播放；
  * - 35 秒沒收到對方的消息就當作他停了（關分頁、斷線、換房間）。
+ * - 在家裡（自己家、朋友家）就只跟同一個家的人一起看（後端只送給那個家，訊息帶 home）；圖書館房間的邀請在家裡不顯示，反過來也是。
  * 換片至少隔 30 秒（後端也會擋），太快換的那次等下一次報到才送出去。
  */
 
@@ -43,7 +44,7 @@ async function fetchTitle(videoId: string): Promise<string> {
   }
 }
 
-export function useWatchTogether(options: { audio: AmbientAudio; socket: WatchSocket; roomKey: () => string; onEnded: (name: string) => void }) {
+export function useWatchTogether(options: { audio: AmbientAudio; socket: WatchSocket; roomKey: () => string; atHome: () => boolean; onEnded: (name: string) => void }) {
   const { audio, socket } = options;
   const youtube = audio.youtube;
   const prefs = usePlayerPrefs();
@@ -168,7 +169,7 @@ export function useWatchTogether(options: { audio: AmbientAudio; socket: WatchSo
   }
 
   watch(socket.lastWatch, (w) => {
-    if (!w) return;
+    if (!w || w.home !== options.atHome()) return;
     if (w.stop) {
       if (following.value === w.key) endFollow(true);
       if (invite.value?.key === w.key) invite.value = null;
@@ -232,7 +233,7 @@ export function useWatchTogether(options: { audio: AmbientAudio; socket: WatchSo
     invite.value = null;
   }, 5000);
 
-  // 換房間：邀請、跟著看、分享都只在原本那個房間
+  // 換房間（含進出家裡）：邀請、跟著看、分享都只在原本那個房間
   watch(options.roomKey, () => {
     stopHosting();
     invite.value = null;
@@ -245,7 +246,9 @@ export function useWatchTogether(options: { audio: AmbientAudio; socket: WatchSo
     stopHosting();
   });
 
-  return { hosting, canHost, startHosting, stopHosting, visibleInvite, following, followingName, join, dismiss, leave };
+  const atHome = computed(options.atHome);
+
+  return { atHome, hosting, canHost, startHosting, stopHosting, visibleInvite, following, followingName, join, dismiss, leave };
 }
 
 export type WatchTogether = ReturnType<typeof useWatchTogether>;

@@ -103,6 +103,7 @@
             @position="librarySocket.sendPosition"
             :disabled="store.isRunning"
             @visit="startVisit"
+            @open-tv="mobileAudioOpen = true; audioPlayerRef?.openYouTube()"
             @leave="sceneLocation = homeReturnTo"
           />
           <F1Scene
@@ -882,13 +883,6 @@ const librarySocket = useLibrarySocket({
   onSeatStolen,
   debugSeatIdSync: import.meta.env.DEV,
 });
-// 一起看 YouTube：同房間（同樓層同分區）才看得到彼此的分享
-const watchTogether = useWatchTogether({
-  audio,
-  socket: librarySocket,
-  roomKey: () => `${currentFloor.value}-${activeZoneId.value}`,
-  onEnded: (name) => $q.notify({ message: t.value.watchTogether.ended(name), color: 'grey-8', position: 'top', timeout: 2500 }),
-});
 
 // 收到悄悄話：關掉了、開勿擾、或封鎖了這個人就不顯示
 watch(
@@ -1038,6 +1032,14 @@ watch(
 );
 // 正在朋友家（null = 在自己家）
 const visitHome = ref<FriendHome | null>(null);
+// 一起看 YouTube：同房間（同樓層同分區）才看得到彼此的分享；在家裡就是同一個家的人
+const watchTogether = useWatchTogether({
+  audio,
+  socket: librarySocket,
+  roomKey: () => (sceneLocation.value === 'home' ? `home:${visitHome.value?.profile.userId ?? 'mine'}` : `${currentFloor.value}-${activeZoneId.value}`),
+  atHome: () => sceneLocation.value === 'home',
+  onEnded: (name) => $q.notify({ message: t.value.watchTogether.ended(name), color: 'grey-8', position: 'top', timeout: 2500 }),
+});
 const friendsApi = useFriends();
 // 去朋友家：先問後端拿他家的樣子（只有好友拿得到），自己家沒存的改動會先問
 async function startVisit(code: string): Promise<void> {
