@@ -171,7 +171,10 @@ export type ShopItemId =
   | 'plumJuice'
   | 'teaEgg'
   | 'redJadeTea'
-  | 'boarSausage';
+  | 'boarSausage'
+  | 'wonton'
+  | 'driedBonito'
+  | 'shavedIce';
 
 export interface ShopItem {
   id: ShopItemId;

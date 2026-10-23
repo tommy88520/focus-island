@@ -16,7 +16,7 @@ Quasar（Vue 3 + TS、`<script setup>`）SPA＋Pinia，Tailwind v4 跟 Quasar �
 ## 鐵律
 1. **座位順序不能動**：編號 NN ↔ 地圖 slot 順序，只能加在最後面，同時加大後端 `seatsPerZone`。
    現在每區 200：圖書館 18、101 6、動物園 6（25–30，獨立地圖）、士林夜市 12（31–42，獨立地圖，主地圖上留著編號不畫）、海灘 8、F1 22、環河公園 16、北投溫泉 16、F1 月台長椅 6、台北／台中／高雄大獎賽看台各 12、基隆廟口夜市 16、主地圖台北車站 10（163–172）、四四南村 16（173–188）、
-   之後是各城市的指標地圖每個 12（`pixel/city.ts` 的 `CITY_ORDER` 順序：台南 189–200、臺中 201–212、高雄 213–224、淡水 225–236、日月潭 237–248，最後一塊）。城市可以設 `line`（淡水在紅線、東部走台鐵，預設高鐵）。
+   之後是各城市的指標地圖每個 12（`pixel/city.ts` 的 `CITY_ORDER` 順序：台南 189–200、臺中 201–212、高雄 213–224、淡水 225–236、日月潭 237–248、花蓮 249–260，最後一塊）。城市可以設 `line`（淡水在紅線、東部走台鐵，預設高鐵）。
 2. 同一個帳號（userId）同時只留一條連線（10-20 使用者要的）：新的連上，舊的收到 4001 關掉、跳「在這裡繼續」，不會自己重連；
    背景分頁和舊版前端（沒帶 `v=2`）是 passive，只會擋自己、不踢人（免得互踢）。座位還是記在分頁（sessionId）上。
 3. 座位只有換位子或斷線才放掉（沒有離開訊息），站起來只是保留中。
@@ -44,7 +44,7 @@ Quasar（Vue 3 + TS、`<script setup>`）SPA＋Pinia，Tailwind v4 跟 Quasar �
 ## 程式在哪
 - `pages/IndexPage.vue` 主頁；連線 `pages/index/composables/useLibrarySocket.ts`＋`actions/`。
 - 場景：`SeatScenePixel.vue`（主地圖：北邊台北車站、東邊四四南村在 `pixel/xinyi.ts`＋`xinyiArt.ts`）、
-  `CityScene.vue`（台灣各城市的指標地圖，從台北車站搭高鐵去；共用玩法，每個城市一份資料＋美術：`pixel/city.ts` 型別與順序、`cities.ts` 註冊、`cityItems.ts` 小吃、`cityArt.ts` 共用畫法（街屋、路燈、行道樹、攤車…）、台南 `tainan.ts`＋`tainanArt.ts`、臺中 `taichung.ts`＋`taichungArt.ts`、高雄 `kaohsiung.ts`＋`kaohsiungArt.ts`、淡水 `tamsui.ts`＋`tamsuiArt.ts`、日月潭 `sunmoon.ts`＋`sunmoonArt.ts`）、`F1HubScene.vue`（F1 月台：選賽道）→ `F1Scene.vue`／`GrandPrixScene.vue`（台北台中高雄，賽道 `pixel/circuits.ts`＋`gpTrack.ts`、城市 `gpCity.ts`、地標 `gpArt.ts`、月台 `hubArt.ts`）、`MiaokouScene.vue`（基隆廟口夜市，資料 `pixel/miaokou.ts`、美術 `miaokouArt.ts`）、`ShilinScene.vue`（士林夜市，`pixel/shilin.ts`＋`shilinArt.ts`）、`ZooScene.vue`（動物園，`pixel/zoo.ts`＋`zooArt.ts`）、`RiverParkScene.vue`、`BeitouScene.vue`、`HomeScene.vue`（自己的家）；獨立地圖的 scene id 在 `sceneRemotes.ts` 的 `MAP_SCENES`（跟後端 allowedScenes 對好）；`pixel/`：`pixelMap`（座位家具）、`pixelWorld`（戶外）、`pixelArt`、`pixelThemes`；
+  `CityScene.vue`（台灣各城市的指標地圖，從台北車站搭高鐵去；共用玩法，每個城市一份資料＋美術：`pixel/city.ts` 型別與順序、`cities.ts` 註冊、`cityItems.ts` 小吃、`cityArt.ts` 共用畫法（街屋、路燈、行道樹、攤車…）、台南 `tainan.ts`＋`tainanArt.ts`、臺中 `taichung.ts`＋`taichungArt.ts`、高雄 `kaohsiung.ts`＋`kaohsiungArt.ts`、淡水 `tamsui.ts`＋`tamsuiArt.ts`、日月潭 `sunmoon.ts`＋`sunmoonArt.ts`、花蓮 `hualien.ts`＋`hualienArt.ts`）、`F1HubScene.vue`（F1 月台：選賽道）→ `F1Scene.vue`／`GrandPrixScene.vue`（台北台中高雄，賽道 `pixel/circuits.ts`＋`gpTrack.ts`、城市 `gpCity.ts`、地標 `gpArt.ts`、月台 `hubArt.ts`）、`MiaokouScene.vue`（基隆廟口夜市，資料 `pixel/miaokou.ts`、美術 `miaokouArt.ts`）、`ShilinScene.vue`（士林夜市，`pixel/shilin.ts`＋`shilinArt.ts`）、`ZooScene.vue`（動物園，`pixel/zoo.ts`＋`zooArt.ts`）、`RiverParkScene.vue`、`BeitouScene.vue`、`HomeScene.vue`（自己的家）；獨立地圖的 scene id 在 `sceneRemotes.ts` 的 `MAP_SCENES`（跟後端 allowedScenes 對好）；`pixel/`：`pixelMap`（座位家具）、`pixelWorld`（戶外）、`pixelArt`、`pixelThemes`；
   `seatNavigation.ts`（碰撞、A*）。
 - `composables/`：`useAmbientAudio`＋`synthAmbience`（音樂）、`useYouTubeTv`（YouTube）、`usePlayerPrefs`、`useAccount`（Google 登入）、`groupFocus`。
   分享位置 `pages/index/shareLocation.ts`。番茄鐘 `stores/pomodoro.ts`＋`workers/timer.worker.ts`。

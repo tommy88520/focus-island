@@ -47,4 +47,11 @@ export const SUNMOON_ITEMS = {
   boarSausage: { id: 'boarSausage', emoji: '🌭', price: 40, name: { 'zh-TW': '山豬肉香腸', 'en-US': 'Wild boar sausage' } },
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS)];
+// 花蓮七星潭：海邊攤車的扁食、柴魚、剉冰
+export const HUALIEN_ITEMS = {
+  wonton: { id: 'wonton', emoji: '🥟', price: 70, name: { 'zh-TW': '扁食（餛飩湯）', 'en-US': 'Bianshi wonton soup' } },
+  driedBonito: { id: 'driedBonito', emoji: '🐟', price: 90, name: { 'zh-TW': '柴魚片', 'en-US': 'Bonito flakes' } },
+  shavedIce: { id: 'shavedIce', emoji: '🍧', price: 50, name: { 'zh-TW': '剉冰', 'en-US': 'Shaved ice' } },
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS)];

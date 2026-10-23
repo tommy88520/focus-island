@@ -6,7 +6,7 @@ import type { SoundscapeKind } from 'src/pages/index/composables/synthAmbience';
 
 // 城市的順序 = 座位編號的順序（每個城市 CITY_SEAT_COUNT 位，接在主地圖四四南村 188 號後面）：只能加在最後面，不能調換
 // 也是獨立地圖的 scene id（跟後端 allowedScenes 對好）
-export const CITY_ORDER = ['tainan', 'taichung', 'kaohsiung', 'tamsui', 'sunmoon'] as const;
+export const CITY_ORDER = ['tainan', 'taichung', 'kaohsiung', 'tamsui', 'sunmoon', 'hualien'] as const;
 export type CityId = (typeof CITY_ORDER)[number];
 export const CITY_SEAT_COUNT = 12;
 
