@@ -219,3 +219,227 @@ export function drawGardenItem(c: CanvasRenderingContext2D, id: string, tx: numb
       break;
   }
 }
+
+// ── villa 花園中間的美人魚噴水池（固定的，不是花園擺設）：橢圓大理石池、中間礁石上坐著美人魚，
+//    舉起的海螺噴出一道水弧落進池子；池邊四道小水柱、水面波光、池底許願硬幣，晚上水底燈亮 ──
+export const MERMAID_FOUNTAIN = { cx: 10, cy: 17.6, rx: 50 / T, ry: 24 / T, face: 9 / T };
+
+function ellipseRows(c: CanvasRenderingContext2D, color: string, cx: number, cy: number, rx: number, ry: number): void {
+  c.fillStyle = color;
+  for (let dy = -ry; dy <= ry; dy += 1) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
+    c.fillRect(Math.round(cx - half), Math.round(cy + dy), half * 2, 1);
+  }
+}
+
+// 地面：噴水池四周鋪一圈碎石廣場，跟中間的石板步道接起來
+export function paintFountainPlaza(c: CanvasRenderingContext2D): void {
+  const f = MERMAID_FOUNTAIN;
+  const cx = f.cx * T;
+  const cy = f.cy * T + 2;
+  ellipseRows(c, '#c9c1ae', cx, cy, f.rx * T + 18, f.ry * T + 14);
+  ellipseRows(c, '#d9d2c3', cx, cy, f.rx * T + 16, f.ry * T + 12);
+  let seed = 77;
+  for (let i = 0; i < 420; i += 1) {
+    seed = (seed * 16807) % 2147483647;
+    const a = (seed / 2147483647) * Math.PI * 2;
+    seed = (seed * 16807) % 2147483647;
+    const r = Math.sqrt(seed / 2147483647);
+    px(c, i % 2 ? '#c4bba8' : '#ebe5d8', Math.round(cx + Math.cos(a) * r * (f.rx * T + 15)), Math.round(cy + Math.sin(a) * r * (f.ry * T + 11)), 1, 1);
+  }
+  // 一圈白色石板鑲邊
+  for (let i = 0; i < 28; i += 1) {
+    const a = (i / 28) * Math.PI * 2;
+    const x = Math.round(cx + Math.cos(a) * (f.rx * T + 13));
+    const y = Math.round(cy + Math.sin(a) * (f.ry * T + 9));
+    px(c, '#9a958a', x - 3, y - 1, 7, 4);
+    px(c, '#f2efe8', x - 3, y - 2, 7, 3);
+  }
+}
+
+export function drawMermaidFountain(c: CanvasRenderingContext2D, seconds: number, lit: boolean): void {
+  const f = MERMAID_FOUNTAIN;
+  const cx = Math.round(f.cx * T);
+  const cy = Math.round(f.cy * T);
+  const rx = Math.round(f.rx * T);
+  const ry = Math.round(f.ry * T);
+  const face = Math.round(f.face * T);
+  // 池子：影子 → 前面的石壁 → 池緣 → 水
+  ellipseRows(c, 'rgba(0,0,0,0.2)', cx + 2, cy + face + 3, rx + 2, ry);
+  ellipseRows(c, '#a8a297', cx, cy + face, rx, ry);
+  for (let k = -rx; k < rx; k += 8) px(c, 'rgba(0,0,0,0.12)', cx + k, cy + Math.round(ry * Math.sqrt(Math.max(0, 1 - (k / rx) ** 2))), 1, face);
+  ellipseRows(c, '#e9e4da', cx, cy, rx, ry);
+  ellipseRows(c, '#f8f5ef', cx, cy - 1, rx - 2, ry - 2);
+  const wx = rx - 6;
+  const wy = ry - 5;
+  ellipseRows(c, '#3f9fb4', cx, cy + 1, wx, wy);
+  ellipseRows(c, lit ? '#6fd3e6' : '#56b9cc', cx, cy + 1, wx - 3, wy - 2);
+  // 池底的許願硬幣
+  for (const [dx, dy] of [[-28, 6], [-18, 10], [22, 8], [31, 2], [-34, 0], [12, 12]] as const) {
+    px(c, '#f6c945', cx + dx, cy + dy, 2, 1);
+    px(c, '#fff3b0', cx + dx, cy + dy, 1, 1);
+  }
+  // 水面波光：一條條慢慢飄
+  for (let i = 0; i < 14; i += 1) {
+    const t = (seconds * 0.12 + i * 0.137) % 1;
+    const ang = i * 2.399;
+    const r = 0.25 + ((i * 0.37) % 0.65);
+    const x = cx + Math.cos(ang + t * 0.6) * r * (wx - 6);
+    const y = cy + 1 + Math.sin(ang + t * 0.6) * r * (wy - 3);
+    const a = 0.35 + 0.35 * Math.sin(seconds * 2 + i);
+    px(c, `rgba(255,255,255,${a.toFixed(2)})`, Math.round(x), Math.round(y), 3 + (i % 3), 1);
+  }
+  // 池邊四道小水柱往池心噴
+  for (const side of [-1, 1]) {
+    for (const k of [0.55, 0.85]) {
+      const sx = cx + side * Math.round(wx * k);
+      const sy = cy + 1 + Math.round(wy * Math.sqrt(1 - k * k)) - 1;
+      for (let i = 0; i < 5; i += 1) {
+        const t = (seconds * 1.4 + i / 5 + k) % 1;
+        const x = sx - side * t * 12;
+        const y = sy - 9 * t + 11 * t * t;
+        px(c, 'rgba(225,248,252,0.9)', Math.round(x), Math.round(y), 1, 2);
+      }
+    }
+  }
+  // 中間疊起來的礁石，美人魚坐在最上面（by = 坐的高度）
+  ellipseRows(c, '#5f5a53', cx, cy + 4, 18, 7);
+  ellipseRows(c, '#7d776d', cx - 1, cy, 16, 7);
+  ellipseRows(c, '#948e83', cx + 1, cy - 6, 12, 5);
+  px(c, '#b3ada2', cx - 10, cy - 3, 7, 2);
+  px(c, '#b3ada2', cx - 4, cy - 10, 8, 2);
+  px(c, '#b3ada2', cx + 6, cy - 2, 5, 1);
+  px(c, '#6d8f4c', cx - 15, cy + 3, 4, 2);
+  px(c, '#6d8f4c', cx + 12, cy + 5, 3, 2);
+  px(c, '#e88aa6', cx - 12, cy + 1, 2, 2);
+  px(c, '#f6e6b0', cx + 9, cy - 4, 2, 1);
+  const bx = cx - 2;
+  const by = cy - 9;
+  const sway = Math.round(Math.sin(seconds * 1.6));
+  // 魚尾：從腰繞過礁石前面、往右垂進水裡，尾鰭翹出水面輕輕擺
+  const tail = '#2fb3a6';
+  const tailDark = '#1d8077';
+  const tailLight = '#7fe8da';
+  px(c, tail, bx - 6, by - 11, 12, 6);
+  px(c, tail, bx - 3, by - 6, 13, 5);
+  px(c, tail, bx + 6, by - 2, 11, 4);
+  px(c, tail, bx + 14, by + 1, 7, 4);
+  px(c, tailDark, bx - 6, by - 6, 3, 1);
+  px(c, tailDark, bx - 3, by - 1, 9, 1);
+  px(c, tailDark, bx + 6, by + 2, 11, 1);
+  for (let k = 0; k < 7; k += 1) {
+    px(c, tailLight, bx - 5 + k * 2 - (k % 2), by - 10 + (k % 2) * 2, 1, 1);
+    px(c, tailLight, bx - 2 + k * 2, by - 5 + (k % 2) * 2, 1, 1);
+  }
+  px(c, tailLight, bx + 9, by - 1, 1, 1);
+  px(c, tailLight, bx + 13, by, 1, 1);
+  px(c, tailLight, bx + 16, by + 2, 1, 1);
+  // 尾鰭：兩片，往上翹
+  const fx = bx + 20 + sway;
+  const fy = by - 2;
+  px(c, tail, bx + 19, by, 3, 3);
+  px(c, '#57d6c6', fx, fy - 8, 4, 9);
+  px(c, '#57d6c6', fx + 3, fy - 12, 4, 7);
+  px(c, '#57d6c6', fx - 3, fy - 11, 4, 6);
+  px(c, '#a6f3ea', fx + 1, fy - 7, 1, 5);
+  px(c, '#a6f3ea', fx + 4, fy - 11, 1, 4);
+  px(c, '#a6f3ea', fx - 2, fy - 10, 1, 3);
+  px(c, tailDark, fx, fy, 4, 1);
+  // 腰上一圈珍珠
+  for (let k = 0; k < 6; k += 1) px(c, '#fff8ec', bx - 5 + k * 2, by - 12, 1, 1);
+  // 身體、貝殼比基尼
+  const skin = '#f5cdae';
+  const skinShade = '#dba886';
+  px(c, skin, bx - 5, by - 24, 10, 12);
+  px(c, skinShade, bx + 3, by - 24, 2, 12);
+  px(c, skinShade, bx - 2, by - 15, 3, 1);
+  px(c, '#a86fd6', bx - 5, by - 21, 4, 4);
+  px(c, '#a86fd6', bx + 1, by - 21, 4, 4);
+  px(c, '#d6adf5', bx - 4, by - 21, 1, 2);
+  px(c, '#d6adf5', bx + 2, by - 21, 1, 2);
+  px(c, '#7e4fb0', bx - 5, by - 18, 4, 1);
+  px(c, '#7e4fb0', bx + 1, by - 18, 4, 1);
+  px(c, '#fff8ec', bx - 1, by - 21, 2, 1);
+  // 左手撐在礁石上；右手高舉海螺
+  px(c, skin, bx - 7, by - 22, 2, 9);
+  px(c, skin, bx - 9, by - 13, 4, 2);
+  px(c, skin, bx + 5, by - 31, 2, 9);
+  px(c, skinShade, bx + 6, by - 31, 1, 9);
+  px(c, skin, bx + 5, by - 33, 3, 2);
+  px(c, '#f6d6c0', bx + 4, by - 40, 8, 6);
+  px(c, '#fff0e4', bx + 4, by - 40, 8, 1);
+  px(c, '#e8a990', bx + 6, by - 38, 1, 3);
+  px(c, '#e8a990', bx + 8, by - 38, 1, 3);
+  px(c, '#e8a990', bx + 10, by - 37, 1, 2);
+  px(c, '#fff0e4', bx + 11, by - 41, 3, 3);
+  // 頭：臉、眼睛、腮紅、微笑
+  px(c, skin, bx - 4, by - 34, 9, 10);
+  px(c, skinShade, bx + 4, by - 33, 1, 8);
+  px(c, skin, bx - 1, by - 25, 3, 2);
+  px(c, '#2b2d33', bx - 2, by - 30, 2, 2);
+  px(c, '#2b2d33', bx + 2, by - 30, 2, 2);
+  px(c, '#ffffff', bx - 2, by - 30, 1, 1);
+  px(c, '#ffffff', bx + 2, by - 30, 1, 1);
+  px(c, '#f59a9a', bx - 3, by - 27, 2, 1);
+  px(c, '#f59a9a', bx + 3, by - 27, 2, 1);
+  px(c, '#c9473a', bx, by - 26, 2, 1);
+  // 紅色長髮：頭頂蓬起、瀏海、左邊一大片垂到腰跟著擺
+  const hair = '#e0503a';
+  const hairDark = '#b23a2b';
+  const hairLight = '#ff7d5e';
+  const hs = Math.round(Math.sin(seconds * 1.2) * 0.8);
+  px(c, hair, bx - 6, by - 37, 12, 4);
+  px(c, hair, bx - 5, by - 38, 9, 1);
+  px(c, hair, bx - 4, by - 33, 4, 2);
+  px(c, hair, bx + 2, by - 33, 3, 1);
+  px(c, hair, bx - 7, by - 34, 3, 8);
+  px(c, hair, bx + 5, by - 35, 2, 7);
+  px(c, hair, bx - 9 + hs, by - 27, 4, 8);
+  px(c, hair, bx - 10 + hs, by - 19, 4, 7);
+  px(c, hair, bx - 9 + hs, by - 12, 3, 3);
+  px(c, hairDark, bx - 8 + hs, by - 24, 1, 10);
+  px(c, hairDark, bx - 4, by - 33, 1, 1);
+  px(c, hairLight, bx - 3, by - 37, 5, 1);
+  px(c, hairLight, bx - 6, by - 35, 1, 3);
+  px(c, hairLight, bx - 7 + hs, by - 25, 1, 5);
+  px(c, hairLight, bx - 9 + hs, by - 17, 1, 4);
+  // 海星髮夾
+  px(c, '#f6c945', bx + 3, by - 37, 3, 1);
+  px(c, '#f6c945', bx + 4, by - 38, 1, 3);
+  px(c, '#e8a33d', bx + 4, by - 37, 1, 1);
+  // 海螺噴出的水弧，落進池子濺起漣漪
+  const sx = bx + 14;
+  const sy = by - 41;
+  const landX = sx + 26;
+  const landY = cy + 3;
+  const drop = landY - sy;
+  for (let i = 0; i < 26; i += 1) {
+    const t = (i / 26 + seconds * 0.8) % 1;
+    const x = sx + t * (landX - sx);
+    const y = sy - 20 * t + (drop + 20) * t * t;
+    px(c, 'rgba(70,160,200,0.55)', Math.round(x) - 1, Math.round(y) + 1, 3, 2);
+    px(c, i % 3 === 0 ? '#ffffff' : '#d4f4ff', Math.round(x), Math.round(y), 2, 2);
+  }
+  for (let i = 0; i < 4; i += 1) {
+    const t = (seconds * 2.2 + i / 4) % 1;
+    px(c, 'rgba(230,250,255,0.9)', Math.round(landX + (i - 1.5) * 3 * t * 2), Math.round(landY - 5 * t + 6 * t * t), 1, 1);
+  }
+  const ring = (seconds * 1.5) % 1;
+  c.strokeStyle = `rgba(255,255,255,${(0.85 * (1 - ring)).toFixed(2)})`;
+  c.lineWidth = 1;
+  c.beginPath();
+  c.ellipse(landX + 1, landY + 1, 2 + ring * 8, 1 + ring * 3, 0, 0, Math.PI * 2);
+  c.stroke();
+  // 偶爾閃一下的亮點
+  if (Math.sin(seconds * 3.1) > 0.85) {
+    px(c, '#ffffff', cx - 20, cy - 2, 1, 3);
+    px(c, '#ffffff', cx - 21, cy - 1, 3, 1);
+  }
+  if (lit) {
+    const g = c.createRadialGradient(cx, cy, 2, cx, cy, rx);
+    g.addColorStop(0, 'rgba(140,230,255,0.35)');
+    g.addColorStop(1, 'rgba(140,230,255,0)');
+    c.fillStyle = g;
+    c.fillRect(cx - rx, cy - ry - 30, rx * 2, ry * 2 + 30);
+  }
+}

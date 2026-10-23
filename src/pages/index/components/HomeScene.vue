@@ -155,7 +155,7 @@ import type { MyPosition, RemotePlayer } from 'src/pages/index/composables/useLi
 import { createPositionSync, createRemoteView, remoteColors, remoteLabel, type ShownRemote } from 'src/pages/index/sceneRemotes';
 import SceneHint from 'src/pages/index/components/SceneHint.vue';
 import { AVATAR_SIZE, getAvatarFrame, lookColors, SEATED_ROWS, type AvatarColors } from 'src/pages/index/pixel/pixelArt';
-import { drawGardenItem, GARDEN_ITEM_BY_ID, GARDEN_ITEMS, STARTER_GARDEN, VILLA_GARDEN } from 'src/pages/index/pixel/homeArt';
+import { drawGardenItem, drawMermaidFountain, GARDEN_ITEM_BY_ID, GARDEN_ITEMS, MERMAID_FOUNTAIN, paintFountainPlaza, STARTER_GARDEN, VILLA_GARDEN } from 'src/pages/index/pixel/homeArt';
 import { px, seeded, pillTextWidth, fillPillText, canvasDpr, drawLayer, layerCanvas } from 'src/pages/index/pixel/pixelUtil';
 import { rememberScene, takeArrival } from 'src/pages/index/shareLocation';
 
@@ -218,11 +218,25 @@ const GATE = { x: 10, y: 22.6 };
 const SHELF_FRONT = { x: (SHELF.x0 + SHELF.x1) / 2, y: 4.3 };
 const WARDROBE_FRONT = { x: 17.6, y: 4.6 };
 
+// villa 花園中間的美人魚噴水池：池子擋路（橢圓），四周這塊不能擺東西，已經擺在上面的先不畫
+const FOUNTAIN_AREA: Rect | null = VILLA ? { x0: 6, y0: 15, x1: 14, y1: 20 } : null;
+const inFountain = (x: number, y: number) => {
+  if (!VILLA) return false;
+  const f = MERMAID_FOUNTAIN;
+  return ((x - f.cx) / (f.rx + 0.25)) ** 2 + ((y - f.cy - f.face / 2) / (f.ry + f.face / 2 + 0.2)) ** 2 < 1;
+};
+const underFountain = (tx: number, ty: number) => !!FOUNTAIN_AREA && tx >= FOUNTAIN_AREA.x0 && tx < FOUNTAIN_AREA.x1 && ty >= FOUNTAIN_AREA.y0 && ty < FOUNTAIN_AREA.y1;
+
 const inRect = (x: number, y: number, r: Rect, pad = 0) => x > r.x0 - pad && x < r.x1 + pad && y > r.y0 - pad && y < r.y1 + pad;
 
 // 花園：正式存檔的、或布置中的草稿
 const gardenDraft = ref<GardenPlacement[] | null>(null);
-const placements = computed(() => gardenDraft.value ?? props.visit?.garden ?? prefs.value.garden);
+const placements = computed(() => (gardenDraft.value ?? props.visit?.garden ?? prefs.value.garden).filter((p) => {
+  const item = GARDEN_ITEM_BY_ID[p.id];
+  if (!item) return true;
+  for (let dx = 0; dx < item.w; dx += 1) for (let dy = 0; dy < item.h; dy += 1) if (underFountain(p.x + dx, p.y + dy)) return false;
+  return true;
+}));
 
 function occupiedBy(tx: number, ty: number, list: GardenPlacement[]): number {
   return list.findIndex((p) => {
@@ -243,6 +257,7 @@ const blocked = (x: number, y: number): boolean => {
     if (inRect(x, y, TUB) || inRect(x, y, SINK) || inRect(x, y, TOILET)) return true;
   }
   if (PLANTS.some((p) => Math.abs(x - p.x) < 0.5 && Math.abs(y - p.y) < 0.4)) return true;
+  if (inFountain(x, y)) return true;
   // 花園裡擺的東西（樹、燈只擋樹幹那一小塊）
   if (y > HOUSE_BOTTOM + 0.3) {
     const i = occupiedBy(Math.floor(x), Math.floor(y), placements.value);
@@ -488,6 +503,7 @@ function editAt(x: number, y: number): void {
       const cy = ty + dy;
       if (cx < GARDEN.x0 || cx >= GARDEN.x1 || cy < GARDEN.y0 || cy >= GARDEN.y1) return;
       if (cx >= PATH.x0 && cx < PATH.x1) return;
+      if (underFountain(cx, cy)) return;
       if (occupiedBy(cx, cy, draft) >= 0) return;
       // 不要擺在人身上
       if (Math.floor(me.x) === cx && Math.floor(me.y) === cy) return;
@@ -612,6 +628,7 @@ function paintGround(): HTMLCanvasElement {
       c.fill();
       px(c, '#ffffff', PATH.x0 * T + off + 3, y * T + 3, 8, 1);
     }
+    paintFountainPlaza(c);
   } else {
     for (let y = HOUSE_BOTTOM; y < H; y += 1) {
       px(c, '#cbbfa8', PATH.x0 * T + 2, y * T + 1, (PATH.x1 - PATH.x0) * T - 4, T - 2);
@@ -1102,7 +1119,7 @@ function render(seconds: number): void {
     c.fillStyle = 'rgba(255,255,255,0.08)';
     for (let tx = GARDEN.x0; tx < GARDEN.x1; tx += 1) {
       for (let ty = GARDEN.y0; ty < GARDEN.y1; ty += 1) {
-        if (tx >= PATH.x0 && tx < PATH.x1) continue;
+        if ((tx >= PATH.x0 && tx < PATH.x1) || underFountain(tx, ty)) continue;
         if ((tx + ty) % 2 === 0) c.fillRect(tx * T, ty * T, T, T);
       }
     }
@@ -1117,6 +1134,7 @@ function render(seconds: number): void {
     if (!item) continue;
     items.push({ y: p.y + item.h, draw: () => drawGardenItem(c, p.id, p.x, p.y, seconds, lit) });
   }
+  if (VILLA) items.push({ y: MERMAID_FOUNTAIN.cy + MERMAID_FOUNTAIN.ry, draw: () => drawMermaidFountain(c, seconds, lit) });
   items.push({ y: seated.value ? CHAIR.y : me.y + 0.35, draw: () => drawPerson(c, colors) });
   for (const r of shownRemotes) {
     if ((r.remote.lying || r.remote.bath) && VILLA) continue;
