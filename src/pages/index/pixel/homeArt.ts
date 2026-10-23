@@ -302,134 +302,60 @@ export function drawMermaidFountain(c: CanvasRenderingContext2D, seconds: number
       }
     }
   }
-  // 中間疊起來的礁石，美人魚坐在最上面（by = 坐的高度）
-  ellipseRows(c, '#5f5a53', cx, cy + 4, 18, 7);
-  ellipseRows(c, '#7d776d', cx - 1, cy, 16, 7);
-  ellipseRows(c, '#948e83', cx + 1, cy - 6, 12, 5);
-  px(c, '#b3ada2', cx - 10, cy - 3, 7, 2);
-  px(c, '#b3ada2', cx - 4, cy - 10, 8, 2);
-  px(c, '#b3ada2', cx + 6, cy - 2, 5, 1);
-  px(c, '#6d8f4c', cx - 15, cy + 3, 4, 2);
-  px(c, '#6d8f4c', cx + 12, cy + 5, 3, 2);
-  px(c, '#e88aa6', cx - 12, cy + 1, 2, 2);
-  px(c, '#f6e6b0', cx + 9, cy - 4, 2, 1);
-  const bx = cx - 2;
-  const by = cy - 9;
-  const sway = Math.round(Math.sin(seconds * 1.6));
-  // 魚尾：從腰繞過礁石前面、往右垂進水裡，尾鰭翹出水面輕輕擺
-  const tail = '#2fb3a6';
-  const tailDark = '#1d8077';
-  const tailLight = '#7fe8da';
-  px(c, tail, bx - 6, by - 11, 12, 6);
-  px(c, tail, bx - 3, by - 6, 13, 5);
-  px(c, tail, bx + 6, by - 2, 11, 4);
-  px(c, tail, bx + 14, by + 1, 7, 4);
-  px(c, tailDark, bx - 6, by - 6, 3, 1);
-  px(c, tailDark, bx - 3, by - 1, 9, 1);
-  px(c, tailDark, bx + 6, by + 2, 11, 1);
-  for (let k = 0; k < 7; k += 1) {
-    px(c, tailLight, bx - 5 + k * 2 - (k % 2), by - 10 + (k % 2) * 2, 1, 1);
-    px(c, tailLight, bx - 2 + k * 2, by - 5 + (k % 2) * 2, 1, 1);
+  // 左右兩隻小美人魚坐在礁石上，面向中間；中間一根大理石柱頂著一朵太陽花，花心往上噴水，往兩邊落進池子
+  drawSmallMermaid(c, cx - 25, cy + 1, 1, seconds, { hair: '#e0503a', hairLight: '#ff7d5e', shell: '#a86fd6', tail: '#2fb3a6', fin: '#57d6c6' });
+  drawSmallMermaid(c, cx + 25, cy + 1, -1, seconds + 1.3, { hair: '#f2c14e', hairLight: '#ffe08a', shell: '#f27aa6', tail: '#6f7fe0', fin: '#a3b0ff' });
+  // 水面上的荷葉
+  for (const [dx, dy] of [[-9, 4], [8, 5], [-3, 7]] as const) {
+    ellipseRows(c, '#4f9a52', cx + dx, cy + dy, 4, 2);
+    px(c, '#6cbf6a', cx + dx - 2, cy + dy - 1, 2, 1);
   }
-  px(c, tailLight, bx + 9, by - 1, 1, 1);
-  px(c, tailLight, bx + 13, by, 1, 1);
-  px(c, tailLight, bx + 16, by + 2, 1, 1);
-  // 尾鰭：兩片，往上翹
-  const fx = bx + 20 + sway;
-  const fy = by - 2;
-  px(c, tail, bx + 19, by, 3, 3);
-  px(c, '#57d6c6', fx, fy - 8, 4, 9);
-  px(c, '#57d6c6', fx + 3, fy - 12, 4, 7);
-  px(c, '#57d6c6', fx - 3, fy - 11, 4, 6);
-  px(c, '#a6f3ea', fx + 1, fy - 7, 1, 5);
-  px(c, '#a6f3ea', fx + 4, fy - 11, 1, 4);
-  px(c, '#a6f3ea', fx - 2, fy - 10, 1, 3);
-  px(c, tailDark, fx, fy, 4, 1);
-  // 腰上一圈珍珠
-  for (let k = 0; k < 6; k += 1) px(c, '#fff8ec', bx - 5 + k * 2, by - 12, 1, 1);
-  // 身體、貝殼比基尼
-  const skin = '#f5cdae';
-  const skinShade = '#dba886';
-  px(c, skin, bx - 5, by - 24, 10, 12);
-  px(c, skinShade, bx + 3, by - 24, 2, 12);
-  px(c, skinShade, bx - 2, by - 15, 3, 1);
-  px(c, '#a86fd6', bx - 5, by - 21, 4, 4);
-  px(c, '#a86fd6', bx + 1, by - 21, 4, 4);
-  px(c, '#d6adf5', bx - 4, by - 21, 1, 2);
-  px(c, '#d6adf5', bx + 2, by - 21, 1, 2);
-  px(c, '#7e4fb0', bx - 5, by - 18, 4, 1);
-  px(c, '#7e4fb0', bx + 1, by - 18, 4, 1);
-  px(c, '#fff8ec', bx - 1, by - 21, 2, 1);
-  // 左手撐在礁石上；右手高舉海螺
-  px(c, skin, bx - 7, by - 22, 2, 9);
-  px(c, skin, bx - 9, by - 13, 4, 2);
-  px(c, skin, bx + 5, by - 31, 2, 9);
-  px(c, skinShade, bx + 6, by - 31, 1, 9);
-  px(c, skin, bx + 5, by - 33, 3, 2);
-  px(c, '#f6d6c0', bx + 4, by - 40, 8, 6);
-  px(c, '#fff0e4', bx + 4, by - 40, 8, 1);
-  px(c, '#e8a990', bx + 6, by - 38, 1, 3);
-  px(c, '#e8a990', bx + 8, by - 38, 1, 3);
-  px(c, '#e8a990', bx + 10, by - 37, 1, 2);
-  px(c, '#fff0e4', bx + 11, by - 41, 3, 3);
-  // 頭：臉、眼睛、腮紅、微笑
-  px(c, skin, bx - 4, by - 34, 9, 10);
-  px(c, skinShade, bx + 4, by - 33, 1, 8);
-  px(c, skin, bx - 1, by - 25, 3, 2);
-  px(c, '#2b2d33', bx - 2, by - 30, 2, 2);
-  px(c, '#2b2d33', bx + 2, by - 30, 2, 2);
-  px(c, '#ffffff', bx - 2, by - 30, 1, 1);
-  px(c, '#ffffff', bx + 2, by - 30, 1, 1);
-  px(c, '#f59a9a', bx - 3, by - 27, 2, 1);
-  px(c, '#f59a9a', bx + 3, by - 27, 2, 1);
-  px(c, '#c9473a', bx, by - 26, 2, 1);
-  // 紅色長髮：頭頂蓬起、瀏海、左邊一大片垂到腰跟著擺
-  const hair = '#e0503a';
-  const hairDark = '#b23a2b';
-  const hairLight = '#ff7d5e';
-  const hs = Math.round(Math.sin(seconds * 1.2) * 0.8);
-  px(c, hair, bx - 6, by - 37, 12, 4);
-  px(c, hair, bx - 5, by - 38, 9, 1);
-  px(c, hair, bx - 4, by - 33, 4, 2);
-  px(c, hair, bx + 2, by - 33, 3, 1);
-  px(c, hair, bx - 7, by - 34, 3, 8);
-  px(c, hair, bx + 5, by - 35, 2, 7);
-  px(c, hair, bx - 9 + hs, by - 27, 4, 8);
-  px(c, hair, bx - 10 + hs, by - 19, 4, 7);
-  px(c, hair, bx - 9 + hs, by - 12, 3, 3);
-  px(c, hairDark, bx - 8 + hs, by - 24, 1, 10);
-  px(c, hairDark, bx - 4, by - 33, 1, 1);
-  px(c, hairLight, bx - 3, by - 37, 5, 1);
-  px(c, hairLight, bx - 6, by - 35, 1, 3);
-  px(c, hairLight, bx - 7 + hs, by - 25, 1, 5);
-  px(c, hairLight, bx - 9 + hs, by - 17, 1, 4);
-  // 海星髮夾
-  px(c, '#f6c945', bx + 3, by - 37, 3, 1);
-  px(c, '#f6c945', bx + 4, by - 38, 1, 3);
-  px(c, '#e8a33d', bx + 4, by - 37, 1, 1);
-  // 海螺噴出的水弧，落進池子濺起漣漪
-  const sx = bx + 14;
-  const sy = by - 41;
-  const landX = sx + 26;
-  const landY = cy + 3;
-  const drop = landY - sy;
-  for (let i = 0; i < 26; i += 1) {
-    const t = (i / 26 + seconds * 0.8) % 1;
-    const x = sx + t * (landX - sx);
-    const y = sy - 20 * t + (drop + 20) * t * t;
-    px(c, 'rgba(70,160,200,0.55)', Math.round(x) - 1, Math.round(y) + 1, 3, 2);
-    px(c, i % 3 === 0 ? '#ffffff' : '#d4f4ff', Math.round(x), Math.round(y), 2, 2);
+  // 花柱
+  ellipseRows(c, '#cfc9be', cx, cy + 3, 6, 2);
+  px(c, '#e9e4da', cx - 2, cy - 12, 5, 15);
+  px(c, '#f8f5ef', cx - 1, cy - 12, 1, 15);
+  px(c, '#b9b3a8', cx + 2, cy - 12, 1, 15);
+  ellipseRows(c, '#e9e4da', cx, cy - 12, 4, 1);
+  // 太陽花：花柱兩片葉子、一圈黃色花瓣、咖啡色花心（有籽的點點）
+  px(c, '#4f9a52', cx - 7, cy - 7, 5, 2);
+  px(c, '#6cbf6a', cx - 6, cy - 7, 2, 1);
+  px(c, '#4f9a52', cx + 3, cy - 9, 5, 2);
+  px(c, '#6cbf6a', cx + 5, cy - 9, 2, 1);
+  const fy = cy - 18;
+  for (let i = 0; i < 12; i += 1) {
+    const ang = (i / 12) * Math.PI * 2;
+    const x = cx + Math.cos(ang) * 6;
+    const y = fy + Math.sin(ang) * 5;
+    ellipseRows(c, '#d99a1e', Math.round(x), Math.round(y) + 1, 3, 2);
+    ellipseRows(c, i % 2 ? '#f6c945' : '#ffd84f', Math.round(x), Math.round(y), 3, 2);
   }
-  for (let i = 0; i < 4; i += 1) {
-    const t = (seconds * 2.2 + i / 4) % 1;
-    px(c, 'rgba(230,250,255,0.9)', Math.round(landX + (i - 1.5) * 3 * t * 2), Math.round(landY - 5 * t + 6 * t * t), 1, 1);
+  ellipseRows(c, '#5a3a1e', cx, fy + 1, 5, 4);
+  ellipseRows(c, '#7a4f28', cx, fy, 4, 3);
+  for (const [dx, dy] of [[-2, -1], [1, -2], [2, 1], [-1, 1], [0, 0]] as const) px(c, '#3e2814', cx + dx, fy + dy, 1, 1);
+  px(c, '#a87440', cx - 2, fy - 2, 2, 1);
+  // 花心往上噴的水柱，到頂往左右兩邊落下
+  const topY = cy - 34;
+  for (let i = 0; i < 8; i += 1) {
+    const t = (seconds * 1.6 + i / 8) % 1;
+    px(c, i % 2 ? '#ffffff' : '#d4f4ff', cx - (i % 2), Math.round(cy - 23 - t * 11), 2, 2);
   }
-  const ring = (seconds * 1.5) % 1;
-  c.strokeStyle = `rgba(255,255,255,${(0.85 * (1 - ring)).toFixed(2)})`;
-  c.lineWidth = 1;
-  c.beginPath();
-  c.ellipse(landX + 1, landY + 1, 2 + ring * 8, 1 + ring * 3, 0, 0, Math.PI * 2);
-  c.stroke();
+  for (const side of [-1, 1]) {
+    const landX = cx + side * 16;
+    const landY = cy + 2;
+    for (let i = 0; i < 14; i += 1) {
+      const t = (i / 14 + seconds * 0.9 + (side > 0 ? 0.5 / 14 : 0)) % 1;
+      const x = cx + side * t * 16;
+      const y = topY - 4 * t + (landY - topY + 4) * t * t;
+      px(c, 'rgba(70,160,200,0.5)', Math.round(x) - 1, Math.round(y) + 1, 3, 2);
+      px(c, i % 3 === 0 ? '#ffffff' : '#d4f4ff', Math.round(x), Math.round(y), 2, 2);
+    }
+    const ring = (seconds * 1.4 + (side > 0 ? 0.5 : 0)) % 1;
+    c.strokeStyle = `rgba(255,255,255,${(0.85 * (1 - ring)).toFixed(2)})`;
+    c.lineWidth = 1;
+    c.beginPath();
+    c.ellipse(landX + 1, landY + 1, 2 + ring * 6, 1 + ring * 2.5, 0, 0, Math.PI * 2);
+    c.stroke();
+  }
   // 偶爾閃一下的亮點
   if (Math.sin(seconds * 3.1) > 0.85) {
     px(c, '#ffffff', cx - 20, cy - 2, 1, 3);
@@ -442,4 +368,53 @@ export function drawMermaidFountain(c: CanvasRenderingContext2D, seconds: number
     c.fillStyle = g;
     c.fillRect(cx - rx, cy - ry - 30, rx * 2, ry * 2 + 30);
   }
+}
+
+interface MermaidLook {
+  hair: string;
+  hairLight: string;
+  shell: string;
+  tail: string;
+  fin: string;
+}
+
+// 小美人魚：坐在小礁石上，facing 1 = 面向右（魚尾往左甩），-1 反過來
+function drawSmallMermaid(c: CanvasRenderingContext2D, bx: number, by: number, facing: 1 | -1, seconds: number, look: MermaidLook): void {
+  const p = (dx: number, dy: number, w: number, h: number, color: string) => px(c, color, facing > 0 ? bx + dx : bx - dx - w, by + dy, w, h);
+  // 礁石
+  ellipseRows(c, '#5f5a53', bx, by + 4, 9, 4);
+  ellipseRows(c, '#8a847a', bx, by + 2, 8, 3);
+  p(-4, 0, 4, 1, '#b3ada2');
+  p(4, 3, 2, 1, '#6d8f4c');
+  const sway = Math.round(Math.sin(seconds * 1.6));
+  // 魚尾往後甩，尾鰭翹起來
+  p(-3, -5, 6, 3, look.tail);
+  p(-7, -3, 6, 3, look.tail);
+  p(-10, -1, 4, 2, look.tail);
+  p(-6, -1, 5, 1, 'rgba(0,0,0,0.18)');
+  p(-2, -4, 1, 1, '#ffffff');
+  p(-5, -2, 1, 1, '#ffffff');
+  p(-12 + sway * facing, -5, 2, 4, look.fin);
+  p(-14 + sway * facing, -7, 2, 4, look.fin);
+  p(-12, -1, 2, 1, look.tail);
+  // 身體、貝殼
+  const skin = '#f5cdae';
+  p(-2, -11, 5, 6, skin);
+  p(2, -11, 1, 6, '#dba886');
+  p(-2, -10, 2, 2, look.shell);
+  p(1, -10, 2, 2, look.shell);
+  // 手伸向中間的花
+  p(3, -9, 3, 1, skin);
+  // 頭、眼睛、腮紅
+  p(-2, -16, 5, 5, skin);
+  p(1, -14, 1, 1, '#2b2d33');
+  p(2, -12, 1, 1, '#f59a9a');
+  // 頭髮：頭頂＋往後披到腰
+  const hs = Math.round(Math.sin(seconds * 1.2) * 0.7);
+  p(-3, -17, 6, 2, look.hair);
+  p(-3, -15, 2, 4, look.hair);
+  p(-4 - hs * facing, -12, 2, 6, look.hair);
+  p(-1, -17, 3, 1, look.hairLight);
+  p(-4 - hs * facing, -11, 1, 3, look.hairLight);
+  p(2, -18, 2, 1, '#f6c945');
 }
