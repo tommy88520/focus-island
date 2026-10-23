@@ -3,6 +3,7 @@
 
 import type { Rect } from 'src/pages/index/composables/seatNavigation';
 import { createOutdoorWorld, outdoorAreaAt, type OutdoorAreaId, type OutdoorWorld } from './pixelWorld';
+import { CITY_ORDER, CITY_SEAT_COUNT, type CityId } from './city';
 
 export type Facing = 'up' | 'down' | 'left' | 'right';
 // floor：坐在台北車站大廳的地板上；rattan：四四南村的藤椅
@@ -179,7 +180,12 @@ export const STATION_SEAT_COUNT = 10;
 // 主地圖的四四南村：好丘平台 8、榕樹下象棋 4、大草坪長椅 4（173–188）
 export const VILLAGE_SEAT_START = STATION_SEAT_START + STATION_SEAT_COUNT;
 export const VILLAGE_SEAT_COUNT = 16;
-export const SEATS_PER_ZONE = VILLAGE_SEAT_START + VILLAGE_SEAT_COUNT;
+// 台灣各城市的指標地圖（各自一張獨立地圖）：每個城市 12 位，從 189 號開始照 city.ts 的 CITY_ORDER 排（台南 189–200）
+export const CITY_SEAT_START = VILLAGE_SEAT_START + VILLAGE_SEAT_COUNT;
+export function citySeatStart(id: CityId): number {
+  return CITY_SEAT_START + CITY_ORDER.indexOf(id) * CITY_SEAT_COUNT;
+}
+export const SEATS_PER_ZONE = CITY_SEAT_START + CITY_SEAT_COUNT * CITY_ORDER.length;
 const DECK_ROWS = 2;
 const SAND_ROWS = 8;
 const SEA_ROWS = 4;
@@ -328,6 +334,8 @@ export function createPixelMap(
     // 大草坪的長椅（面向週末市集）
     ...[35, 36, 39, 40].map((tx): SeatSlot => ({ kind: 'bench', tx, ty: 14, facing: 'down' })),
   );
+  // 189 號以後在各城市的獨立地圖：這張地圖只佔編號
+  while (seats.length < SEATS_PER_ZONE) seats.push({ kind: 'bench', tx: 0, ty: 0, facing: 'down', offMap: true });
   seats.splice(seatCount);
 
   return {

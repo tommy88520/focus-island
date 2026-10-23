@@ -227,6 +227,7 @@ const translations = {
       lineTra: '台鐵',
       lineBrown: '文湖線',
       lineF1: 'F1 專線',
+      lineHsr: '高鐵',
       mrtHere: '你在這',
       whisperTitle: '悄悄話（只有他看得到）',
       whispers: { hi: '嗨！👋', focus: '一起專注嗎？', cheer: '加油！💪', break: '休息一下？☕', thanks: '謝謝你 🙏', night: '晚安 🌙' },
@@ -304,6 +305,10 @@ const translations = {
       temple: '慈諴宮',
       hintDesktop: 'WASD／方向鍵移動 · 走到攤位、豪大大、辛發亭、士林市場前面買小吃（用專注幣）· 廟埕撈金魚、射氣球 · 點紅色塑膠椅坐下專注 · 南邊劍潭站搭車回去',
       hintTouch: '用左下角搖桿移動 · 走到攤位前買小吃 · 廟埕撈金魚、射氣球 · 點塑膠椅坐下專注 · 劍潭站回去',
+    },
+    city: {
+      stationPrompt: (name: string) => `${name} · 要去哪裡？`,
+      backToTaipei: '回台北',
     },
     miaokou: {
       title: '基隆廟口夜市',
@@ -476,6 +481,7 @@ const translations = {
     },
     transition: {
       mrt: (to: string) => (to ? `🚇 搭捷運往 ${to}` : '🚇 搭捷運'),
+      hsr: (to: string) => (to ? `🚄 搭高鐵往 ${to}` : '🚄 搭高鐵'),
       elevator: (floor: string) => `🛗 搭電梯到 ${floor}`,
       stairsUp: '🪜 上樓中',
       stairsDown: '🪜 下樓中',
@@ -727,6 +733,7 @@ const translations = {
       lineTra: 'TRA',
       lineBrown: 'Brown',
       lineF1: 'F1 Line',
+      lineHsr: 'THSR',
       mrtHere: 'You are here',
       whisperTitle: 'Whisper (only they can see it)',
       whispers: { hi: 'Hi! 👋', focus: 'Focus together?', cheer: 'You got this! 💪', break: 'Take a break? ☕', thanks: 'Thank you 🙏', night: 'Good night 🌙' },
@@ -804,6 +811,10 @@ const translations = {
       temple: 'Cixian Temple',
       hintDesktop: 'WASD / arrows to move · walk up to a stall, Hot-Star, Xin Fa Ting or Shilin Market to buy food with focus coins · fish or pop balloons at the temple square · click a red plastic chair to sit and focus · Jiantan Station (south) takes you back',
       hintTouch: 'Joystick to move · walk up to a stall to buy food · fish or pop balloons at the temple · tap a plastic chair to focus · Jiantan Station takes you back',
+    },
+    city: {
+      stationPrompt: (name: string) => `${name} · Where to?`,
+      backToTaipei: 'Back to Taipei',
     },
     miaokou: {
       title: 'Keelung Miaokou Night Market',
@@ -976,6 +987,7 @@ const translations = {
     },
     transition: {
       mrt: (to: string) => (to ? `🚇 Riding to ${to}` : '🚇 Riding the MRT'),
+      hsr: (to: string) => (to ? `🚄 High-speed rail to ${to}` : '🚄 High-speed rail'),
       elevator: (floor: string) => `🛗 Going to ${floor}`,
       stairsUp: '🪜 Going upstairs',
       stairsDown: '🪜 Going downstairs',

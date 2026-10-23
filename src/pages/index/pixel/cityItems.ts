@@ -1,0 +1,17 @@
+// 各城市地圖買得到的東西（只放資料，pixelWorld 也會讀來查 emoji）。
+// 新增要先加進後端 allowedShopItems（位置訊息會帶手上拿的東西），不然整則位置會被丟掉
+import type { ShopItem } from './pixelWorld';
+
+// 臺南（孔廟一帶）：度小月擔仔麵、林百貨、府中街、莉莉水果店
+export const TAINAN_ITEMS = {
+  danzaiNoodles: { id: 'danzaiNoodles', emoji: '🍜', price: 60, name: { 'zh-TW': '擔仔麵（肉燥、蝦仁、滷蛋）', 'en-US': 'Danzai noodles (pork sauce, shrimp, egg)' } },
+  shrimpRoll: { id: 'shrimpRoll', emoji: '🍤', price: 70, name: { 'zh-TW': '蝦捲', 'en-US': 'Shrimp rolls' } },
+  linTote: { id: 'linTote', emoji: '👜', price: 120, name: { 'zh-TW': '林百貨帆布包', 'en-US': 'Hayashi canvas tote' } },
+  pineappleCake: { id: 'pineappleCake', emoji: '🍍', price: 50, name: { 'zh-TW': '鳳梨酥', 'en-US': 'Pineapple cake' } },
+  icedCoffee: { id: 'icedCoffee', emoji: '☕', price: 80, name: { 'zh-TW': '冰拿鐵', 'en-US': 'Iced latte' } },
+  blackTea: { id: 'blackTea', emoji: '🥤', price: 35, name: { 'zh-TW': '古早味紅茶', 'en-US': 'Old-school black tea' } },
+  fruitIce: { id: 'fruitIce', emoji: '🍧', price: 80, name: { 'zh-TW': '綜合水果冰', 'en-US': 'Mixed fruit shaved ice' } },
+  tomatoPlate: { id: 'tomatoPlate', emoji: '🍅', price: 60, name: { 'zh-TW': '番茄切盤（沾薑汁醬油）', 'en-US': 'Tomato plate (ginger soy dip)' } },
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS)];

@@ -139,7 +139,7 @@
         <p v-if="!isTouch" class="!mb-0 mt-2 text-[10px] text-white/50">{{ t.seatScene.elevatorKeys }}</p>
       </div>
       <!-- 搭車：台北車站大廳的閘門、101 旁的捷運站口都是這一張。一條線一排，點一站就搭過去
-           （紅線：同一層的各分區、劍潭（士林夜市）、北投；綠線：環河公園；台鐵：基隆（廟口夜市）；文湖線：動物園；F1 專線：F1 月台） -->
+           （紅線：同一層的各分區、劍潭（士林夜市）、北投；綠線：環河公園；台鐵：基隆（廟口夜市）；文湖線：動物園；F1 專線：F1 月台；高鐵：各城市的指標地圖） -->
       <div v-if="mrtOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(30rem,calc(100%-1rem))] -translate-x-1/2 px-2.5 pb-2.5 pt-3">
         <p class="!mb-2 text-center !text-[11px] font-black tracking-wide">🚉 {{ mrtAt === 'main' ? t.seatScene.mrtPromptMain : t.seatScene.mrtPrompt101 }}</p>
         <div class="space-y-1.5">
@@ -282,6 +282,8 @@ import {
 } from 'src/pages/index/pixel/pixelWorld';
 import { paintFloorSeat, paintRattanChair } from 'src/pages/index/pixel/xinyiArt';
 import { XY } from 'src/pages/index/pixel/xinyi';
+import { CITY_ORDER, type CityId } from 'src/pages/index/pixel/city';
+import { CITIES } from 'src/pages/index/pixel/cities';
 import { useYouTubeTv } from 'src/pages/index/composables/useYouTubeTv';
 import { localPoint, sceneRotated } from 'src/pages/index/composables/sceneFullscreen';
 
@@ -327,6 +329,7 @@ const emit = defineEmits<{
   'go-miaokou': [];
   'go-shilin': [];
   'go-zoo': [];
+  'go-city': [city: CityId];
   whisper: [to: string, phrase: WhisperId];
   // 走進另一個區域（圖書館／沙灘／101／動物園／夜市），父層用來切換場景環境音
   area: [area: Area];
@@ -469,7 +472,7 @@ const elevatorOpen = ref(false);
 // 走到 101 旁的捷運站口會跳出分區選單
 const mrtOpen = ref(false);
 // 捷運路線圖上的站：紅線是這層樓的分區，綠線通往獨立地圖
-const MRT_LINE_COLORS = { red: '#e3002c', green: '#008659', blue: '#0070bd', brown: '#c48c31', orange: '#f39800' } as const;
+const MRT_LINE_COLORS = { red: '#e3002c', green: '#008659', blue: '#0070bd', brown: '#c48c31', orange: '#f39800', hsr: '#e8641c' } as const;
 // 站在哪個站口（台北車站大廳、101 站口）：面板標題、換分區後從同一個站口出來
 const mrtAt = ref<MrtTrigger['station']>('main');
 const mrtLines = computed(() => {
@@ -488,6 +491,8 @@ const mrtLines = computed(() => {
     { id: 'blue' as const, name: s.lineTra, stops: [{ key: 'miaokou', name: s.miaokouStop, emoji: '🏮', here: false, go: goMiaokou }] },
     { id: 'brown' as const, name: s.lineBrown, stops: [{ key: 'zoo', name: t.value.zoo.station, emoji: '🐼', here: false, go: goZoo }] },
     { id: 'orange' as const, name: s.lineF1, stops: [{ key: 'f1', name: t.value.f1Hub.title, emoji: '🏎️', here: false, go: goF1 }] },
+    // 高鐵：台灣各城市的指標地圖
+    { id: 'hsr' as const, name: s.lineHsr, stops: CITY_ORDER.map((id) => ({ key: id, name: CITIES[id].stop[locale.value], emoji: CITIES[id].emoji, here: false, go: () => goCity(id) })) },
   ];
 });
 // 小地圖標題：目前在哪一區
@@ -918,6 +923,14 @@ function goZoo(): void {
   emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
   savePosition(performance.now() / 1000, true);
   emit('go-zoo');
+}
+
+// 搭高鐵去別的城市：同上
+function goCity(id: CityId): void {
+  mrtOpen.value = false;
+  emit('position', { x: player.x, y: player.y, facing: player.facing, moving: false, hidden: true });
+  savePosition(performance.now() / 1000, true);
+  emit('go-city', id);
 }
 
 // 去基隆廟口夜市：同上

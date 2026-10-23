@@ -3,7 +3,7 @@
   <Transition name="scene-tr">
     <div v-if="shown" class="scene-tr absolute inset-0 z-40 !flex flex-col items-center justify-center overflow-hidden" :class="`scene-tr--${shown.kind}`" aria-live="polite">
       <!-- 捷運：隧道、燈一盞盞往後跑，列車開進來停一下再開走 -->
-      <div v-if="shown.kind === 'mrt'" class="tr-mrt">
+      <div v-if="shown.kind === 'mrt'" class="tr-mrt" :class="{ 'tr-mrt--hsr': shown.line === 'hsr' }">
         <div class="tr-mrt__lights"><span v-for="i in 8" :key="i" /></div>
         <div class="tr-mrt__train" :style="{ '--line': LINE_COLORS[shown.line ?? 'red'] }">
           <div v-for="car in 3" :key="car" class="tr-mrt__car">
@@ -62,7 +62,7 @@ const props = defineProps<{ loading: boolean }>();
 const { t } = useLocale();
 
 const MIN_MS = 1300;
-const LINE_COLORS = { red: '#e3002c', green: '#008659', orange: '#f39800', blue: '#0070bd', brown: '#c48c31' } as const;
+const LINE_COLORS = { red: '#e3002c', green: '#008659', orange: '#f39800', blue: '#0070bd', brown: '#c48c31', hsr: '#e8641c' } as const;
 const shown = ref<TransitionState | null>(null);
 let timer: number | undefined;
 
@@ -70,7 +70,7 @@ const text = computed(() => {
   const s = shown.value;
   if (!s) return '';
   const tr = t.value.transition;
-  if (s.kind === 'mrt') return tr.mrt(s.label);
+  if (s.kind === 'mrt') return s.line === 'hsr' ? tr.hsr(s.label) : tr.mrt(s.label);
   if (s.kind === 'elevator') return tr.elevator(s.label);
   if (s.kind === 'stairs') return s.up === false ? tr.stairsDown : tr.stairsUp;
   if (s.kind === 'home') return s.label || tr.home;
@@ -217,6 +217,11 @@ onBeforeUnmount(() => window.clearTimeout(timer));
 }
 .tr-mrt__car:first-child {
   border-radius: 22px 10px 4px 4px;
+}
+/* 高鐵：車頭拉長成流線形 */
+.tr-mrt--hsr .tr-mrt__car:first-child {
+  border-radius: 64px 10px 4px 34px / 44px 10px 4px 20px;
+  padding-left: 30px;
 }
 .tr-mrt__window {
   width: 20px;

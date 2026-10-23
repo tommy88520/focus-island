@@ -23,6 +23,7 @@ import {
   paintVillageNorthRow,
 } from './xinyiArt';
 import { SHILIN_ITEMS } from './shilin';
+import { CITY_ITEMS } from './cityItems';
 import { TILE } from './pixelMap';
 import { px, seeded } from './pixelUtil';
 
@@ -149,7 +150,15 @@ export type ShopItemId =
   | 'taroIce'
   | 'squid'
   | 'snowIce'
-  | 'coldNoodles';
+  | 'coldNoodles'
+  // 各城市的指標地圖（cityItems.ts）
+  | 'danzaiNoodles'
+  | 'shrimpRoll'
+  | 'linTote'
+  | 'icedCoffee'
+  | 'blackTea'
+  | 'fruitIce'
+  | 'tomatoPlate';
 
 export interface ShopItem {
   id: ShopItemId;
@@ -169,6 +178,7 @@ export const FISH: { id: ShopItemId; emoji: string; chance: number; name: { 'zh-
 export const SHOP_ITEM_EMOJI: Record<ShopItemId, string> = Object.fromEntries([
   ...MIAOKOU_ITEMS.map((item) => [item.id, item.emoji]),
   ...SHILIN_ITEMS.map((item) => [item.id, item.emoji]),
+  ...CITY_ITEMS.map((item) => [item.id, item.emoji]),
   ...FISH.map((fish) => [fish.id, fish.emoji]),
 ]) as Record<ShopItemId, string>;
 

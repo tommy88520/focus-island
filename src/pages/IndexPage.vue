@@ -180,6 +180,23 @@
             @leave="sceneLocation = 'library'"
             @end-focus="endFocusToLeave"
           />
+          <CityScene
+            v-else-if="useCanvasScene && cityScene"
+            :key="cityScene"
+            ref="citySceneRef"
+            :city="CITIES[cityScene]"
+            :seats="currentSeats.slice(citySeatStart(cityScene), citySeatStart(cityScene) + CITY_SEAT_COUNT)"
+            :selected-seat-id="selectedSeatId"
+            :disabled="store.isRunning"
+            :get-mate-at-seat="librarySocket.getMateAtSeat"
+            :remote-players="librarySocket.remotePlayers.value"
+            @select="selectSeat"
+            @position="librarySocket.sendPosition"
+            @whisper="librarySocket.sendWhisper"
+            @leave="sceneLocation = 'library'"
+            @go="sceneLocation = $event"
+            @end-focus="endFocusToLeave"
+          />
           <ShilinScene
             v-else-if="useCanvasScene && sceneLocation === 'shilin'"
             ref="shilinSceneRef"
@@ -251,6 +268,7 @@
             @go-miaokou="sceneLocation = 'miaokou'"
             @go-shilin="sceneLocation = 'shilin'"
             @go-zoo="sceneLocation = 'zoo'"
+            @go-city="sceneLocation = $event"
             @whisper="librarySocket.sendWhisper"
             @open-tv="mobileAudioOpen = true; audioPlayerRef?.openYouTube()"
             @end-focus="endFocusToLeave"
@@ -381,12 +399,15 @@ import SeatScenePixel from 'src/pages/index/components/SeatScenePixel.vue';
 import F1Scene from 'src/pages/index/components/F1Scene.vue';
 import F1HubScene from 'src/pages/index/components/F1HubScene.vue';
 import MiaokouScene from 'src/pages/index/components/MiaokouScene.vue';
+import CityScene from 'src/pages/index/components/CityScene.vue';
+import { CITIES } from 'src/pages/index/pixel/cities';
+import { CITY_ORDER, CITY_SEAT_COUNT, isCityId, type CityId } from 'src/pages/index/pixel/city';
 import ShilinScene from 'src/pages/index/components/ShilinScene.vue';
 import ZooScene from 'src/pages/index/components/ZooScene.vue';
 import GrandPrixScene from 'src/pages/index/components/GrandPrixScene.vue';
 import { CIRCUITS, GP_ORDER } from 'src/pages/index/pixel/circuits';
 import type { GpSceneId, SceneId } from 'src/pages/index/sceneRemotes';
-import { BEITOU_SEAT_COUNT, BEITOU_SEAT_START, F1_SEAT_COUNT, F1_SEAT_START, GP_SEAT_COUNT, GP_SEAT_START, HUB_SEAT_COUNT, HUB_SEAT_START, LIBRARY_SEATS, MIAOKOU_SEAT_COUNT, MIAOKOU_SEAT_START, PARK_SEAT_COUNT, PARK_SEAT_START, SEATS_PER_ZONE, SHILIN_SEAT_COUNT, SHILIN_SEAT_START, ZOO_SEAT_COUNT, ZOO_SEAT_START, type Area } from 'src/pages/index/pixel/pixelMap';
+import { BEITOU_SEAT_COUNT, BEITOU_SEAT_START, F1_SEAT_COUNT, F1_SEAT_START, GP_SEAT_COUNT, GP_SEAT_START, HUB_SEAT_COUNT, HUB_SEAT_START, LIBRARY_SEATS, MIAOKOU_SEAT_COUNT, MIAOKOU_SEAT_START, PARK_SEAT_COUNT, PARK_SEAT_START, SEATS_PER_ZONE, SHILIN_SEAT_COUNT, SHILIN_SEAT_START, ZOO_SEAT_COUNT, ZOO_SEAT_START, citySeatStart, type Area } from 'src/pages/index/pixel/pixelMap';
 import SeatGrid, { type Seat } from 'src/pages/index/components/SeatGrid.vue';
 import FocusClockPanel from 'src/pages/index/components/FocusClockPanel.vue';
 import { useLibrarySocket, buildSeatId } from 'src/pages/index/composables/useLibrarySocket';
@@ -1009,6 +1030,8 @@ const homeReturnTo = ref<Exclude<SceneLoc, 'home'>>('library');
 // 現在在哪條大獎賽（台北／台中／高雄），不在就是 null
 const gpScene = computed<GpSceneId | null>(() => (GP_ORDER as string[]).includes(sceneLocation.value) ? (sceneLocation.value as GpSceneId) : null);
 const racingScene = computed(() => sceneLocation.value === 'f1hub' || sceneLocation.value === 'f1' || gpScene.value !== null);
+// 現在在哪個城市的指標地圖，不在就是 null
+const cityScene = computed<CityId | null>(() => (isCityId(sceneLocation.value) ? sceneLocation.value : null));
 function gpSeatStart(id: GpSceneId): number {
   return GP_SEAT_START + GP_ORDER.indexOf(id) * GP_SEAT_COUNT;
 }
@@ -1099,10 +1122,11 @@ watch(sceneLocation, (to, from) => {
     shilin: t.value.shilin.title,
     zoo: t.value.zoo.title,
     library: librarySocket.currentZone.value?.name ?? '',
+    ...Object.fromEntries(CITY_ORDER.map((id) => [id, CITIES[id].title[locale.value]])),
     ...Object.fromEntries(GP_ORDER.map((id) => [id, CIRCUITS[id].title[locale.value]])),
   };
   const f1Line = to === 'f1' || to === 'f1hub' || (GP_ORDER as string[]).includes(to);
-  playTransition('mrt', names[to] ?? '', { line: f1Line ? 'orange' : to === 'library' || to === 'shilin' || to === 'beitou' ? 'red' : to === 'miaokou' ? 'blue' : to === 'zoo' ? 'brown' : 'green' });
+  playTransition('mrt', names[to] ?? '', { line: f1Line ? 'orange' : isCityId(to) || isCityId(from) ? 'hsr' : to === 'library' || to === 'shilin' || to === 'beitou' ? 'red' : to === 'miaokou' ? 'blue' : to === 'zoo' ? 'brown' : 'green' });
 });
 // 回到圖書館就不用再記獨立地圖
 watch(sceneLocation, (location) => {
@@ -1118,7 +1142,7 @@ watch(
     // 從 F1 回來時場景會重建，它只在區域跟預設不同時才回報，所以先歸零
     if (location === 'library' && previousLocation !== 'library') sceneArea.value = 'library';
     const racing = location === 'f1' || (GP_ORDER as string[]).includes(location);
-    audio.setSoundscape(!canvas || location === 'park' || location === 'beitou' || location === 'home' || location === 'f1hub' ? null : racing ? 'f1' : location === 'miaokou' || location === 'shilin' ? 'market' : location === 'zoo' ? 'zoo' : SOUNDSCAPES[sceneArea.value]);
+    audio.setSoundscape(!canvas || location === 'park' || location === 'beitou' || location === 'home' || location === 'f1hub' ? null : racing ? 'f1' : location === 'miaokou' || location === 'shilin' ? 'market' : location === 'zoo' ? 'zoo' : isCityId(location) ? CITIES[location].soundscape : SOUNDSCAPES[sceneArea.value]);
   },
 );
 // 開始專注就回到圖書館的位子上
@@ -1142,6 +1166,8 @@ function seatScene(seatId: string | null): Exclude<SceneLoc, 'library' | 'home'>
   if (within(MIAOKOU_SEAT_START, MIAOKOU_SEAT_COUNT)) return 'miaokou';
   if (within(SHILIN_SEAT_START, SHILIN_SEAT_COUNT)) return 'shilin';
   if (within(ZOO_SEAT_START, ZOO_SEAT_COUNT)) return 'zoo';
+  const city = CITY_ORDER.find((id) => within(citySeatStart(id), CITY_SEAT_COUNT));
+  if (city) return city;
   return GP_ORDER.find((id) => within(gpSeatStart(id), GP_SEAT_COUNT)) ?? null;
 }
 
@@ -1321,6 +1347,7 @@ const gpSceneRef = ref<SceneHandle | null>(null);
 const miaokouSceneRef = ref<SceneHandle | null>(null);
 const shilinSceneRef = ref<SceneHandle | null>(null);
 const zooSceneRef = ref<SceneHandle | null>(null);
+const citySceneRef = ref<SceneHandle | null>(null);
 // 現在這張地圖的元件（問座位、分享位置用）
 function activeScene(): SceneHandle | null {
   const loc = sceneLocation.value;
@@ -1331,6 +1358,7 @@ function activeScene(): SceneHandle | null {
   if (loc === 'miaokou') return miaokouSceneRef.value;
   if (loc === 'shilin') return shilinSceneRef.value;
   if (loc === 'zoo') return zooSceneRef.value;
+  if (cityScene.value) return citySceneRef.value;
   if (gpScene.value) return gpSceneRef.value;
   if (loc === 'home') return homeSceneRef.value;
   return pixelSceneRef.value;
