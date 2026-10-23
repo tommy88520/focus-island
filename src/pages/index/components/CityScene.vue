@@ -465,9 +465,13 @@ function drawPerson(c: CanvasRenderingContext2D, x: number, y: number, colors: R
   c.drawImage(getAvatarFrame(colors, facing, frame), Math.round(x * T - AVATAR_SIZE.w / 2), Math.round(y * T + 5 - AVATAR_SIZE.h));
 }
 
+// 名牌不能超出畫面（手機很窄）：東西本身在畫面外就不畫，在畫面內但名牌太寬就往內推
+let pillMaxX = Infinity;
 function pill(c: CanvasRenderingContext2D, text: string, cx: number, bottom: number, color: string): void {
   c.font = '700 12px system-ui, -apple-system, "PingFang TC", sans-serif';
   const width = pillTextWidth(c, text) + 14;
+  if (cx < 0 || cx > pillMaxX) return;
+  cx = Math.min(Math.max(cx, width / 2 + 4), pillMaxX - width / 2 - 4);
   const height = 20;
   c.fillStyle = 'rgba(15, 23, 42, 0.86)';
   c.beginPath();
@@ -514,6 +518,7 @@ function render(seconds: number): void {
   if (!ctx || !canvas || !container) return;
   const cssW = container.clientWidth;
   const cssH = container.clientHeight;
+  pillMaxX = cssW;
   const dpr = canvasDpr();
   if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
     canvas.width = Math.round(cssW * dpr);

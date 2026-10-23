@@ -4,43 +4,9 @@
 import type { CityDef, CityProp, DrawCtx, Rect } from './city';
 import { CAFE_TABLES, CAFE_Y, DESK_Y, FUZHONG_ROW, LILY_SEAT_Y, LILY_TABLES, MINGLUN_DESKS, NORTH_ROW, STONE_TABLE, TAINAN_SEATS, TAINAN_SHOPS, TN, type FuzhongShop, type TainanShophouse } from './tainan';
 import { drawBanyan } from './xinyiArt';
-import { layerCanvas, layerSize, px, seeded, spriteRes } from './pixelUtil';
+import { px, seeded } from './pixelUtil';
 import { getAvatarFrame, lookColors } from './pixelArt';
-
-const T = 16;
-const FONT_TC = '"PingFang TC", "Noto Sans TC", sans-serif';
-const SERIF_TC = '"PingFang TC", "Noto Serif TC", "Noto Sans TC", serif';
-
-function text(c: CanvasRenderingContext2D, s: string, x: number, y: number, color: string, font: string, align: CanvasTextAlign = 'center'): void {
-  c.fillStyle = color;
-  c.font = font;
-  c.textAlign = align;
-  c.textBaseline = 'middle';
-  c.fillText(s, x, y);
-}
-
-function glow(c: CanvasRenderingContext2D, x: number, y: number, r: number, rgb: string, a: number): void {
-  const g = c.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, `rgba(${rgb}, ${a})`);
-  g.addColorStop(1, `rgba(${rgb}, 0)`);
-  c.fillStyle = g;
-  c.fillRect(x - r, y - r, r * 2, r * 2);
-}
-
-function cached(key: string, w: number, h: number, paint: (c: CanvasRenderingContext2D) => void): HTMLCanvasElement {
-  const hit = spriteCache.get(key);
-  if (hit) return hit;
-  const { canvas, c } = layerCanvas(w, h, spriteRes());
-  if (c) paint(c);
-  spriteCache.set(key, canvas);
-  return canvas;
-}
-const spriteCache = new Map<string, HTMLCanvasElement>();
-
-function blit(c: CanvasRenderingContext2D, s: HTMLCanvasElement, x: number, bottom: number): void {
-  const size = layerSize(s);
-  c.drawImage(s, Math.round(x), Math.round(bottom - size.h), size.w, size.h);
-}
+import { T, FONT_TC, SERIF_TC, text, glow, cached, blit, road, tiles, brickPath, zebra, townhouseSprite, drawParkedScooter, SCOOTER_COLORS, drawStreetTree, drawLamp } from './cityArt';
 
 // ── 地面（畫一次）──
 const C = {
@@ -64,32 +30,6 @@ const C = {
   water: '#4f8fb3',
   waterDeep: '#3f7899',
 };
-
-function road(c: CanvasRenderingContext2D, r: Rect, rand: () => number): void {
-  px(c, C.asphalt, r.x0 * T, r.y0 * T, (r.x1 - r.x0) * T, (r.y1 - r.y0) * T);
-  const dots = Math.floor((r.x1 - r.x0) * (r.y1 - r.y0) * 3);
-  for (let i = 0; i < dots; i += 1) px(c, rand() < 0.5 ? C.asphaltDark : '#52555e', Math.floor(r.x0 * T + rand() * (r.x1 - r.x0) * T), Math.floor(r.y0 * T + rand() * (r.y1 - r.y0) * T), 2, 1);
-}
-
-function tiles(c: CanvasRenderingContext2D, r: Rect, base: string, line: string, size = 8): void {
-  px(c, base, r.x0 * T, r.y0 * T, (r.x1 - r.x0) * T, (r.y1 - r.y0) * T);
-  for (let x = r.x0 * T; x < r.x1 * T; x += size) px(c, line, Math.round(x), r.y0 * T, 1, (r.y1 - r.y0) * T);
-  for (let y = r.y0 * T; y < r.y1 * T; y += size) px(c, line, r.x0 * T, Math.round(y), (r.x1 - r.x0) * T, 1);
-}
-
-// 紅磚步道：一塊塊錯開的紅磚
-function brickPath(c: CanvasRenderingContext2D, r: Rect): void {
-  px(c, C.brick, r.x0 * T, r.y0 * T, (r.x1 - r.x0) * T, (r.y1 - r.y0) * T);
-  for (let y = r.y0 * T, row = 0; y < r.y1 * T; y += 4, row += 1) {
-    px(c, C.brickDark, r.x0 * T, Math.round(y) + 3, (r.x1 - r.x0) * T, 1);
-    for (let x = r.x0 * T + (row % 2) * 4; x < r.x1 * T; x += 8) px(c, C.brickDark, Math.round(x), Math.round(y), 1, 3);
-  }
-}
-
-function zebra(c: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, vertical: boolean): void {
-  if (vertical) for (let y = y0 * T; y < y1 * T; y += 7) px(c, 'rgba(240,240,240,0.85)', x0 * T, Math.round(y), (x1 - x0) * T, 4);
-  else for (let x = x0 * T; x < x1 * T; x += 7) px(c, 'rgba(240,240,240,0.85)', Math.round(x), y0 * T, 4, (y1 - y0) * T);
-}
 
 export function paintTainanGround(c: CanvasRenderingContext2D): void {
   const rand = seeded(706);
@@ -237,68 +177,6 @@ function drawPanchiShimmer(c: CanvasRenderingContext2D, seconds: number): void {
 }
 
 // ── 中正路的老街屋 ──
-const WALLS = ['#e8dcc4', '#d9e4d6', '#f0d2c0', '#e3d6b8', '#d6dde6', '#ecd9a8'];
-const SIGN_WORDS = ['布莊', '中藥行', '茶行', '鐘錶', '五金', '書局', '刻印', '眼鏡', '香舖'];
-const SIGN_COLORS = ['#c62828', '#1f5fa8', '#2a7a46', '#8a3aa8', '#d97a1a'];
-
-function shophouseSprite(b: TainanShophouse): HTMLCanvasElement {
-  const w = Math.round((b.x1 - b.x0) * T);
-  const floorH = 14;
-  const ground = 20;
-  const h = ground + b.floors * floorH + 10;
-  return cached(`tn-house-${b.seed}`, w, h, (c) => {
-    const rand = seeded(b.seed);
-    const wall = WALLS[Math.floor(rand() * WALLS.length)] ?? '#e8dcc4';
-    // 女兒牆：有的是巴洛克山牆（中間一塊弧形、兩邊小柱）
-    const fancy = rand() < 0.5;
-    px(c, wall, 0, 4, w, h - 4);
-    px(c, 'rgba(0,0,0,0.12)', 0, 4, w, 1);
-    if (fancy) {
-      c.fillStyle = wall;
-      c.beginPath();
-      c.moveTo(w / 2 - 14, 6);
-      c.quadraticCurveTo(w / 2, -2, w / 2 + 14, 6);
-      c.fill();
-      px(c, '#c9b48a', w / 2 - 4, 1, 8, 4);
-      px(c, 'rgba(0,0,0,0.15)', 2, 4, 3, 8);
-      px(c, 'rgba(0,0,0,0.15)', w - 5, 4, 3, 8);
-    }
-    px(c, 'rgba(0,0,0,0.18)', 0, 10, w, 2);
-    // 樓上的窗：木框、綠色或白色的窗、鐵窗花
-    const upperBottom = h - ground;
-    for (let f = 0; f < b.floors; f += 1) {
-      const fy = 12 + f * floorH;
-      for (let cx = 4; cx + 10 <= w - 3; cx += 13) {
-        px(c, '#5a4636', cx - 1, fy, 12, 10);
-        px(c, rand() < 0.5 ? '#9fc7c9' : '#c9dbe6', cx, fy + 1, 10, 8);
-        px(c, 'rgba(255,255,255,0.45)', cx + 1, fy + 2, 3, 2);
-        for (let k = 1; k < 10; k += 3) px(c, 'rgba(40,40,45,0.55)', cx + k, fy + 1, 1, 8);
-        if (rand() < 0.25) {
-          // 冷氣、盆栽
-          px(c, '#e8e8ea', cx + 1, fy + 10, 8, 3);
-          px(c, '#4f8a3c', cx + 2, fy + 8, 3, 2);
-        }
-      }
-      px(c, 'rgba(0,0,0,0.12)', 0, fy + floorH - 3, w, 1);
-    }
-    // 二樓的招牌
-    if (!b.special) {
-      const word = SIGN_WORDS[Math.floor(rand() * SIGN_WORDS.length)] ?? '布莊';
-      const col = SIGN_COLORS[Math.floor(rand() * SIGN_COLORS.length)] ?? '#c62828';
-      px(c, '#ffffff', 3, upperBottom - 9, w - 6, 8);
-      px(c, col, 3, upperBottom - 9, w - 6, 1);
-      text(c, word, w / 2, upperBottom - 4.5, col, `900 7px ${FONT_TC}`);
-    }
-    // 騎樓：柱子、裡面暗暗的店面、亮著燈的櫃台
-    px(c, '#3a2e28', 0, upperBottom, w, ground);
-    px(c, rand() < 0.5 ? '#f6dfae' : '#e9e3d1', 4, upperBottom + 5, w - 8, ground - 7);
-    for (let k = 6; k < w - 6; k += 6) px(c, rand() < 0.5 ? '#c98a3c' : '#7a9a5a', k, upperBottom + 10, 4, 3);
-    for (let k = 0; k < w; k += Math.max(14, Math.floor(w / 3))) px(c, wall, k, upperBottom, 3, ground);
-    px(c, wall, w - 3, upperBottom, 3, ground);
-    px(c, 'rgba(0,0,0,0.3)', 0, upperBottom, w, 2);
-  });
-}
-
 // 度小月擔仔麵：木造老店、黑底金字招牌、兩顆紅燈籠，門口一個師傅坐矮凳煮麵（擔仔＋湯鍋冒煙）
 function duxiaoyueSprite(b: TainanShophouse): HTMLCanvasElement {
   const w = Math.round((b.x1 - b.x0) * T);
@@ -468,21 +346,7 @@ function drawHayashi(c: CanvasRenderingContext2D, b: TainanShophouse, d: DrawCtx
 function drawNorthHouse(c: CanvasRenderingContext2D, b: TainanShophouse, d: DrawCtx): void {
   if (b.special === 'duxiaoyue') drawDuxiaoyue(c, b, d);
   else if (b.special === 'hayashi') drawHayashi(c, b, d);
-  else blit(c, shophouseSprite(b), b.x0 * T, TN.northLine * T);
-}
-
-// 騎樓前停的一排機車（臺南街頭的日常）
-const SCOOTER_COLORS = ['#e25a4a', '#f2f2f2', '#3b82f6', '#15171f', '#8bd3c7', '#f6c945'];
-function drawParkedScooter(c: CanvasRenderingContext2D, x: number, y: number, color: string): void {
-  const cx = Math.round(x * T);
-  const by = Math.round(y * T);
-  px(c, 'rgba(0,0,0,0.25)', cx - 4, by - 1, 9, 2);
-  px(c, '#15171f', cx - 2, by - 3, 4, 3);
-  px(c, '#15171f', cx - 2, by - 18, 4, 3);
-  px(c, color, cx - 4, by - 15, 8, 12);
-  px(c, 'rgba(255,255,255,0.35)', cx - 4, by - 15, 1, 12);
-  px(c, '#2b2d33', cx - 3, by - 11, 6, 5);
-  px(c, '#c9ccd6', cx - 5, by - 17, 10, 1);
+  else blit(c, townhouseSprite('tn', b), b.x0 * T, TN.northLine * T);
 }
 
 // ── 孔廟 ──
@@ -949,7 +813,7 @@ function lilySprite(): HTMLCanvasElement {
 }
 
 function simpleShopSprite(w: number, seed: number): HTMLCanvasElement {
-  return shophouseSprite({ x0: 0, x1: w / T, floors: 2, seed });
+  return townhouseSprite('tn', { x0: 0, x1: w / T, floors: 2, seed });
 }
 
 // 莉莉門口的小桌（不鏽鋼）
@@ -968,36 +832,6 @@ function drawLilyTable(c: CanvasRenderingContext2D, x: number): void {
 }
 
 // ── 路邊：行道樹、路燈、公車站牌 ──
-function drawStreetTree(c: CanvasRenderingContext2D, x: number, y: number): void {
-  const cx = Math.round(x * T);
-  const by = Math.round(y * T);
-  px(c, 'rgba(0,0,0,0.2)', cx - 9, by - 1, 18, 3);
-  px(c, '#5c3d22', cx - 2, by - 14, 4, 14);
-  const blobs: [number, number, number, string][] = [
-    [-6, -22, 8, '#3d7a3c'],
-    [6, -22, 8, '#3d7a3c'],
-    [0, -28, 9, '#4c8a46'],
-    [0, -20, 7, '#5a9a52'],
-  ];
-  for (const [dx, dy, r, col] of blobs) {
-    c.fillStyle = col;
-    c.beginPath();
-    c.arc(cx + dx, by + dy, r, 0, Math.PI * 2);
-    c.fill();
-  }
-  px(c, '#7ab86a', cx - 3, by - 31, 3, 2);
-}
-
-function drawLamp(c: CanvasRenderingContext2D, x: number, y: number, night: boolean): void {
-  const cx = Math.round(x * T);
-  const by = Math.round(y * T);
-  px(c, 'rgba(0,0,0,0.25)', cx - 3, by - 1, 7, 2);
-  px(c, '#3d424c', cx, by - 28, 2, 28);
-  px(c, '#545a66', cx, by - 28, 1, 28);
-  px(c, '#2f333b', cx - 1, by - 30, 8, 3);
-  px(c, night ? '#fff1a8' : '#d8d2b8', cx + 3, by - 27, 4, 1);
-}
-
 function drawBusStop(c: CanvasRenderingContext2D, d: DrawCtx): void {
   const x = Math.round(TN.busStop.x * T);
   const y = Math.round(TN.busStop.y * T);

@@ -4,7 +4,9 @@
 // 3. 新的小吃 id 加進 cityItems.ts、pixelWorld 的 ShopItemId、後端 allowedShopItems
 import type { CityDef, CityId } from './city';
 import { TAINAN } from './tainanArt';
+import { TAICHUNG } from './taichungArt';
 
 export const CITIES: Record<CityId, CityDef> = {
   tainan: TAINAN,
+  taichung: TAICHUNG,
 };

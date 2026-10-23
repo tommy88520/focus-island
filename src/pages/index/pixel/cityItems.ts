@@ -14,4 +14,13 @@ export const TAINAN_ITEMS = {
   tomatoPlate: { id: 'tomatoPlate', emoji: '🍅', price: 60, name: { 'zh-TW': '番茄切盤（沾薑汁醬油）', 'en-US': 'Tomato plate (ginger soy dip)' } },
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS)];
+// 臺中（臺中車站一帶）：宮原眼科、第四信用合作社、綠川旁的小吃攤車
+export const TAICHUNG_ITEMS = {
+  iceCreamCone: { id: 'iceCreamCone', emoji: '🍦', price: 120, name: { 'zh-TW': '冰淇淋（甜筒，加配料）', 'en-US': 'Ice cream cone with toppings' } },
+  pineappleCake: TAINAN_ITEMS.pineappleCake,
+  sunCake: { id: 'sunCake', emoji: '🥮', price: 35, name: { 'zh-TW': '太陽餅', 'en-US': 'Suncake' } },
+  daMianGeng: { id: 'daMianGeng', emoji: '🍜', price: 40, name: { 'zh-TW': '大麵羹', 'en-US': 'Da mian geng (thick noodle soup)' } },
+  pearlMilkTea: { id: 'pearlMilkTea', emoji: '🧋', price: 60, name: { 'zh-TW': '珍珠奶茶', 'en-US': 'Bubble milk tea' } },
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS)];

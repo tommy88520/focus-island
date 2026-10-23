@@ -158,7 +158,11 @@ export type ShopItemId =
   | 'icedCoffee'
   | 'blackTea'
   | 'fruitIce'
-  | 'tomatoPlate';
+  | 'tomatoPlate'
+  | 'iceCreamCone'
+  | 'sunCake'
+  | 'daMianGeng'
+  | 'pearlMilkTea';
 
 export interface ShopItem {
   id: ShopItemId;
