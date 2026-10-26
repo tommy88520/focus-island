@@ -177,7 +177,12 @@ export type ShopItemId =
   | 'shavedIce'
   // 基隆正濱漁港（cityItems.ts）
   | 'squidVermicelli'
-  | 'saltyTangyuan';
+  | 'saltyTangyuan'
+  // 新竹城隍廟口（cityItems.ts）
+  | 'meatballSoup'
+  | 'friedVermicelli'
+  | 'bawan'
+  | 'runbing';
 
 export interface ShopItem {
   id: ShopItemId;

@@ -10,6 +10,7 @@ import { TAMSUI } from './tamsuiArt';
 import { SUNMOON } from './sunmoonArt';
 import { HUALIEN } from './hualienArt';
 import { KEELUNG } from './keelungArt';
+import { HSINCHU } from './hsinchuArt';
 
 export const CITIES: Record<CityId, CityDef> = {
   tainan: TAINAN,
@@ -19,4 +20,5 @@ export const CITIES: Record<CityId, CityDef> = {
   sunmoon: SUNMOON,
   hualien: HUALIEN,
   keelung: KEELUNG,
+  hsinchu: HSINCHU,
 };

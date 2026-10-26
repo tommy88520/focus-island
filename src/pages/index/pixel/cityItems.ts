@@ -63,4 +63,12 @@ export const KEELUNG_ITEMS = {
   blackTea: TAINAN_ITEMS.blackTea,
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS)];
+// 新竹城隍廟口：貢丸湯、炒米粉、肉圓、潤餅
+export const HSINCHU_ITEMS = {
+  meatballSoup: { id: 'meatballSoup', emoji: '🍲', price: 40, name: { 'zh-TW': '貢丸湯', 'en-US': 'Pork ball soup' } },
+  friedVermicelli: { id: 'friedVermicelli', emoji: '🍝', price: 40, name: { 'zh-TW': '炒米粉', 'en-US': 'Fried rice noodles' } },
+  bawan: { id: 'bawan', emoji: '🥟', price: 45, name: { 'zh-TW': '肉圓（新竹蒸的）', 'en-US': 'Ba-wan (steamed, Hsinchu style)' } },
+  runbing: { id: 'runbing', emoji: '🌯', price: 50, name: { 'zh-TW': '潤餅捲', 'en-US': 'Runbing spring roll' } },
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS)];
