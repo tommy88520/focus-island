@@ -174,7 +174,10 @@ export type ShopItemId =
   | 'boarSausage'
   | 'wonton'
   | 'driedBonito'
-  | 'shavedIce';
+  | 'shavedIce'
+  // 基隆正濱漁港（cityItems.ts）
+  | 'squidVermicelli'
+  | 'saltyTangyuan';
 
 export interface ShopItem {
   id: ShopItemId;

@@ -54,4 +54,13 @@ export const HUALIEN_ITEMS = {
   shavedIce: { id: 'shavedIce', emoji: '🍧', price: 50, name: { 'zh-TW': '剉冰', 'en-US': 'Shaved ice' } },
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS)];
+// 基隆正濱漁港：小卷米粉、鹹湯圓、碳烤小卷（跟士林的碳烤魷魚同一個 id）、彩色屋咖啡
+export const KEELUNG_ITEMS = {
+  squidVermicelli: { id: 'squidVermicelli', emoji: '🍜', price: 60, name: { 'zh-TW': '小卷米粉', 'en-US': 'Squid vermicelli soup' } },
+  saltyTangyuan: { id: 'saltyTangyuan', emoji: '🍡', price: 50, name: { 'zh-TW': '鹹湯圓', 'en-US': 'Savory tangyuan soup' } },
+  grilledSquid: { id: 'squid', emoji: '🦑', price: 70, name: { 'zh-TW': '碳烤小卷', 'en-US': 'Grilled baby squid' } },
+  icedCoffee: TAINAN_ITEMS.icedCoffee,
+  blackTea: TAINAN_ITEMS.blackTea,
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS)];
