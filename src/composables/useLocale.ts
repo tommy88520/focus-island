@@ -161,7 +161,7 @@ const translations = {
     ambientAudioPlayer: {
       audioSettingsTitle: '音源設定',
       youtubeLabel: 'YouTube 網址（影片或播放清單）',
-      youtubePlaceholder: '貼上 youtube.com 或 youtu.be 的網址',
+      youtubePlaceholder: '貼上 YouTube 網址',
       youtubePlay: '播放',
       youtubeInvalid: '看不懂這個網址，請貼 YouTube 影片或播放清單的連結',
       youtubeRecent: '最近播過',
@@ -667,7 +667,7 @@ const translations = {
     ambientAudioPlayer: {
       audioSettingsTitle: 'Sound Settings',
       youtubeLabel: 'YouTube link (video or playlist)',
-      youtubePlaceholder: 'Paste a youtube.com or youtu.be link',
+      youtubePlaceholder: 'Paste a YouTube link',
       youtubePlay: 'Play',
       youtubeInvalid: "That doesn't look like a YouTube video or playlist link",
       youtubeRecent: 'Recently played',

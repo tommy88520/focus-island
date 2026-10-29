@@ -125,6 +125,16 @@ body.body--dark {
   border-radius: 4px;
 }
 
+// iPhone Safari 點到字小於 16px 的輸入框會自動放大畫面，觸控裝置上一律 16px。
+// 不在 Tailwind 的 layer 裡，所以會蓋過 text-sm／text-[11px] 這類工具類。
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 // 下拉重新整理用自己的（components/PullToRefresh.vue），關掉瀏覽器內建的，免得重整兩次
 html {
   overscroll-behavior-y: none;
