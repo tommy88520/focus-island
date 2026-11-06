@@ -36,6 +36,7 @@ Quasar（Vue 3 + TS、`<script setup>`）SPA＋Pinia，Tailwind v4 跟 Quasar �
 ## 坑
 - Quasar `.flex` 會加 `flex-wrap: wrap`，一行的列加 `!flex-nowrap`。Quasar 全域 CSS 蓋過 Tailwind：`hidden`、`flex`、標題字級要用 `!`
   （`md:!hidden`、`!text-sm`）；`dark:` 跟 Quasar 的 `body--dark`。
+- 輸入框：iPhone 點到字小於 16px 的會自動放大；`app.scss` 已讓觸控裝置上所有 input／textarea／select 一律 16px（蓋過 Tailwind 字級），新加的輸入框提示字要在 16px 下放得下。
 - 像素 UI：`app.scss` 的 `pixel-panel／btn／field／track`＋`--px-*` 顏色，同一元素不要再疊 Tailwind 的 `bg-／border-／shadow-`；`font-pixel` 只有英數。
 - 本機沒後端：座位用預設值畫；樓梯要 `/api/v1/library/floors` 有回應才出現。
 - 預先畫好的圖（地圖底圖、有字的建築）用 `pixelUtil` 的 `layerCanvas`＋`drawLayer`（照畫面倍數×螢幕像素畫），不要開 1 倍畫布再放大，字和線會糊；畫布用 `canvasDpr()`。

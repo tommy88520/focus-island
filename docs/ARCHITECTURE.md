@@ -63,6 +63,7 @@
 ## Layout & versioning (v1.0, 10-16)
 - Header (`MainLayout.vue`) is slim on every screen: menu, logo, daily goal. Nav, language, theme, favorite, ☕ Ko-fi and `Focus Island v{APP_VERSION}` live in the left drawer. `APP_VERSION` comes from `package.json` via `quasar.config.ts` `build.env` (bump + `git tag` per release).
 - IndexPage: floor/zone tabs are collapsed behind one chip (`mobileNavOpen`, all sizes); in F1/park/beitou the chip becomes "ride back" and tabs are hidden. Scene height `100dvh-235px` (mobile) / `100dvh-262px` (sm+).
+- Inputs: on touch devices (`pointer: coarse`) `app.scss` forces every text input / textarea / select to 16px (unlayered, so it beats Tailwind sizes) — iPhone Safari zooms into fields under 16px.
 - `ProfileCard.vue` is the shared name card (main map + separate scenes; wave only on the main map). `SceneHint.vue` is the under-map hint (one line on mobile, tap to expand).
 
 ## Home & garden (v1.1.0, 10-16)

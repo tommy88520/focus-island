@@ -3,6 +3,16 @@
 
 
 
+## 🚩 2026-10-29：v1.24.1（iPhone 輸入框不再自動放大）
+
+- 使用者：「盤點一下整站，input 框有的字太小，在 iPhone 會自動放大，很不方便，改掉」。
+- 盤點結果：回報問題 textarea 14px、顯示名稱（NameField、FocusClockPanel）14px、YouTube 網址 11px、預設音源 select 10px；好友代碼本來 16px；checkbox／range 不會放大。
+- 做法：`app.scss` 一條 `@media (pointer: coarse)` 規則，排除 checkbox／radio／range／file，不放在 Tailwind layer 裡所以不用 `!important`。桌機不變。選全站規則而不是逐個改 class，以後新的輸入框也自動套。
+- YouTube 提示字 16px 會被切掉 → 改成「貼上 YouTube 網址」／「Paste a YouTube link」。
+- 390px 觸控模擬（chrome devtools）截圖看過音樂面板、回報問題、設定頁；部署後確認正式站 CSS 有 `pointer:coarse`。真 iPhone 還沒測。
+- 這次有一則回覆用了英文，使用者說「講中文」——規則本來就有（每一句繁中），是我沒遵守。
+- 接手時查 `bug_reports`：用家機的管理 API（`/api/v1/admin/feedback`、`Authorization: Bearer $ADMIN_TOKEN`，讀 `.env.home`），0 筆。
+
 ## 🚩 2026-10-24 04:50：v1.16～v1.22（家裡電視、大宅升級、城市地圖×6、機器人）
 - 接手時三件待決定的事他說「三個都做吧」，再加「繼續擴大地圖，台灣各個城市都先做一個指標地圖」。
 - **README**：補了台北車站、臺南、廟口、大宅的截圖（本機 dev server、prefs.sceneClock=false 拍白天，sips 裁成 1600 寬），功能清單整理成「自習室／走出去／跟朋友／其他」，同帳號單一連線取代舊的兩分頁各坐一位。
