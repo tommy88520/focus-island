@@ -71,4 +71,13 @@ export const HSINCHU_ITEMS = {
   runbing: { id: 'runbing', emoji: '🌯', price: 50, name: { 'zh-TW': '潤餅捲', 'en-US': 'Runbing spring roll' } },
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS)];
+// 嘉義：文化路夜市的火雞肉飯、沙鍋魚頭、豆花（跟士林的同一個 id）、方塊酥，檜意森活村的阿里山高山茶
+export const CHIAYI_ITEMS = {
+  turkeyRice: { id: 'turkeyRice', emoji: '🍚', price: 40, name: { 'zh-TW': '火雞肉飯', 'en-US': 'Turkey rice' } },
+  fishHeadCasserole: { id: 'fishHeadCasserole', emoji: '🍲', price: 90, name: { 'zh-TW': '沙鍋魚頭', 'en-US': 'Fish head casserole' } },
+  tofuPudding: { id: 'tofuPudding', emoji: '🍮', price: 35, name: { 'zh-TW': '花生豆花', 'en-US': 'Peanut tofu pudding' } },
+  squarePastry: { id: 'squarePastry', emoji: '🍘', price: 60, name: { 'zh-TW': '方塊酥', 'en-US': 'Fangkuai square pastry' } },
+  alishanTea: { id: 'alishanTea', emoji: '🍵', price: 60, name: { 'zh-TW': '阿里山高山茶', 'en-US': 'Alishan high-mountain tea' } },
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS)];

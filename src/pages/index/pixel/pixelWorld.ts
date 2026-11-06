@@ -182,7 +182,12 @@ export type ShopItemId =
   | 'meatballSoup'
   | 'friedVermicelli'
   | 'bawan'
-  | 'runbing';
+  | 'runbing'
+  // 嘉義文化路夜市、檜意森活村（cityItems.ts）
+  | 'turkeyRice'
+  | 'fishHeadCasserole'
+  | 'squarePastry'
+  | 'alishanTea';
 
 export interface ShopItem {
   id: ShopItemId;
