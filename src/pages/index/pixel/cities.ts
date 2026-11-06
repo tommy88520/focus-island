@@ -12,6 +12,7 @@ import { HUALIEN } from './hualienArt';
 import { KEELUNG } from './keelungArt';
 import { HSINCHU } from './hsinchuArt';
 import { CHIAYI } from './chiayiArt';
+import { YILAN } from './yilanArt';
 
 export const CITIES: Record<CityId, CityDef> = {
   tainan: TAINAN,
@@ -23,4 +24,5 @@ export const CITIES: Record<CityId, CityDef> = {
   keelung: KEELUNG,
   hsinchu: HSINCHU,
   chiayi: CHIAYI,
+  yilan: YILAN,
 };

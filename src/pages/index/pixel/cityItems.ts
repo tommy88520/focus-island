@@ -80,4 +80,13 @@ export const CHIAYI_ITEMS = {
   alishanTea: { id: 'alishanTea', emoji: '🍵', price: 60, name: { 'zh-TW': '阿里山高山茶', 'en-US': 'Alishan high-mountain tea' } },
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS)];
+// 宜蘭東門夜市：卜肉、三星蔥油餅、糕渣、牛舌餅、花生捲冰淇淋（跟士林的同一個 id）
+export const YILAN_ITEMS = {
+  buRou: { id: 'buRou', emoji: '🍖', price: 60, name: { 'zh-TW': '卜肉', 'en-US': 'Bu-rou (fried pork strips)' } },
+  scallionPancake: { id: 'scallionPancake', emoji: '🥞', price: 40, name: { 'zh-TW': '三星蔥油餅', 'en-US': 'Sanxing scallion pancake' } },
+  gaozha: { id: 'gaozha', emoji: '🧈', price: 60, name: { 'zh-TW': '糕渣', 'en-US': 'Gaozha (fried savory custard)' } },
+  oxTonguePastry: { id: 'oxTonguePastry', emoji: '🫓', price: 50, name: { 'zh-TW': '牛舌餅', 'en-US': 'Ox-tongue pastry' } },
+  icecreamRoll: { id: 'icecreamRoll', emoji: '🍦', price: 35, name: { 'zh-TW': '花生捲冰淇淋', 'en-US': 'Peanut ice cream roll' } },
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS), ...Object.values(YILAN_ITEMS)];

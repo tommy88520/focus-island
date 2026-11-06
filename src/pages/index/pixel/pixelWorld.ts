@@ -187,7 +187,12 @@ export type ShopItemId =
   | 'turkeyRice'
   | 'fishHeadCasserole'
   | 'squarePastry'
-  | 'alishanTea';
+  | 'alishanTea'
+  // 宜蘭東門夜市（cityItems.ts）
+  | 'buRou'
+  | 'scallionPancake'
+  | 'gaozha'
+  | 'oxTonguePastry';
 
 export interface ShopItem {
   id: ShopItemId;
