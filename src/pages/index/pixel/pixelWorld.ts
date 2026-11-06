@@ -192,7 +192,24 @@ export type ShopItemId =
   | 'buRou'
   | 'scallionPancake'
   | 'gaozha'
-  | 'oxTonguePastry';
+  | 'oxTonguePastry'
+  // 台東（cityItems.ts）
+  | 'mitaimu'
+  | 'pigBloodSoup'
+  | 'custardApple'
+  | 'chishangBento'
+  // 墾丁大街（cityItems.ts）
+  | 'flyingFishSausage'
+  | 'coconut'
+  // 澎湖（cityItems.ts）
+  | 'brownSugarCake'
+  | 'cactusIce'
+  | 'cuttlefishBall'
+  | 'saltyBiscuit'
+  // 阿里山（cityItems.ts）
+  | 'aiyu'
+  | 'bambooRice'
+  | 'alishanCoffee';
 
 export interface ShopItem {
   id: ShopItemId;

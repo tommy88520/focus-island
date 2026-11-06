@@ -13,6 +13,10 @@ import { KEELUNG } from './keelungArt';
 import { HSINCHU } from './hsinchuArt';
 import { CHIAYI } from './chiayiArt';
 import { YILAN } from './yilanArt';
+import { TAITUNG } from './taitungArt';
+import { KENTING } from './kentingArt';
+import { PENGHU } from './penghuArt';
+import { ALISHAN } from './alishanArt';
 
 export const CITIES: Record<CityId, CityDef> = {
   tainan: TAINAN,
@@ -25,4 +29,8 @@ export const CITIES: Record<CityId, CityDef> = {
   hsinchu: HSINCHU,
   chiayi: CHIAYI,
   yilan: YILAN,
+  taitung: TAITUNG,
+  kenting: KENTING,
+  penghu: PENGHU,
+  alishan: ALISHAN,
 };

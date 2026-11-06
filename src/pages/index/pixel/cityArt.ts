@@ -223,3 +223,112 @@ export function drawBench(c: CanvasRenderingContext2D, x: number, y: number, w =
   px(c, '#3a3d45', cx - half + 2, by - 9, 2, 5);
   px(c, '#3a3d45', cx + half - 4, by - 9, 2, 5);
 }
+
+// ── 夜市共用：白鐵桌、紅色塑膠椅、燈泡串、牌樓（x、y 都是格） ──
+export function drawMarketTable(c: CanvasRenderingContext2D, x: number, y: number): void {
+  const cx = Math.round(x * T);
+  const by = Math.round(y * T);
+  const half = Math.round(1.2 * T);
+  px(c, 'rgba(0,0,0,0.2)', cx - half, by + 1, half * 2, 3);
+  px(c, '#9aa3b2', cx - half, by - 9, half * 2, 5);
+  px(c, '#d6dae2', cx - half, by - 9, half * 2, 1);
+  px(c, '#6a7080', cx - half + 2, by - 4, 2, 5);
+  px(c, '#6a7080', cx + half - 4, by - 4, 2, 5);
+  px(c, '#f4f1e8', cx - 10, by - 11, 6, 2);
+  px(c, '#f4f1e8', cx + 4, by - 11, 6, 2);
+  px(c, '#c62828', cx - 1, by - 14, 3, 5);
+}
+
+export function drawStool(c: CanvasRenderingContext2D, x: number, y: number, color = '#e23a2a'): void {
+  const cx = Math.round(x * T);
+  const by = Math.round(y * T);
+  px(c, 'rgba(0,0,0,0.2)', cx - 5, by + 1, 10, 2);
+  px(c, color, cx - 5, by - 4, 10, 3);
+  px(c, 'rgba(255,255,255,0.3)', cx - 5, by - 4, 10, 1);
+  px(c, 'rgba(0,0,0,0.35)', cx - 4, by - 1, 2, 3);
+  px(c, 'rgba(0,0,0,0.35)', cx + 2, by - 1, 2, 3);
+}
+
+// 燈泡串：從 a 拉到 b（格），y 是最高點，waves 是垂下來幾段；白天灰白、晚上彩色會亮
+export function drawStringLights(c: CanvasRenderingContext2D, a: number, b: number, y: number, night: boolean, waves = 6): void {
+  const y0 = y * T;
+  const at = (x: number) => y0 + Math.abs(Math.sin(((x - a * T) / ((b - a) * T)) * waves * Math.PI)) * 5;
+  c.strokeStyle = '#3a3d45';
+  c.lineWidth = 1;
+  c.beginPath();
+  c.moveTo(a * T, at(a * T));
+  for (let x = a * T + 4; x <= b * T; x += 4) c.lineTo(x, at(x));
+  c.stroke();
+  for (let x = a * T + 6, k = 0; x < b * T; x += 12, k += 1) {
+    const yy = at(x) + 1;
+    const col = ['#ff5a4a', '#ffd23f', '#5ad6ff', '#7aee6a'][k % 4] ?? '#ffd23f';
+    px(c, night ? col : 'rgba(240,240,240,0.8)', Math.round(x), Math.round(yy), 2, 3);
+    if (night && k % 2 === 0) glow(c, x + 1, yy + 1, 7, '255, 220, 150', 0.35);
+  }
+}
+
+// 牌樓：兩根柱子＋上面一塊黑底金字的匾；x0、x1 是兩根柱子外緣，y 是地面線（格）
+export function drawArch(c: CanvasRenderingContext2D, x0t: number, x1t: number, y: number, name: string, pillar: string, night: boolean, seconds: number): void {
+  const x0 = Math.round(x0t * T);
+  const x1 = Math.round(x1t * T);
+  const by = Math.round(y * T);
+  for (const x of [x0, x1 - 4]) {
+    px(c, 'rgba(0,0,0,0.25)', x - 1, by, 6, 2);
+    px(c, pillar, x, by - 44, 4, 44);
+    px(c, 'rgba(255,255,255,0.25)', x, by - 44, 1, 44);
+  }
+  px(c, '#15171f', x0 - 4, by - 52, x1 - x0 + 8, 13);
+  px(c, '#f6c945', x0 - 4, by - 52, x1 - x0 + 8, 1);
+  px(c, '#f6c945', x0 - 4, by - 40, x1 - x0 + 8, 1);
+  text(c, name, (x0 + x1) / 2, by - 45.5, night ? '#ffe08a' : '#f6c945', `900 9px ${FONT_TC}`);
+  for (let x = x0 - 2, k = 0; x < x1 + 4; x += 6, k += 1) {
+    px(c, night && (k + Math.floor(seconds * 3)) % 3 === 0 ? '#fff6c8' : '#e8c86a', x, by - 38, 2, 2);
+  }
+}
+
+// 沒有椅背的石椅（背對畫面坐的人用）
+export function drawStoneBench(c: CanvasRenderingContext2D, x: number, y: number, w = 2.5): void {
+  const cx = Math.round(x * T);
+  const by = Math.round(y * T);
+  const half = Math.round((w * T) / 2);
+  px(c, 'rgba(0,0,0,0.2)', cx - half, by + 1, half * 2, 3);
+  px(c, '#9a958c', cx - half, by - 5, half * 2, 6);
+  px(c, '#b8b3a8', cx - half, by - 5, half * 2, 2);
+  px(c, '#7a766e', cx - half + 3, by + 1, 4, 2);
+  px(c, '#7a766e', cx + half - 7, by + 1, 4, 2);
+}
+
+// 椰子樹（葉子會隨風擺）
+export function drawPalm(c: CanvasRenderingContext2D, x: number, y: number, seconds: number, h = 34): void {
+  const cx = Math.round(x * T);
+  const by = Math.round(y * T);
+  px(c, 'rgba(0,0,0,0.2)', cx - 8, by - 1, 16, 3);
+  for (let k = 0; k < h; k += 3) px(c, k % 6 ? '#8a6a42' : '#6e5232', cx - 1 + Math.round(Math.sin(k * 0.08) * 2), by - k - 3, 3, 3);
+  const top = by - h - 2;
+  const sway = Math.sin(seconds * 0.8 + x) * 1.5;
+  for (const [dx, dy] of [[-12, 4], [12, 4], [-9, -3], [9, -3], [0, -6], [-14, 9], [14, 9]] as const) {
+    c.strokeStyle = '#3f7a3a';
+    c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(cx + 1, top);
+    c.quadraticCurveTo(cx + 1 + dx / 2 + sway, top + dy - 6, cx + 1 + dx + sway, top + dy);
+    c.stroke();
+  }
+  px(c, '#6e5232', cx - 2, top, 5, 3);
+}
+
+// 海：從 y0（格）往下到 y1，有浪花（會動）；shore 是浪打上來的那條線在上面還是下面
+export function drawSeaWaves(c: CanvasRenderingContext2D, x0: number, x1: number, y0: number, y1: number, seconds: number): void {
+  for (let i = 0; i < 40; i += 1) {
+    const y = y0 * T + 6 + (((i * 37) % 97) / 97) * ((y1 - y0) * T - 8);
+    const x = x0 * T + (((i * 131 + seconds * (6 + (i % 4) * 2)) % ((x1 - x0) * T + 20)) - 10);
+    px(c, `rgba(235,250,255,${0.3 + 0.25 * Math.sin(seconds * 1.4 + i)})`, Math.round(x), Math.round(y), 6 + (i % 3) * 3, 1);
+  }
+  // 打上岸的白浪：一條會前後推的白線
+  const push = Math.sin(seconds * 0.9) * 3;
+  for (let x = x0 * T; x < x1 * T; x += 6) {
+    const yy = y0 * T + push + Math.sin(x * 0.05 + seconds) * 1.5;
+    px(c, 'rgba(255,255,255,0.85)', Math.round(x), Math.round(yy), 6, 2);
+    px(c, 'rgba(255,255,255,0.35)', Math.round(x), Math.round(yy + 3), 6, 1);
+  }
+}

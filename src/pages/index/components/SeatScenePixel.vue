@@ -140,8 +140,9 @@
       </div>
       <!-- 搭車：台北車站大廳的閘門、101 旁的捷運站口都是這一張。一條線一排，點一站就搭過去
            （紅線：同一層的各分區、劍潭（士林夜市）、北投；綠線：環河公園；台鐵：基隆（廟口夜市）；文湖線：動物園；F1 專線：F1 月台；高鐵：各城市的指標地圖） -->
-      <div v-if="mrtOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(30rem,calc(100%-1rem))] -translate-x-1/2 px-2.5 pb-2.5 pt-3">
+      <div v-if="mrtOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 max-h-[calc(100%-4.5rem)] w-[min(30rem,calc(100%-1rem))] -translate-x-1/2 overflow-y-auto px-2.5 pb-2.5 pt-3">
         <p class="!mb-2 text-center !text-[11px] font-black tracking-wide">🚉 {{ mrtAt === 'main' ? t.seatScene.mrtPromptMain : t.seatScene.mrtPrompt101 }}</p>
+        <!-- 站越來越多：按鈕小一點，手機上太高就在面板裡捲 -->
         <div class="space-y-1.5">
           <div v-for="line in mrtLines" :key="line.id" class="!flex !flex-nowrap items-start gap-1.5">
             <span
@@ -153,12 +154,12 @@
                 v-for="stop in line.stops"
                 :key="stop.key"
                 type="button"
-                class="pixel-btn h-8 whitespace-nowrap px-2 text-[11px]"
+                class="pixel-btn h-7 whitespace-nowrap px-1.5 text-[11px]"
                 :class="{ 'pixel-btn--active': stop.here }"
                 :disabled="stop.here"
                 @click="stop.go()"
               >
-                {{ stop.emoji }} {{ stop.name }}<span v-if="stop.here" class="ml-1 text-[9px] opacity-70">{{ t.seatScene.mrtHere }}</span>
+                {{ stop.emoji }} {{ stopMain(stop.name) }}<span v-if="stopSub(stop.name)" class="text-[9px] opacity-75">{{ stopSub(stop.name) }}</span><span v-if="stop.here" class="ml-1 text-[9px] opacity-70">{{ t.seatScene.mrtHere }}</span>
               </button>
             </div>
           </div>
@@ -496,6 +497,10 @@ const mrtLines = computed(() => {
     { id: 'hsr' as const, name: s.lineHsr, stops: cityStops('hsr') },
   ];
 });
+// 站名括號裡的景點、轉乘說明用小字，一排才放得下兩三站
+const STOP_SUB = /（.*）$| \(.*\)$/;
+const stopMain = (name: string) => name.replace(STOP_SUB, '');
+const stopSub = (name: string) => STOP_SUB.exec(name)?.[0] ?? '';
 // 城市地圖放在它真的會搭的那條線上（淡水在紅線、東部走台鐵、其他高鐵）
 function cityStops(line: 'hsr' | 'red' | 'tra') {
   return CITY_ORDER.filter((id) => (CITIES[id].line ?? 'hsr') === line).map((id) => ({ key: id, name: CITIES[id].stop[locale.value], emoji: CITIES[id].emoji, here: false, go: () => goCity(id) }));

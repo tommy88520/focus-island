@@ -55,11 +55,12 @@
       </div>
 
       <!-- 車站：回台北、去別的城市 -->
-      <div v-else-if="stationOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 w-[min(24rem,calc(100%-1rem))] -translate-x-1/2 px-3 pb-3 pt-3 text-center" @click.stop>
+      <!-- 城市越來越多：三欄排整齊（只放城市名），太高就在面板裡捲 -->
+      <div v-else-if="stationOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 max-h-[calc(100%-4.5rem)] w-[min(26rem,calc(100%-1rem))] -translate-x-1/2 overflow-y-auto px-2.5 pb-2.5 pt-3 text-center" @click.stop>
         <p class="!mb-2 !text-[11px] font-black">{{ lineEmoji }} {{ t.city.stationPrompt(city.station.name[locale]) }}</p>
-        <div class="!flex flex-wrap justify-center gap-1.5">
-          <button type="button" class="pixel-btn pixel-btn--primary h-9 whitespace-nowrap px-3 text-xs" @click="emit('leave')">🚉 {{ t.city.backToTaipei }}</button>
-          <button v-for="other in otherCities" :key="other.id" type="button" class="pixel-btn h-9 whitespace-nowrap px-3 text-xs" @click="emit('go', other.id)">{{ other.emoji }} {{ other.stop[locale] }}</button>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button type="button" class="pixel-btn pixel-btn--primary col-span-3 h-9 whitespace-nowrap px-3 text-xs" @click="emit('leave')">🚉 {{ t.city.backToTaipei }}</button>
+          <button v-for="other in otherCities" :key="other.id" type="button" class="pixel-btn h-8 min-w-0 whitespace-nowrap px-1.5 text-[11px]" :title="other.stop[locale]" @click="emit('go', other.id)"><span class="block min-w-0 truncate">{{ other.emoji }} {{ shortStop(other) }}</span></button>
         </div>
       </div>
 
@@ -129,6 +130,8 @@ const W = city.W;
 const H = city.H;
 const SEATS = city.seats;
 const lineEmoji = city.line === 'red' ? '🚇' : city.line === 'tra' ? '🚆' : '🚄';
+// 城市間的面板只放城市名（括號裡的景點、轉乘說明在台北車站的路線圖上看得到），三欄才放得下
+const shortStop = (c: CityDef) => c.stop[locale.value].replace(/（.*）$| \(.*\)$/, '');
 const otherCities = computed<CityDef[]>(() => (CITY_ORDER as readonly CityId[]).filter((id) => id !== city.id).map((id) => CITIES[id]));
 
 const inRect = (x: number, y: number, r: Rect) => x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1;

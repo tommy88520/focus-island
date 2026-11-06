@@ -89,4 +89,36 @@ export const YILAN_ITEMS = {
   icecreamRoll: { id: 'icecreamRoll', emoji: '🍦', price: 35, name: { 'zh-TW': '花生捲冰淇淋', 'en-US': 'Peanut ice cream roll' } },
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS), ...Object.values(YILAN_ITEMS)];
+// 台東：榕樹下米苔目、卑南豬血湯、釋迦、池上便當
+export const TAITUNG_ITEMS = {
+  mitaimu: { id: 'mitaimu', emoji: '🍜', price: 40, name: { 'zh-TW': '米苔目', 'en-US': 'Mi-tai-mu rice noodles' } },
+  pigBloodSoup: { id: 'pigBloodSoup', emoji: '🍲', price: 45, name: { 'zh-TW': '豬血湯', 'en-US': 'Pig blood soup' } },
+  custardApple: { id: 'custardApple', emoji: '🍈', price: 60, name: { 'zh-TW': '台東釋迦', 'en-US': 'Taitung sugar apple' } },
+  chishangBento: { id: 'chishangBento', emoji: '🍱', price: 90, name: { 'zh-TW': '池上便當', 'en-US': 'Chishang bento' } },
+} satisfies Record<string, ShopItem>;
+
+// 墾丁大街：飛魚卵香腸、現剖椰子、碳烤魷魚（跟士林的同一個 id）、芒果冰（跟士林的同一個 id）
+export const KENTING_ITEMS = {
+  flyingFishSausage: { id: 'flyingFishSausage', emoji: '🌭', price: 50, name: { 'zh-TW': '飛魚卵香腸', 'en-US': 'Flying-fish roe sausage' } },
+  coconut: { id: 'coconut', emoji: '🥥', price: 70, name: { 'zh-TW': '現剖椰子', 'en-US': 'Fresh coconut' } },
+  grilledSquid: { id: 'squid', emoji: '🦑', price: 80, name: { 'zh-TW': '碳烤魷魚', 'en-US': 'Grilled squid' } },
+  mangoIce: { id: 'mangoIce', emoji: '🍧', price: 60, name: { 'zh-TW': '芒果冰', 'en-US': 'Mango shaved ice' } },
+} satisfies Record<string, ShopItem>;
+
+// 澎湖：黑糖糕、仙人掌冰、花枝丸、鹹餅
+export const PENGHU_ITEMS = {
+  brownSugarCake: { id: 'brownSugarCake', emoji: '🍰', price: 50, name: { 'zh-TW': '黑糖糕', 'en-US': 'Brown sugar cake' } },
+  cactusIce: { id: 'cactusIce', emoji: '🌵', price: 50, name: { 'zh-TW': '仙人掌冰', 'en-US': 'Cactus fruit ice' } },
+  cuttlefishBall: { id: 'cuttlefishBall', emoji: '🍡', price: 60, name: { 'zh-TW': '花枝丸', 'en-US': 'Cuttlefish balls' } },
+  saltyBiscuit: { id: 'saltyBiscuit', emoji: '🍪', price: 40, name: { 'zh-TW': '澎湖鹹餅', 'en-US': 'Penghu salty biscuit' } },
+} satisfies Record<string, ShopItem>;
+
+// 阿里山：愛玉、鄒族竹筒飯、阿里山咖啡、高山茶（跟嘉義的同一個 id）
+export const ALISHAN_ITEMS = {
+  aiyu: { id: 'aiyu', emoji: '🍋', price: 40, name: { 'zh-TW': '檸檬愛玉', 'en-US': 'Aiyu jelly with lemon' } },
+  bambooRice: { id: 'bambooRice', emoji: '🎋', price: 80, name: { 'zh-TW': '竹筒飯', 'en-US': 'Bamboo-tube rice' } },
+  alishanCoffee: { id: 'alishanCoffee', emoji: '☕', price: 90, name: { 'zh-TW': '阿里山咖啡', 'en-US': 'Alishan coffee' } },
+  alishanTea: { id: 'alishanTea', emoji: '🍵', price: 60, name: { 'zh-TW': '阿里山高山茶', 'en-US': 'Alishan high-mountain tea' } },
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS), ...Object.values(YILAN_ITEMS), ...Object.values(TAITUNG_ITEMS), ...Object.values(KENTING_ITEMS), ...Object.values(PENGHU_ITEMS), ...Object.values(ALISHAN_ITEMS)];
