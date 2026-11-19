@@ -18,6 +18,10 @@ import { KENTING } from './kentingArt';
 import { PENGHU } from './penghuArt';
 import { ALISHAN } from './alishanArt';
 import { AIRPORT } from './airportArt';
+import { KYOTO } from './kyotoArt';
+import { OSAKA } from './osakaArt';
+import { KOBE } from './kobeArt';
+import { TOKYO } from './tokyoArt';
 
 export const CITIES: Record<CityId, CityDef> = {
   tainan: TAINAN,
@@ -35,4 +39,8 @@ export const CITIES: Record<CityId, CityDef> = {
   penghu: PENGHU,
   alishan: ALISHAN,
   airport: AIRPORT,
+  kyoto: KYOTO,
+  osaka: OSAKA,
+  kobe: KOBE,
+  tokyo: TOKYO,
 };

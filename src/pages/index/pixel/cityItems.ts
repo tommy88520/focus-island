@@ -131,4 +131,33 @@ export const AIRPORT_ITEMS = {
   planeModel: { id: 'planeModel', emoji: '✈️', price: 150, name: { 'zh-TW': '飛機模型', 'en-US': 'Model airplane' } },
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS), ...Object.values(YILAN_ITEMS), ...Object.values(TAITUNG_ITEMS), ...Object.values(KENTING_ITEMS), ...Object.values(PENGHU_ITEMS), ...Object.values(ALISHAN_ITEMS), ...Object.values(AIRPORT_ITEMS)];
+// 京都（產寧坂）：抹茶霜淇淋、生八橋、甘味處的三色糰子和抹茶
+export const KYOTO_ITEMS = {
+  matchaSoftServe: { id: 'matchaSoftServe', emoji: '🍦', price: 60, name: { 'zh-TW': '宇治抹茶霜淇淋', 'en-US': 'Uji matcha soft serve' } },
+  yatsuhashi: { id: 'yatsuhashi', emoji: '🥟', price: 50, name: { 'zh-TW': '生八橋', 'en-US': 'Nama yatsuhashi' } },
+  dango: { id: 'dango', emoji: '🍡', price: 40, name: { 'zh-TW': '三色糰子', 'en-US': 'Hanami dango' } },
+  matcha: { id: 'matcha', emoji: '🍵', price: 60, name: { 'zh-TW': '抹茶（附和菓子）', 'en-US': 'Matcha with wagashi' } },
+} satisfies Record<string, ShopItem>;
+
+// 大阪（道頓堀、新世界）：章魚燒、炸串、大阪燒
+export const OSAKA_ITEMS = {
+  takoyaki: { id: 'takoyaki', emoji: '🐙', price: 60, name: { 'zh-TW': '章魚燒', 'en-US': 'Takoyaki' } },
+  kushikatsu: { id: 'kushikatsu', emoji: '🍢', price: 50, name: { 'zh-TW': '炸串（醬汁只能沾一次！）', 'en-US': 'Kushikatsu (no double-dipping!)' } },
+  okonomiyaki: { id: 'okonomiyaki', emoji: '🥞', price: 90, name: { 'zh-TW': '大阪燒', 'en-US': 'Okonomiyaki' } },
+} satisfies Record<string, ShopItem>;
+
+// 神戶（南京町、北野）：豬肉包、神戶牛、神戶布丁
+export const KOBE_ITEMS = {
+  butaman: { id: 'butaman', emoji: '🥟', price: 40, name: { 'zh-TW': '南京町豬肉包', 'en-US': 'Nankinmachi pork bun' } },
+  kobeBeef: { id: 'kobeBeef', emoji: '🥩', price: 300, name: { 'zh-TW': '神戶牛串', 'en-US': 'Kobe beef skewer' } },
+  kobePudding: { id: 'kobePudding', emoji: '🍮', price: 60, name: { 'zh-TW': '神戶布丁', 'en-US': 'Kobe pudding' } },
+} satisfies Record<string, ShopItem>;
+
+// 東京（淺草仲見世）：人形燒、雷米香、炸饅頭
+export const TOKYO_ITEMS = {
+  ningyoyaki: { id: 'ningyoyaki', emoji: '🎎', price: 50, name: { 'zh-TW': '人形燒', 'en-US': 'Ningyo-yaki' } },
+  kaminariOkoshi: { id: 'kaminariOkoshi', emoji: '🍘', price: 40, name: { 'zh-TW': '雷米香（雷おこし）', 'en-US': 'Kaminari okoshi' } },
+  ageManju: { id: 'ageManju', emoji: '🥠', price: 50, name: { 'zh-TW': '炸饅頭', 'en-US': 'Age-manju' } },
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS), ...Object.values(YILAN_ITEMS), ...Object.values(TAITUNG_ITEMS), ...Object.values(KENTING_ITEMS), ...Object.values(PENGHU_ITEMS), ...Object.values(ALISHAN_ITEMS), ...Object.values(AIRPORT_ITEMS), ...Object.values(KYOTO_ITEMS), ...Object.values(OSAKA_ITEMS), ...Object.values(KOBE_ITEMS), ...Object.values(TOKYO_ITEMS)];

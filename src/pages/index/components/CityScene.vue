@@ -59,8 +59,17 @@
       <div v-else-if="stationOpen" class="pixel-panel absolute bottom-3 left-1/2 z-10 max-h-[calc(100%-4.5rem)] w-[min(26rem,calc(100%-1rem))] -translate-x-1/2 overflow-y-auto px-2.5 pb-2.5 pt-3 text-center" @click.stop>
         <p class="!mb-2 !text-[11px] font-black">{{ lineEmoji }} {{ t.city.stationPrompt(city.station.name[locale]) }}</p>
         <div class="grid grid-cols-3 gap-1.5">
-          <button type="button" class="pixel-btn pixel-btn--primary col-span-3 h-9 whitespace-nowrap px-3 text-xs" @click="emit('leave')">🚉 {{ t.city.backToTaipei }}</button>
+          <button v-if="city.country" type="button" class="pixel-btn pixel-btn--primary col-span-3 h-9 whitespace-nowrap px-3 text-xs" @click="emit('go', 'airport')">✈️ {{ t.city.flyHome }}</button>
+          <button v-else type="button" class="pixel-btn pixel-btn--primary col-span-3 h-9 whitespace-nowrap px-3 text-xs" @click="emit('leave')">🚉 {{ t.city.backToTaipei }}</button>
           <button v-for="other in otherCities" :key="other.id" type="button" class="pixel-btn h-8 min-w-0 whitespace-nowrap px-1.5 text-[11px]" :title="other.stop[locale]" @click="emit('go', other.id)"><span class="block min-w-0 truncate">{{ other.emoji }} {{ shortStop(other) }}</span></button>
+        </div>
+      </div>
+
+      <!-- 機場的出境口：飛去國外的城市 -->
+      <div v-else-if="gateOpen && city.gate" class="pixel-panel absolute bottom-3 left-1/2 z-10 max-h-[calc(100%-4.5rem)] w-[min(26rem,calc(100%-1rem))] -translate-x-1/2 overflow-y-auto px-2.5 pb-2.5 pt-3 text-center" @click.stop>
+        <p class="!mb-2 !text-[11px] font-black">✈️ {{ t.city.gatePrompt(city.gate.name[locale]) }}</p>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button v-for="dest in flightCities" :key="dest.id" type="button" class="pixel-btn pixel-btn--primary h-9 min-w-0 whitespace-nowrap px-2 text-xs" :title="dest.stop[locale]" @click="emit('go', dest.id)"><span class="block min-w-0 truncate">{{ dest.emoji }} {{ shortStop(dest) }}</span></button>
         </div>
       </div>
 
@@ -129,10 +138,13 @@ const city = props.city;
 const W = city.W;
 const H = city.H;
 const SEATS = city.seats;
-const lineEmoji = city.line === 'red' ? '🚇' : city.line === 'tra' ? '🚆' : city.line === 'airport' ? '🚈' : '🚄';
+const lineEmoji = city.line === 'red' ? '🚇' : city.line === 'tra' || city.line === 'jr' ? '🚆' : city.line === 'airport' ? '🚈' : '🚄';
 // 城市間的面板只放城市名（括號裡的景點、轉乘說明在台北車站的路線圖上看得到），三欄才放得下
 const shortStop = (c: CityDef) => c.stop[locale.value].replace(/（.*）$| \(.*\)$/, '');
-const otherCities = computed<CityDef[]>(() => (CITY_ORDER as readonly CityId[]).filter((id) => id !== city.id).map((id) => CITIES[id]));
+// 車站只列同一國的城市（台灣的高鐵、台鐵；日本的 JR）
+const otherCities = computed<CityDef[]>(() => (CITY_ORDER as readonly CityId[]).filter((id) => id !== city.id && CITIES[id].country === city.country).map((id) => CITIES[id]));
+// 機場出境口能飛去的國外城市
+const flightCities = computed<CityDef[]>(() => (CITY_ORDER as readonly CityId[]).map((id) => CITIES[id]).filter((c) => c.country !== undefined));
 
 const inRect = (x: number, y: number, r: Rect) => x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1;
 const blocked = (x: number, y: number) =>
@@ -177,6 +189,7 @@ const isTouch = ref(false);
 const shopAt = ref<number | null>(null);
 const fortuneOpen = ref(false);
 const stationOpen = ref(false);
+const gateOpen = ref(false);
 const info = ref<CityInfo | null>(null);
 // 買完東西：先走開才會再跳出同一家
 let shopLock: number | null = null;
@@ -364,11 +377,12 @@ function updateWalk(dt: number): void {
   const atStation = Math.hypot(me.x - city.station.x, me.y - city.station.y) < 1.4;
   if (!atStation) stationLock = false;
   stationOpen.value = atStation && !stationLock;
-  fortuneOpen.value = !stationOpen.value && !!city.fortune && inRect(me.x, me.y, city.fortune.at);
+  gateOpen.value = !stationOpen.value && !!city.gate && Math.hypot(me.x - city.gate.x, me.y - city.gate.y) < 1.6;
+  fortuneOpen.value = !stationOpen.value && !gateOpen.value && !!city.fortune && inRect(me.x, me.y, city.fortune.at);
   if (!fortuneOpen.value) fortune.value = null;
   const here = city.shops.findIndex((s) => inRect(me.x, me.y, s.at));
   if (here !== shopLock) shopLock = null;
-  const next = !stationOpen.value && !fortuneOpen.value && here >= 0 && here !== shopLock ? here : null;
+  const next = !stationOpen.value && !gateOpen.value && !fortuneOpen.value && here >= 0 && here !== shopLock ? here : null;
   if (next !== null && next !== shopAt.value) say(`shop:${next}`, city.shops[next]?.call[locale.value] ?? '');
   shopAt.value = next;
 }
@@ -603,6 +617,10 @@ function render(seconds: number): void {
   }
   const sp = screen(city.station.x, city.station.y - 1.2);
   pill(ctx, `${lineEmoji} ${city.station.name[locale.value]}`, sp.x, sp.y, '#fbbf24');
+  if (city.gate) {
+    const gp = screen(city.gate.x, city.gate.y - 1.2);
+    pill(ctx, `✈️ ${city.gate.name[locale.value]}`, gp.x, gp.y, '#7dd3fc');
+  }
   if (city.fortune) {
     const fp = screen(city.fortune.label.x, city.fortune.label.y);
     pill(ctx, `🙏 ${city.fortune.title[locale.value]}`, fp.x, fp.y, '#f2c14e');

@@ -14,6 +14,12 @@
         <div class="tr-mrt__rail" />
       </div>
 
+      <!-- 飛機：雲一朵朵往後飄，飛機在中間微微上下晃 -->
+      <div v-else-if="shown.kind === 'flight'" class="tr-flight">
+        <div class="tr-flight__clouds"><span v-for="i in 6" :key="i" /></div>
+        <div class="tr-flight__plane">✈️</div>
+      </div>
+
       <!-- 電梯：門關上、樓層數字跳、門打開 -->
       <div v-else-if="shown.kind === 'elevator'" class="tr-elev">
         <div class="tr-elev__panel">
@@ -62,7 +68,7 @@ const props = defineProps<{ loading: boolean }>();
 const { t } = useLocale();
 
 const MIN_MS = 1300;
-const LINE_COLORS = { red: '#e3002c', green: '#008659', orange: '#f39800', blue: '#0070bd', brown: '#c48c31', hsr: '#e8641c', purple: '#8246af' } as const;
+const LINE_COLORS = { red: '#e3002c', green: '#008659', orange: '#f39800', blue: '#0070bd', brown: '#c48c31', hsr: '#e8641c', purple: '#8246af', jr: '#1a8c3a' } as const;
 const shown = ref<TransitionState | null>(null);
 let timer: number | undefined;
 
@@ -70,7 +76,8 @@ const text = computed(() => {
   const s = shown.value;
   if (!s) return '';
   const tr = t.value.transition;
-  if (s.kind === 'mrt') return s.line === 'hsr' ? tr.hsr(s.label) : tr.mrt(s.label);
+  if (s.kind === 'mrt') return s.line === 'hsr' ? tr.hsr(s.label) : s.line === 'jr' ? tr.jr(s.label) : tr.mrt(s.label);
+  if (s.kind === 'flight') return tr.flight(s.label);
   if (s.kind === 'elevator') return tr.elevator(s.label);
   if (s.kind === 'stairs') return s.up === false ? tr.stairsDown : tr.stairsUp;
   if (s.kind === 'home') return s.label || tr.home;
@@ -482,5 +489,44 @@ onBeforeUnmount(() => window.clearTimeout(timer));
     animation-duration: 0.01s !important;
     animation-iteration-count: 1 !important;
   }
+}
+.tr-flight {
+  position: relative;
+  width: 220px;
+  height: 120px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(#4f9fe0, #a8d8f5);
+}
+.tr-flight__clouds span {
+  position: absolute;
+  width: 46px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  animation: tr-cloud 1.1s linear infinite;
+}
+.tr-flight__clouds span:nth-child(1) { top: 14px; animation-delay: 0s; }
+.tr-flight__clouds span:nth-child(2) { top: 40px; animation-delay: -0.35s; width: 30px; }
+.tr-flight__clouds span:nth-child(3) { top: 70px; animation-delay: -0.7s; }
+.tr-flight__clouds span:nth-child(4) { top: 94px; animation-delay: -0.2s; width: 36px; }
+.tr-flight__clouds span:nth-child(5) { top: 26px; animation-delay: -0.85s; width: 24px; }
+.tr-flight__clouds span:nth-child(6) { top: 84px; animation-delay: -0.55s; width: 52px; }
+@keyframes tr-cloud {
+  from { left: 230px; }
+  to { left: -60px; }
+}
+.tr-flight__plane {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: 44px;
+  line-height: 1;
+  transform: translate(-50%, -50%) rotate(45deg);
+  animation: tr-bob 1.2s ease-in-out infinite;
+}
+@keyframes tr-bob {
+  0%, 100% { margin-top: -3px; }
+  50% { margin-top: 3px; }
 }
 </style>

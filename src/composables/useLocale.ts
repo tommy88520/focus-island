@@ -310,6 +310,8 @@ const translations = {
     city: {
       stationPrompt: (name: string) => `${name} · 要去哪裡？`,
       backToTaipei: '回台北',
+      flyHome: '搭飛機回台灣（桃園機場）',
+      gatePrompt: (name: string) => `${name} · 要飛去哪裡？`,
     },
     miaokou: {
       title: '基隆廟口夜市',
@@ -483,6 +485,8 @@ const translations = {
     transition: {
       mrt: (to: string) => (to ? `🚇 搭捷運往 ${to}` : '🚇 搭捷運'),
       hsr: (to: string) => (to ? `🚄 搭高鐵往 ${to}` : '🚄 搭高鐵'),
+      jr: (to: string) => (to ? `🚆 搭 JR 往 ${to}` : '🚆 搭 JR'),
+      flight: (to: string) => (to ? `✈️ 飛往 ${to}` : '✈️ 飛行中'),
       elevator: (floor: string) => `🛗 搭電梯到 ${floor}`,
       stairsUp: '🪜 上樓中',
       stairsDown: '🪜 下樓中',
@@ -817,6 +821,8 @@ const translations = {
     city: {
       stationPrompt: (name: string) => `${name} · Where to?`,
       backToTaipei: 'Back to Taipei',
+      flyHome: 'Fly home to Taiwan (Taoyuan)',
+      gatePrompt: (name: string) => `${name} · Where are you flying?`,
     },
     miaokou: {
       title: 'Keelung Miaokou Night Market',
@@ -990,6 +996,8 @@ const translations = {
     transition: {
       mrt: (to: string) => (to ? `🚇 Riding to ${to}` : '🚇 Riding the MRT'),
       hsr: (to: string) => (to ? `🚄 High-speed rail to ${to}` : '🚄 High-speed rail'),
+      jr: (to: string) => (to ? `🚆 JR to ${to}` : '🚆 Riding JR'),
+      flight: (to: string) => (to ? `✈️ Flying to ${to}` : '✈️ In flight'),
       elevator: (floor: string) => `🛗 Going to ${floor}`,
       stairsUp: '🪜 Going upstairs',
       stairsDown: '🪜 Going downstairs',

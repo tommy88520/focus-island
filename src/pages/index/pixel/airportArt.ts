@@ -2,7 +2,7 @@
 // 玻璃帷幕、木地板候機區的候機椅、航班資訊看板、出境口（國際線規劃中）、咖啡店／便利商店／伴手禮店、報到櫃台（排隊的旅客）、
 // 南邊的玻璃門、出境車道（計程車、機場巴士）、機場捷運站。最後組成 CityScene 用的 AIRPORT。
 import type { CityDef, CityProp, DrawCtx, Rect } from './city';
-import { AIRPORT_SEATS, AIRPORT_SHOPS, AP, CAFE_TABLES, FLIGHTS, PLAZA_BENCH, STOREFRONTS, TABLE_Y, WINDOW_BENCHES, WINDOW_Y } from './airport';
+import { AIRPORT_SEATS, AIRPORT_SHOPS, AP, GATE_SPOT, CAFE_TABLES, FLIGHTS, PLAZA_BENCH, STOREFRONTS, TABLE_Y, WINDOW_BENCHES, WINDOW_Y } from './airport';
 import { px, seeded } from './pixelUtil';
 import { getAvatarFrame, lookColors } from './pixelArt';
 import { T, FONT_TC, text, glow, cached, blit, road, tiles, zebra, drawLamp, drawBench, drawStreetTree } from './cityArt';
@@ -357,10 +357,11 @@ function drawFids(c: CanvasRenderingContext2D, d: DrawCtx): void {
   blit(c, fidsSprite(), x0, by);
   const w = (AP.fids.x1 - AP.fids.x0) * T;
   const top = by - 70;
-  FLIGHTS.forEach((_, k) => {
+  FLIGHTS.forEach((f, k) => {
     const y = top + 16 + k * 6;
     const on = (Math.floor(d.seconds * 0.8) + k) % 4 !== 0;
-    text(c, on ? '規劃中' : 'PLANNED', x0 + w - 8, y, on ? '#ffb020' : '#ffd54f', `900 5px ${FONT_TC}`, 'right');
+    if (f.open) text(c, on ? '登機中' : 'BOARDING', x0 + w - 8, y, on ? '#4ade80' : '#86efac', `900 5px ${FONT_TC}`, 'right');
+    else text(c, on ? '規劃中' : 'PLANNED', x0 + w - 8, y, on ? '#ffb020' : '#ffd54f', `900 5px ${FONT_TC}`, 'right');
   });
   if (d.night) glow(c, x0 + w / 2, top + 26, 90, '120, 170, 255', 0.15);
 }
@@ -383,8 +384,13 @@ function departureSprite(): HTMLCanvasElement {
     px(c, '#3a4256', dx0, 26, dx1 - dx0, h - 26);
     px(c, '#56607a', dx0 + 6, 40, 14, 10);
     px(c, '#56607a', dx1 - 20, 40, 14, 10);
-    for (let y = 26; y < 52; y += 3) px(c, y % 6 ? '#aeb4bf' : '#8f96a3', dx0, y, dx1 - dx0, 2);
-    px(c, '#6b7280', dx0, 52, dx1 - dx0, 2);
+    for (let y = 26; y < 34; y += 3) px(c, y % 6 ? '#aeb4bf' : '#8f96a3', dx0, y, dx1 - dx0, 2);
+    px(c, '#6b7280', dx0, 34, dx1 - dx0, 2);
+    // 門開了：裡面亮亮的通道、綠色箭頭
+    px(c, '#e8eef6', dx0 + 4, 40, dx1 - dx0 - 8, h - 40);
+    px(c, '#c9d3df', dx0 + 4, 40, dx1 - dx0 - 8, 2);
+    px(c, '#2bb673', w / 2 - 8, 44, 16, 8);
+    text(c, '↑', w / 2, 48, '#ffffff', `900 7px ${FONT_TC}`);
     px(c, '#9aa0a8', dx0 - 3, 24, 3, h - 24);
     px(c, '#9aa0a8', dx1, 24, 3, h - 24);
     text(c, '護照查驗 Passport Control', w / 2, 30.5, '#ffffff', `700 5px ${FONT_TC}`);
@@ -402,8 +408,8 @@ function drawDeparture(c: CanvasRenderingContext2D, d: DrawCtx): void {
   px(c, '#4b505a', sx + 22, by - 6, 2, 8);
   px(c, '#ffd54f', sx - 30, by - 26, 60, 21);
   px(c, '#e0a800', sx - 30, by - 26, 60, 1);
-  text(c, '國際航線規劃中', sx, by - 20, '#1f2a44', `900 6px ${FONT_TC}`);
-  text(c, '敬請期待 Coming soon', sx, by - 11, '#1f2a44', `700 4.5px ${FONT_TC}`);
+  text(c, '🇯🇵 日本線開航', sx, by - 20, '#1f2a44', `900 6px ${FONT_TC}`);
+  text(c, '其他航線規劃中', sx, by - 11, '#1f2a44', `700 4.5px ${FONT_TC}`);
   if (d.night) glow(c, sx, by - 60, 70, '255, 220, 140', 0.2);
 }
 
@@ -737,6 +743,7 @@ export const AIRPORT: CityDef = {
     name: { 'zh-TW': '機場捷運 A12 機場第一航廈站', 'en-US': 'Airport MRT A12 · Airport Terminal 1' },
     arrive: { x: mrtX + 3, y: AP.mrt.line + 0.9 },
   },
+  gate: { ...GATE_SPOT, name: { 'zh-TW': '出境 · 國際線', 'en-US': 'Departures · International' } },
   background: '#e6e8ec',
   soundscape: 'city',
   paintGround: paintAirportGround,
@@ -747,8 +754,8 @@ export const AIRPORT: CityDef = {
   drawSeatFront: (c, i) => drawSeatFront(c, i),
   shops: AIRPORT_SHOPS,
   infos: [
-    { at: r(AP.fids.x0, AP.fids.line - 4.4, AP.fids.x1, AP.fids.line - 0.4), title: { 'zh-TW': '航班資訊看板 · 國際線', 'en-US': 'Departures Board · International' }, text: { 'zh-TW': '東京、大阪、首爾、曼谷、新加坡、香港的航線都在規劃中。之後會一條一條開航，從這裡出國，到國外的城市專注。', 'en-US': 'Routes to Tokyo, Osaka, Seoul, Bangkok, Singapore and Hong Kong are being planned. They’ll open one by one — fly from here to focus in cities abroad.' } },
-    { at: r(AP.departure.x0, AP.glass, AP.departure.x1, AP.departure.line), title: { 'zh-TW': '出境大廳', 'en-US': 'Departures' }, text: { 'zh-TW': '過了這裡就是護照查驗和登機門。國際航線還在規劃中，敬請期待！', 'en-US': 'Beyond here are passport control and the boarding gates. International routes are coming soon — stay tuned!' } },
+    { at: r(AP.fids.x0, AP.fids.line - 4.4, AP.fids.x1, AP.fids.line - 0.4), title: { 'zh-TW': '航班資訊看板 · 國際線', 'en-US': 'Departures Board · International' }, text: { 'zh-TW': '日本線開航了：走到東邊的出境口，飛東京或關西（京都、大阪、神戶）。首爾、曼谷、新加坡、香港還在規劃中。', 'en-US': 'Japan routes are open: walk to the departures gate on the east side and fly to Tokyo or Kansai (Kyoto, Osaka, Kobe). Seoul, Bangkok, Singapore and Hong Kong are still being planned.' } },
+    { at: r(AP.departure.x0, AP.glass, AP.departure.x1, AP.departure.line), title: { 'zh-TW': '出境大廳', 'en-US': 'Departures' }, text: { 'zh-TW': '過了這裡就是護照查驗和登機門。站到門口選目的地，就能飛去日本。', 'en-US': 'Beyond here are passport control and the boarding gates. Stand at the gate and pick a destination to fly to Japan.' } },
     { at: r(0, AP.runway.y0, 50, AP.glass), title: { 'zh-TW': '桃園國際機場', 'en-US': 'Taoyuan International Airport' }, text: { 'zh-TW': '台灣最大的國際機場，1979 年啟用（當時叫中正國際機場），第一航廈是建築師林同棪設計的。坐在窗邊可以看飛機起降。', 'en-US': 'Taiwan’s largest international airport, opened in 1979 (then called CKS International). Terminal 1 was designed by T.Y. Lin. Sit by the windows to watch planes take off.' } },
     { at: r(50, 0, AP.W, AP.taxiway.y1), title: { 'zh-TW': '塔台', 'en-US': 'Control Tower' }, text: { 'zh-TW': '塔台裡的管制員指揮每一架飛機滑行、起飛和降落。', 'en-US': 'Controllers in the tower direct every plane as it taxis, takes off and lands.' } },
     { at: r(AP.checkin[0] - 3.3, AP.checkinLine - 4, AP.checkin[2] + 3.3, AP.checkinLine), title: { 'zh-TW': '報到櫃台', 'en-US': 'Check-in Counters' }, text: { 'zh-TW': '出國前先在這裡報到、托運行李、拿登機證。建議起飛前兩到三小時到機場。', 'en-US': 'Check in, drop your bags and get your boarding pass here. Arrive two to three hours before an international flight.' } },

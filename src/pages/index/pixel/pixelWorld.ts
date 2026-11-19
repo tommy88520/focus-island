@@ -212,7 +212,24 @@ export type ShopItemId =
   | 'alishanCoffee'
   // 桃園機場（cityItems.ts）
   | 'riceBall'
-  | 'planeModel';
+  | 'planeModel'
+  // 京都（cityItems.ts）
+  | 'matchaSoftServe'
+  | 'yatsuhashi'
+  | 'dango'
+  | 'matcha'
+  // 大阪（cityItems.ts）
+  | 'takoyaki'
+  | 'kushikatsu'
+  | 'okonomiyaki'
+  // 神戶（cityItems.ts）
+  | 'butaman'
+  | 'kobeBeef'
+  | 'kobePudding'
+  // 東京（cityItems.ts）
+  | 'ningyoyaki'
+  | 'kaminariOkoshi'
+  | 'ageManju';
 
 export interface ShopItem {
   id: ShopItemId;
