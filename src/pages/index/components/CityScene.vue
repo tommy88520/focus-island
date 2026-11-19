@@ -129,7 +129,7 @@ const city = props.city;
 const W = city.W;
 const H = city.H;
 const SEATS = city.seats;
-const lineEmoji = city.line === 'red' ? '🚇' : city.line === 'tra' ? '🚆' : '🚄';
+const lineEmoji = city.line === 'red' ? '🚇' : city.line === 'tra' ? '🚆' : city.line === 'airport' ? '🚈' : '🚄';
 // 城市間的面板只放城市名（括號裡的景點、轉乘說明在台北車站的路線圖上看得到），三欄才放得下
 const shortStop = (c: CityDef) => c.stop[locale.value].replace(/（.*）$| \(.*\)$/, '');
 const otherCities = computed<CityDef[]>(() => (CITY_ORDER as readonly CityId[]).filter((id) => id !== city.id).map((id) => CITIES[id]));

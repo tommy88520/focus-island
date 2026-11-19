@@ -473,7 +473,7 @@ const elevatorOpen = ref(false);
 // 走到 101 旁的捷運站口會跳出分區選單
 const mrtOpen = ref(false);
 // 捷運路線圖上的站：紅線是這層樓的分區，綠線通往獨立地圖
-const MRT_LINE_COLORS = { red: '#e3002c', green: '#008659', blue: '#0070bd', brown: '#c48c31', orange: '#f39800', hsr: '#e8641c' } as const;
+const MRT_LINE_COLORS = { red: '#e3002c', green: '#008659', blue: '#0070bd', brown: '#c48c31', orange: '#f39800', hsr: '#e8641c', purple: '#8246af' } as const;
 // 站在哪個站口（台北車站大廳、101 站口）：面板標題、換分區後從同一個站口出來
 const mrtAt = ref<MrtTrigger['station']>('main');
 const mrtLines = computed(() => {
@@ -495,6 +495,8 @@ const mrtLines = computed(() => {
     { id: 'orange' as const, name: s.lineF1, stops: [{ key: 'f1', name: t.value.f1Hub.title, emoji: '🏎️', here: false, go: goF1 }] },
     // 高鐵：台灣各城市的指標地圖
     { id: 'hsr' as const, name: s.lineHsr, stops: cityStops('hsr') },
+    // 機場捷運：桃園機場（之後出國從這裡出發）
+    { id: 'purple' as const, name: s.lineAirport, stops: cityStops('airport') },
   ];
 });
 // 站名括號裡的景點、轉乘說明用小字，一排才放得下兩三站
@@ -502,7 +504,7 @@ const STOP_SUB = /（.*）$| \(.*\)$/;
 const stopMain = (name: string) => name.replace(STOP_SUB, '');
 const stopSub = (name: string) => STOP_SUB.exec(name)?.[0] ?? '';
 // 城市地圖放在它真的會搭的那條線上（淡水在紅線、東部走台鐵、其他高鐵）
-function cityStops(line: 'hsr' | 'red' | 'tra') {
+function cityStops(line: 'hsr' | 'red' | 'tra' | 'airport') {
   return CITY_ORDER.filter((id) => (CITIES[id].line ?? 'hsr') === line).map((id) => ({ key: id, name: CITIES[id].stop[locale.value], emoji: CITIES[id].emoji, here: false, go: () => goCity(id) }));
 }
 // 小地圖標題：目前在哪一區

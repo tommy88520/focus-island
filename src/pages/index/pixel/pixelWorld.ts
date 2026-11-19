@@ -209,7 +209,10 @@ export type ShopItemId =
   // 阿里山（cityItems.ts）
   | 'aiyu'
   | 'bambooRice'
-  | 'alishanCoffee';
+  | 'alishanCoffee'
+  // 桃園機場（cityItems.ts）
+  | 'riceBall'
+  | 'planeModel';
 
 export interface ShopItem {
   id: ShopItemId;

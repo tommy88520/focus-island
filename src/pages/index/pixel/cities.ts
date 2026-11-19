@@ -17,6 +17,7 @@ import { TAITUNG } from './taitungArt';
 import { KENTING } from './kentingArt';
 import { PENGHU } from './penghuArt';
 import { ALISHAN } from './alishanArt';
+import { AIRPORT } from './airportArt';
 
 export const CITIES: Record<CityId, CityDef> = {
   tainan: TAINAN,
@@ -33,4 +34,5 @@ export const CITIES: Record<CityId, CityDef> = {
   kenting: KENTING,
   penghu: PENGHU,
   alishan: ALISHAN,
+  airport: AIRPORT,
 };

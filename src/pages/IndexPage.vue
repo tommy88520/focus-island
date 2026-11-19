@@ -1127,7 +1127,7 @@ watch(sceneLocation, (to, from) => {
   };
   const f1Line = to === 'f1' || to === 'f1hub' || (GP_ORDER as string[]).includes(to);
   const city = isCityId(to) ? CITIES[to] : isCityId(from) ? CITIES[from] : null;
-  const cityLine = city ? ({ hsr: 'hsr', red: 'red', tra: 'blue' } as const)[city.line ?? 'hsr'] : null;
+  const cityLine = city ? ({ hsr: 'hsr', red: 'red', tra: 'blue', airport: 'purple' } as const)[city.line ?? 'hsr'] : null;
   playTransition('mrt', names[to] ?? '', { line: f1Line ? 'orange' : cityLine ?? (to === 'library' || to === 'shilin' || to === 'beitou' ? 'red' : to === 'miaokou' ? 'blue' : to === 'zoo' ? 'brown' : 'green') });
 });
 // 回到圖書館就不用再記獨立地圖

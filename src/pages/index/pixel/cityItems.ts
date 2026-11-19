@@ -121,4 +121,14 @@ export const ALISHAN_ITEMS = {
   alishanTea: { id: 'alishanTea', emoji: '🍵', price: 60, name: { 'zh-TW': '阿里山高山茶', 'en-US': 'Alishan high-mountain tea' } },
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS), ...Object.values(YILAN_ITEMS), ...Object.values(TAITUNG_ITEMS), ...Object.values(KENTING_ITEMS), ...Object.values(PENGHU_ITEMS), ...Object.values(ALISHAN_ITEMS)];
+// 桃園機場第一航廈：咖啡店（冰拿鐵、珍奶）、便利商店（御飯糰、茶葉蛋）、伴手禮店（鳳梨酥、飛機模型）
+export const AIRPORT_ITEMS = {
+  icedCoffee: TAINAN_ITEMS.icedCoffee,
+  pearlMilkTea: TAICHUNG_ITEMS.pearlMilkTea,
+  riceBall: { id: 'riceBall', emoji: '🍙', price: 35, name: { 'zh-TW': '御飯糰', 'en-US': 'Onigiri rice ball' } },
+  teaEgg: SUNMOON_ITEMS.teaEgg,
+  pineappleCake: TAINAN_ITEMS.pineappleCake,
+  planeModel: { id: 'planeModel', emoji: '✈️', price: 150, name: { 'zh-TW': '飛機模型', 'en-US': 'Model airplane' } },
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS), ...Object.values(YILAN_ITEMS), ...Object.values(TAITUNG_ITEMS), ...Object.values(KENTING_ITEMS), ...Object.values(PENGHU_ITEMS), ...Object.values(ALISHAN_ITEMS), ...Object.values(AIRPORT_ITEMS)];
