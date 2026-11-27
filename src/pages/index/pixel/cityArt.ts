@@ -8,12 +8,14 @@ export const T = 16;
 export const FONT_TC = '"PingFang TC", "Noto Sans TC", sans-serif';
 export const SERIF_TC = '"PingFang TC", "Noto Serif TC", "Noto Sans TC", serif';
 
-export function text(c: CanvasRenderingContext2D, s: string, x: number, y: number, color: string, font: string, align: CanvasTextAlign = 'center'): void {
+// maxWidth：字太長時橫向壓扁塞進牌子（不給就照原寬）
+export function text(c: CanvasRenderingContext2D, s: string, x: number, y: number, color: string, font: string, align: CanvasTextAlign = 'center', maxWidth?: number): void {
   c.fillStyle = color;
   c.font = font;
   c.textAlign = align;
   c.textBaseline = 'middle';
-  c.fillText(s, x, y);
+  if (maxWidth === undefined) c.fillText(s, x, y);
+  else c.fillText(s, x, y, maxWidth);
 }
 
 export function glow(c: CanvasRenderingContext2D, x: number, y: number, r: number, rgb: string, a: number): void {

@@ -1038,7 +1038,8 @@ function bartSprite(night: boolean): HTMLCanvasElement {
     for (const x of [15, w - 4]) px(c, '#5a6470', x, 24, 2, h - 24);
     // 雨棚上的字
     px(c, '#2a3a4a', 18, 26, w - 24, 6);
-    text(c, 'BART · 往 SFO 機場', 14 + (w - 16) / 2, 29, '#ffffff', `700 4px ${FONT_TC}`);
+    // 牌子只有 w-24 寬：柱子上已經寫了 BART，這裡只寫目的地，還放不下就壓扁
+    text(c, '往 SFO 機場', 18 + (w - 24) / 2, 29, '#ffffff', `700 4px ${FONT_TC}`, 'center', w - 27);
     // 矮牆＋往下的樓梯
     px(c, '#9a958c', 14, 38, w - 16, h - 38);
     px(c, '#b8b3a8', 14, 38, w - 16, 2);
