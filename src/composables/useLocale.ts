@@ -311,6 +311,7 @@ const translations = {
       stationPrompt: (name: string) => `${name} · 要去哪裡？`,
       backToTaipei: '回台北',
       flyHome: '搭飛機回台灣（桃園機場）',
+      otherCountries: '🌏 其他國家',
       gatePrompt: (name: string) => `${name} · 要飛去哪裡？`,
     },
     miaokou: {
@@ -822,6 +823,7 @@ const translations = {
       stationPrompt: (name: string) => `${name} · Where to?`,
       backToTaipei: 'Back to Taipei',
       flyHome: 'Fly home to Taiwan (Taoyuan)',
+      otherCountries: '🌏 More countries',
       gatePrompt: (name: string) => `${name} · Where are you flying?`,
     },
     miaokou: {

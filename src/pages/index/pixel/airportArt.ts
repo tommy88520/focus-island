@@ -343,8 +343,8 @@ function fidsSprite(): HTMLCanvasElement {
     text(c, '國際線', w - 8, 6.5, '#ffd54f', `900 6px ${FONT_TC}`, 'right');
     const cols = { time: 8, dest: 34, code: 92 };
     FLIGHTS.forEach((f, k) => {
-      const y = 16 + k * 6;
-      if (k % 2) px(c, 'rgba(255,255,255,0.04)', 2, y - 3, w - 4, 6);
+      const y = 15.5 + k * 5.2;
+      if (k % 2) px(c, 'rgba(255,255,255,0.04)', 2, y - 2.6, w - 4, 5.2);
       text(c, f.time, cols.time, y, '#ffd54f', `700 5px ${FONT_TC}`, 'left');
       text(c, f.dest, cols.dest, y, '#ffffff', `700 5px ${FONT_TC}`, 'left');
       text(c, f.code, cols.code, y, '#9fd8ff', `700 5px ${FONT_TC}`, 'left');
@@ -358,7 +358,7 @@ function drawFids(c: CanvasRenderingContext2D, d: DrawCtx): void {
   const w = (AP.fids.x1 - AP.fids.x0) * T;
   const top = by - 70;
   FLIGHTS.forEach((f, k) => {
-    const y = top + 16 + k * 6;
+    const y = top + 15.5 + k * 5.2;
     const on = (Math.floor(d.seconds * 0.8) + k) % 4 !== 0;
     if (f.open) text(c, on ? '登機中' : 'BOARDING', x0 + w - 8, y, on ? '#4ade80' : '#86efac', `900 5px ${FONT_TC}`, 'right');
     else text(c, on ? '規劃中' : 'PLANNED', x0 + w - 8, y, on ? '#ffb020' : '#ffd54f', `900 5px ${FONT_TC}`, 'right');
@@ -408,8 +408,8 @@ function drawDeparture(c: CanvasRenderingContext2D, d: DrawCtx): void {
   px(c, '#4b505a', sx + 22, by - 6, 2, 8);
   px(c, '#ffd54f', sx - 30, by - 26, 60, 21);
   px(c, '#e0a800', sx - 30, by - 26, 60, 1);
-  text(c, '🇯🇵 日本線開航', sx, by - 20, '#1f2a44', `900 6px ${FONT_TC}`);
-  text(c, '其他航線規劃中', sx, by - 11, '#1f2a44', `700 4.5px ${FONT_TC}`);
+  text(c, '✈ 國際線開航', sx, by - 20, '#1f2a44', `900 6px ${FONT_TC}`);
+  text(c, '日韓泰美馬中', sx, by - 11, '#1f2a44', `700 4.5px ${FONT_TC}`);
   if (d.night) glow(c, sx, by - 60, 70, '255, 220, 140', 0.2);
 }
 
@@ -754,7 +754,7 @@ export const AIRPORT: CityDef = {
   drawSeatFront: (c, i) => drawSeatFront(c, i),
   shops: AIRPORT_SHOPS,
   infos: [
-    { at: r(AP.fids.x0, AP.fids.line - 4.4, AP.fids.x1, AP.fids.line - 0.4), title: { 'zh-TW': '航班資訊看板 · 國際線', 'en-US': 'Departures Board · International' }, text: { 'zh-TW': '日本線開航了：走到東邊的出境口，飛東京或關西（京都、大阪、神戶）。首爾、曼谷、新加坡、香港還在規劃中。', 'en-US': 'Japan routes are open: walk to the departures gate on the east side and fly to Tokyo or Kansai (Kyoto, Osaka, Kobe). Seoul, Bangkok, Singapore and Hong Kong are still being planned.' } },
+    { at: r(AP.fids.x0, AP.fids.line - 4.4, AP.fids.x1, AP.fids.line - 0.4), title: { 'zh-TW': '航班資訊看板 · 國際線', 'en-US': 'Departures Board · International' }, text: { 'zh-TW': '國際線都開航了：走到東邊的出境口，可以飛日本、韓國、泰國、美國、馬來西亞、中國。到了國外，車站可以搭車去同一國的其他城市，或搭飛機回台灣。', 'en-US': 'International routes are open: walk to the departures gate on the east side to fly to Japan, Korea, Thailand, the USA, Malaysia or China. Abroad, the station takes you to other cities in the same country, or back home to Taiwan.' } },
     { at: r(AP.departure.x0, AP.glass, AP.departure.x1, AP.departure.line), title: { 'zh-TW': '出境大廳', 'en-US': 'Departures' }, text: { 'zh-TW': '過了這裡就是護照查驗和登機門。站到門口選目的地，就能飛去日本。', 'en-US': 'Beyond here are passport control and the boarding gates. Stand at the gate and pick a destination to fly to Japan.' } },
     { at: r(0, AP.runway.y0, 50, AP.glass), title: { 'zh-TW': '桃園國際機場', 'en-US': 'Taoyuan International Airport' }, text: { 'zh-TW': '台灣最大的國際機場，1979 年啟用（當時叫中正國際機場），第一航廈是建築師林同棪設計的。坐在窗邊可以看飛機起降。', 'en-US': 'Taiwan’s largest international airport, opened in 1979 (then called CKS International). Terminal 1 was designed by T.Y. Lin. Sit by the windows to watch planes take off.' } },
     { at: r(50, 0, AP.W, AP.taxiway.y1), title: { 'zh-TW': '塔台', 'en-US': 'Control Tower' }, text: { 'zh-TW': '塔台裡的管制員指揮每一架飛機滑行、起飛和降落。', 'en-US': 'Controllers in the tower direct every plane as it taxis, takes off and lands.' } },

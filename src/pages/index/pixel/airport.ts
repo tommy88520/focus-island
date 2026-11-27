@@ -88,12 +88,13 @@ export const AIRPORT_SHOPS: CityShop[] = [
 // 出境口前面站這裡就跳出「要飛去哪裡」
 export const GATE_SPOT = { x: 49.75, y: 16.7 };
 
-// 航班看板上的國際線：日本已經開航（open），其他還在規劃中
+// 航班看板上的國際線（open 的是開航了，從出境口飛得到）
 export const FLIGHTS: { time: string; dest: string; code: string; open?: boolean }[] = [
   { time: '08:50', dest: '東京 成田', code: 'FI 101', open: true },
   { time: '10:20', dest: '大阪 關西', code: 'FI 121', open: true },
-  { time: '11:35', dest: '首爾 仁川', code: 'FI 160' },
-  { time: '13:05', dest: '曼谷', code: 'FI 207' },
-  { time: '14:40', dest: '新加坡', code: 'FI 231' },
-  { time: '16:55', dest: '香港', code: 'FI 303' },
+  { time: '11:35', dest: '首爾 仁川', code: 'FI 160', open: true },
+  { time: '13:05', dest: '曼谷', code: 'FI 207', open: true },
+  { time: '14:40', dest: '吉隆坡', code: 'FI 231', open: true },
+  { time: '16:55', dest: '上海 浦東', code: 'FI 303', open: true },
+  { time: '23:40', dest: '舊金山／紐約', code: 'FI 012', open: true },
 ];

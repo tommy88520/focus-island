@@ -160,4 +160,106 @@ export const TOKYO_ITEMS = {
   ageManju: { id: 'ageManju', emoji: '🥠', price: 50, name: { 'zh-TW': '炸饅頭', 'en-US': 'Age-manju' } },
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS), ...Object.values(YILAN_ITEMS), ...Object.values(TAITUNG_ITEMS), ...Object.values(KENTING_ITEMS), ...Object.values(PENGHU_ITEMS), ...Object.values(ALISHAN_ITEMS), ...Object.values(AIRPORT_ITEMS), ...Object.values(KYOTO_ITEMS), ...Object.values(OSAKA_ITEMS), ...Object.values(KOBE_ITEMS), ...Object.values(TOKYO_ITEMS)];
+// 奈良（奈良公園、東大寺參道）：鹿仙貝、柿葉壽司、葛餅
+export const NARA_ITEMS = {
+  shikaSenbei: { id: 'shikaSenbei', emoji: '🦌', price: 20, name: { 'zh-TW': '鹿仙貝（餵鹿用）', 'en-US': 'Deer crackers (for the deer)' } },
+  kakinohaSushi: { id: 'kakinohaSushi', emoji: '🍣', price: 80, name: { 'zh-TW': '柿葉壽司', 'en-US': 'Persimmon-leaf sushi' } },
+  kuzumochi: { id: 'kuzumochi', emoji: '🍮', price: 60, name: { 'zh-TW': '吉野葛餅', 'en-US': 'Yoshino kuzumochi' } },
+} satisfies Record<string, ShopItem>;
+
+// 札幌（大通公園、拉麵橫丁）：味噌拉麵、烤玉米、北海道牛奶霜淇淋、成吉思汗烤肉
+export const SAPPORO_ITEMS = {
+  misoRamen: { id: 'misoRamen', emoji: '🍜', price: 90, name: { 'zh-TW': '札幌味噌拉麵', 'en-US': 'Sapporo miso ramen' } },
+  hokkaidoCorn: { id: 'hokkaidoCorn', emoji: '🌽', price: 40, name: { 'zh-TW': '大通公園烤玉米', 'en-US': 'Odori Park grilled corn' } },
+  milkSoftServe: { id: 'milkSoftServe', emoji: '🍦', price: 50, name: { 'zh-TW': '北海道牛奶霜淇淋', 'en-US': 'Hokkaido milk soft serve' } },
+  jingisukan: { id: 'jingisukan', emoji: '🍖', price: 120, name: { 'zh-TW': '成吉思汗烤羊肉', 'en-US': 'Jingisukan grilled lamb' } },
+} satisfies Record<string, ShopItem>;
+
+// 廣島宮島（表參道商店街）：紅葉饅頭、烤牡蠣、星鰻飯
+export const HIROSHIMA_ITEMS = {
+  momijiManju: { id: 'momijiManju', emoji: '🍁', price: 30, name: { 'zh-TW': '紅葉饅頭', 'en-US': 'Momiji manju' } },
+  grilledOyster: { id: 'grilledOyster', emoji: '🦪', price: 80, name: { 'zh-TW': '宮島烤牡蠣', 'en-US': 'Miyajima grilled oysters' } },
+  anagoMeshi: { id: 'anagoMeshi', emoji: '🍱', price: 150, name: { 'zh-TW': '星鰻飯', 'en-US': 'Anago-meshi (conger eel rice)' } },
+} satisfies Record<string, ShopItem>;
+
+// 福岡（中洲屋台、博多）：豚骨拉麵、明太子飯糰、牛腸鍋、雞肉串
+export const FUKUOKA_ITEMS = {
+  hakataRamen: { id: 'hakataRamen', emoji: '🍜', price: 80, name: { 'zh-TW': '博多豚骨拉麵', 'en-US': 'Hakata tonkotsu ramen' } },
+  mentaiko: { id: 'mentaiko', emoji: '🍙', price: 40, name: { 'zh-TW': '明太子飯糰', 'en-US': 'Mentaiko onigiri' } },
+  motsunabe: { id: 'motsunabe', emoji: '🍲', price: 130, name: { 'zh-TW': '牛腸鍋', 'en-US': 'Motsunabe (offal hot pot)' } },
+  yakitori: { id: 'yakitori', emoji: '🍢', price: 50, name: { 'zh-TW': '雞肉串燒', 'en-US': 'Yakitori skewers' } },
+} satisfies Record<string, ShopItem>;
+
+// 沖繩（那霸國際通）：沖繩麵、開口笑、紅芋冰淇淋、苦瓜炒蛋
+export const OKINAWA_ITEMS = {
+  okinawaSoba: { id: 'okinawaSoba', emoji: '🍜', price: 80, name: { 'zh-TW': '沖繩麵（三層肉）', 'en-US': 'Okinawa soba with pork belly' } },
+  sataAndagi: { id: 'sataAndagi', emoji: '🍩', price: 30, name: { 'zh-TW': '開口笑（沙翁）', 'en-US': 'Sata andagi doughnuts' } },
+  beniImoIce: { id: 'beniImoIce', emoji: '🍨', price: 50, name: { 'zh-TW': '紅芋冰淇淋', 'en-US': 'Purple sweet potato ice cream' } },
+  goyaChampuru: { id: 'goyaChampuru', emoji: '🥒', price: 90, name: { 'zh-TW': '苦瓜炒蛋（Champuru）', 'en-US': 'Goya champuru' } },
+} satisfies Record<string, ShopItem>;
+
+// 首爾（明洞街頭小吃）：辣炒年糕、糖餅、雞蛋糕、魚板串
+export const SEOUL_ITEMS = {
+  tteokbokki: { id: 'tteokbokki', emoji: '🌶️', price: 60, name: { 'zh-TW': '辣炒年糕', 'en-US': 'Tteokbokki' } },
+  hotteok: { id: 'hotteok', emoji: '🥞', price: 30, name: { 'zh-TW': '黑糖糖餅', 'en-US': 'Hotteok (sweet pancake)' } },
+  gyeranppang: { id: 'gyeranppang', emoji: '🥚', price: 30, name: { 'zh-TW': '雞蛋糕（계란빵）', 'en-US': 'Gyeranppang (egg bread)' } },
+  eomuk: { id: 'eomuk', emoji: '🍢', price: 30, name: { 'zh-TW': '魚板串（附熱湯）', 'en-US': 'Eomuk fishcake skewer' } },
+} satisfies Record<string, ShopItem>;
+
+// 曼谷（河邊、考山路一帶的攤販）：泰式炒河粉、芒果糯米飯、泰式奶茶、椰子冰淇淋
+export const BANGKOK_ITEMS = {
+  padThai: { id: 'padThai', emoji: '🍝', price: 60, name: { 'zh-TW': '泰式炒河粉', 'en-US': 'Pad thai' } },
+  mangoStickyRice: { id: 'mangoStickyRice', emoji: '🥭', price: 70, name: { 'zh-TW': '芒果糯米飯', 'en-US': 'Mango sticky rice' } },
+  thaiTea: { id: 'thaiTea', emoji: '🧋', price: 40, name: { 'zh-TW': '泰式奶茶', 'en-US': 'Thai iced tea' } },
+  coconutIceCream: { id: 'coconutIceCream', emoji: '🍨', price: 50, name: { 'zh-TW': '椰子冰淇淋（椰殼裝）', 'en-US': 'Coconut ice cream in the shell' } },
+} satisfies Record<string, ShopItem>;
+
+// 舊金山（漁人碼頭）：麵包碗巧達湯、酸種麵包、珍寶蟹、巧克力聖代
+export const SANFRANCISCO_ITEMS = {
+  clamChowder: { id: 'clamChowder', emoji: '🥣', price: 120, name: { 'zh-TW': '酸種麵包碗巧達湯', 'en-US': 'Clam chowder in a sourdough bowl' } },
+  sourdough: { id: 'sourdough', emoji: '🥖', price: 60, name: { 'zh-TW': '酸種麵包', 'en-US': 'Sourdough loaf' } },
+  dungenessCrab: { id: 'dungenessCrab', emoji: '🦀', price: 250, name: { 'zh-TW': '珍寶蟹', 'en-US': 'Dungeness crab' } },
+  chocolateSundae: { id: 'chocolateSundae', emoji: '🍨', price: 90, name: { 'zh-TW': '熱巧克力聖代', 'en-US': 'Hot fudge sundae' } },
+} satisfies Record<string, ShopItem>;
+
+// 拉斯維加斯（大道）：大杯冰沙、熱狗、自助餐、雞尾酒蝦
+export const LASVEGAS_ITEMS = {
+  yardSlush: { id: 'yardSlush', emoji: '🥤', price: 80, name: { 'zh-TW': '一碼長的大杯冰沙', 'en-US': 'Yard-long slushie' } },
+  hotDog: { id: 'hotDog', emoji: '🌭', price: 50, name: { 'zh-TW': '熱狗', 'en-US': 'Hot dog' } },
+  buffetPlate: { id: 'buffetPlate', emoji: '🍽️', price: 200, name: { 'zh-TW': '自助餐吃到飽', 'en-US': 'All-you-can-eat buffet plate' } },
+  shrimpCocktail: { id: 'shrimpCocktail', emoji: '🍤', price: 90, name: { 'zh-TW': '雞尾酒蝦', 'en-US': 'Shrimp cocktail' } },
+} satisfies Record<string, ShopItem>;
+
+// 洛杉磯（聖塔莫尼卡、好萊塢）：塔可、墨西哥捲餅、起司漢堡、吉拿棒
+export const LOSANGELES_ITEMS = {
+  taco: { id: 'taco', emoji: '🌮', price: 50, name: { 'zh-TW': '塔可', 'en-US': 'Tacos' } },
+  burrito: { id: 'burrito', emoji: '🌯', price: 80, name: { 'zh-TW': '墨西哥捲餅', 'en-US': 'Burrito' } },
+  cheeseburger: { id: 'cheeseburger', emoji: '🍔', price: 80, name: { 'zh-TW': '起司漢堡', 'en-US': 'Cheeseburger' } },
+  churro: { id: 'churro', emoji: '🥖', price: 40, name: { 'zh-TW': '吉拿棒', 'en-US': 'Churros' } },
+} satisfies Record<string, ShopItem>;
+
+// 紐約（時代廣場、中央公園）：一片披薩、貝果、紐約起司蛋糕、椒鹽卷餅
+export const NEWYORK_ITEMS = {
+  pizzaSlice: { id: 'pizzaSlice', emoji: '🍕', price: 40, name: { 'zh-TW': '紐約大片披薩', 'en-US': 'New York pizza slice' } },
+  bagel: { id: 'bagel', emoji: '🥯', price: 40, name: { 'zh-TW': '貝果（奶油乳酪）', 'en-US': 'Bagel with cream cheese' } },
+  nyCheesecake: { id: 'nyCheesecake', emoji: '🍰', price: 80, name: { 'zh-TW': '紐約起司蛋糕', 'en-US': 'New York cheesecake' } },
+  pretzel: { id: 'pretzel', emoji: '🥨', price: 30, name: { 'zh-TW': '椒鹽卷餅', 'en-US': 'Soft pretzel' } },
+} satisfies Record<string, ShopItem>;
+
+// 吉隆坡（亞羅街、嘛嘛檔）：沙爹、椰漿飯、拉茶、榴槤
+export const KUALALUMPUR_ITEMS = {
+  satay: { id: 'satay', emoji: '🍢', price: 50, name: { 'zh-TW': '沙爹（花生醬）', 'en-US': 'Satay with peanut sauce' } },
+  nasiLemak: { id: 'nasiLemak', emoji: '🍛', price: 50, name: { 'zh-TW': '椰漿飯', 'en-US': 'Nasi lemak' } },
+  tehTarik: { id: 'tehTarik', emoji: '🥛', price: 25, name: { 'zh-TW': '拉茶', 'en-US': 'Teh tarik (pulled tea)' } },
+  durian: { id: 'durian', emoji: '🍈', price: 120, name: { 'zh-TW': '貓山王榴槤', 'en-US': 'Musang King durian' } },
+} satisfies Record<string, ShopItem>;
+
+// 上海（豫園、城隍廟）：小籠包、生煎包、蔥油拌麵、排骨年糕
+export const SHANGHAI_ITEMS = {
+  xiaolongbao: { id: 'xiaolongbao', emoji: '🥟', price: 80, name: { 'zh-TW': '南翔小籠包', 'en-US': 'Nanxiang xiaolongbao' } },
+  shengjianbao: { id: 'shengjianbao', emoji: '🥟', price: 45, name: { 'zh-TW': '生煎包', 'en-US': 'Shengjianbao (pan-fried buns)' } },
+  scallionOilNoodles: { id: 'scallionOilNoodles', emoji: '🍜', price: 50, name: { 'zh-TW': '蔥油拌麵', 'en-US': 'Scallion oil noodles' } },
+  porkChopRiceCake: { id: 'porkChopRiceCake', emoji: '🍖', price: 70, name: { 'zh-TW': '排骨年糕', 'en-US': 'Pork chop with rice cakes' } },
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS), ...Object.values(YILAN_ITEMS), ...Object.values(TAITUNG_ITEMS), ...Object.values(KENTING_ITEMS), ...Object.values(PENGHU_ITEMS), ...Object.values(ALISHAN_ITEMS), ...Object.values(AIRPORT_ITEMS), ...Object.values(KYOTO_ITEMS), ...Object.values(OSAKA_ITEMS), ...Object.values(KOBE_ITEMS), ...Object.values(TOKYO_ITEMS), ...Object.values(NARA_ITEMS), ...Object.values(SAPPORO_ITEMS), ...Object.values(HIROSHIMA_ITEMS), ...Object.values(FUKUOKA_ITEMS), ...Object.values(OKINAWA_ITEMS), ...Object.values(SEOUL_ITEMS), ...Object.values(BANGKOK_ITEMS), ...Object.values(SANFRANCISCO_ITEMS), ...Object.values(LASVEGAS_ITEMS), ...Object.values(LOSANGELES_ITEMS), ...Object.values(NEWYORK_ITEMS), ...Object.values(KUALALUMPUR_ITEMS), ...Object.values(SHANGHAI_ITEMS)];

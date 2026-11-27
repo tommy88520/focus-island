@@ -60,7 +60,8 @@ export const CHIAYI_SEATS: CitySeat[] = [
     { x: x - 0.6, y: TABLE_Y - 0.7, facing: 'down' },
     { x: x + 0.6, y: TABLE_Y - 0.7, facing: 'down' },
   ]),
-  ...FOUNTAIN_BENCHES.flatMap((b): CitySeat[] => [
+  // 只有北邊兩張長椅是座位（南邊兩張是裝飾）：城市剛好 12 位，多的沒有座位編號、點了坐不下去
+  ...FOUNTAIN_BENCHES.slice(0, 2).flatMap((b): CitySeat[] => [
     { x: b.x - 0.6, y: b.y, facing: b.facing },
     { x: b.x + 0.6, y: b.y, facing: b.facing },
   ]),

@@ -22,6 +22,19 @@ import { KYOTO } from './kyotoArt';
 import { OSAKA } from './osakaArt';
 import { KOBE } from './kobeArt';
 import { TOKYO } from './tokyoArt';
+import { NARA } from './naraArt';
+import { SAPPORO } from './sapporoArt';
+import { HIROSHIMA } from './hiroshimaArt';
+import { FUKUOKA } from './fukuokaArt';
+import { OKINAWA } from './okinawaArt';
+import { SEOUL } from './seoulArt';
+import { BANGKOK } from './bangkokArt';
+import { SANFRANCISCO } from './sanfranciscoArt';
+import { LASVEGAS } from './lasvegasArt';
+import { LOSANGELES } from './losangelesArt';
+import { NEWYORK } from './newyorkArt';
+import { KUALALUMPUR } from './kualalumpurArt';
+import { SHANGHAI } from './shanghaiArt';
 
 export const CITIES: Record<CityId, CityDef> = {
   tainan: TAINAN,
@@ -43,4 +56,17 @@ export const CITIES: Record<CityId, CityDef> = {
   osaka: OSAKA,
   kobe: KOBE,
   tokyo: TOKYO,
+  nara: NARA,
+  sapporo: SAPPORO,
+  hiroshima: HIROSHIMA,
+  fukuoka: FUKUOKA,
+  okinawa: OKINAWA,
+  seoul: SEOUL,
+  bangkok: BANGKOK,
+  sanfrancisco: SANFRANCISCO,
+  lasvegas: LASVEGAS,
+  losangeles: LOSANGELES,
+  newyork: NEWYORK,
+  kualalumpur: KUALALUMPUR,
+  shanghai: SHANGHAI,
 };

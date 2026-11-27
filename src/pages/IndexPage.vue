@@ -1127,10 +1127,11 @@ watch(sceneLocation, (to, from) => {
   };
   const f1Line = to === 'f1' || to === 'f1hub' || (GP_ORDER as string[]).includes(to);
   const city = isCityId(to) ? CITIES[to] : isCityId(from) ? CITIES[from] : null;
-  const cityLine = city ? ({ hsr: 'hsr', red: 'red', tra: 'blue', airport: 'purple', jr: 'jr' } as const)[city.line ?? 'hsr'] : null;
-  // 進出國：桃園機場 ↔ 國外的城市是搭飛機
-  const abroad = (id: string) => isCityId(id) && CITIES[id].country !== undefined;
-  if (abroad(to) !== abroad(from) && (abroad(to) || abroad(from))) {
+  const cityLine = city ? ({ hsr: 'hsr', red: 'red', tra: 'blue', airport: 'purple', jr: 'jr', metro: 'green', flight: 'green' } as const)[city.line ?? 'hsr'] : null;
+  // 搭飛機：換國家（台灣 ↔ 國外都經過桃園機場），或國內線（沖繩、美國城市之間）
+  const countryOf = (id: string) => (isCityId(id) ? (CITIES[id].country ?? 'tw') : 'tw');
+  const domesticFlight = isCityId(to) && isCityId(from) && (CITIES[to].line === 'flight' || CITIES[from].line === 'flight');
+  if (countryOf(to) !== countryOf(from) || domesticFlight) {
     playTransition('flight', names[to] ?? '');
     return;
   }

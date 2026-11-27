@@ -68,9 +68,12 @@
       <!-- 機場的出境口：飛去國外的城市 -->
       <div v-else-if="gateOpen && city.gate" class="pixel-panel absolute bottom-3 left-1/2 z-10 max-h-[calc(100%-4.5rem)] w-[min(26rem,calc(100%-1rem))] -translate-x-1/2 overflow-y-auto px-2.5 pb-2.5 pt-3 text-center" @click.stop>
         <p class="!mb-2 !text-[11px] font-black">✈️ {{ t.city.gatePrompt(city.gate.name[locale]) }}</p>
-        <div class="grid grid-cols-2 gap-1.5">
-          <button v-for="dest in flightCities" :key="dest.id" type="button" class="pixel-btn pixel-btn--primary h-9 min-w-0 whitespace-nowrap px-2 text-xs" :title="dest.stop[locale]" @click="emit('go', dest.id)"><span class="block min-w-0 truncate">{{ dest.emoji }} {{ shortStop(dest) }}</span></button>
-        </div>
+        <template v-for="g in flightGroups" :key="g.key">
+          <p class="!mb-1 !mt-1.5 text-left !text-[10px] font-black text-[color:var(--px-muted)]">{{ g.title }}</p>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button v-for="dest in g.dests" :key="dest.city.id" type="button" class="pixel-btn pixel-btn--primary h-9 min-w-0 whitespace-nowrap px-1.5 text-[11px]" :title="dest.city.stop[locale]" @click="emit('go', dest.city.id)"><span class="block min-w-0 truncate">{{ shortStop(dest.city).length > (locale === 'zh-TW' ? 4 : 8) ? '' : dest.icon }} {{ shortStop(dest.city) }}</span></button>
+          </div>
+        </template>
       </div>
 
       <div
@@ -116,7 +119,7 @@ import { SHOP_ITEM_EMOJI, type ShopItem, type ShopItemId } from 'src/pages/index
 import { drawRoadVehicle } from 'src/pages/index/pixel/miaokouArt';
 import type { CityDef, CityId, CityInfo, DrawCtx, Rect } from 'src/pages/index/pixel/city';
 import { CITIES } from 'src/pages/index/pixel/cities';
-import { CITY_ORDER } from 'src/pages/index/pixel/city';
+import { CITY_ORDER, COUNTRIES, COUNTRY_NAMES } from 'src/pages/index/pixel/city';
 
 const props = defineProps<{
   city: CityDef;
@@ -138,13 +141,21 @@ const city = props.city;
 const W = city.W;
 const H = city.H;
 const SEATS = city.seats;
-const lineEmoji = city.line === 'red' ? '🚇' : city.line === 'tra' || city.line === 'jr' ? '🚆' : city.line === 'airport' ? '🚈' : '🚄';
+const lineEmoji = city.line === 'red' || city.line === 'metro' ? '🚇' : city.line === 'tra' || city.line === 'jr' ? '🚆' : city.line === 'airport' ? '🚈' : city.line === 'flight' ? '✈️' : '🚄';
 // 城市間的面板只放城市名（括號裡的景點、轉乘說明在台北車站的路線圖上看得到），三欄才放得下
 const shortStop = (c: CityDef) => c.stop[locale.value].replace(/（.*）$| \(.*\)$/, '');
 // 車站只列同一國的城市（台灣的高鐵、台鐵；日本的 JR）
 const otherCities = computed<CityDef[]>(() => (CITY_ORDER as readonly CityId[]).filter((id) => id !== city.id && CITIES[id].country === city.country).map((id) => CITIES[id]));
-// 機場出境口能飛去的國外城市
-const flightCities = computed<CityDef[]>(() => (CITY_ORDER as readonly CityId[]).map((id) => CITIES[id]).filter((c) => c.country !== undefined));
+// 機場出境口能飛去的國外城市：兩個城市以上的國家一組（日本、美國），只有一個城市的國家併成「其他國家」，按鈕上放國旗
+const flightGroups = computed(() => {
+  const byCountry = COUNTRIES.map((country) => ({ country, cities: (CITY_ORDER as readonly CityId[]).map((id) => CITIES[id]).filter((c) => c.country === country) }));
+  const groups: { key: string; title: string; dests: { city: CityDef; icon: string }[] }[] = byCountry
+    .filter((g) => g.cities.length > 1)
+    .map((g) => ({ key: g.country, title: `${COUNTRY_NAMES[g.country].flag} ${COUNTRY_NAMES[g.country][locale.value]}`, dests: g.cities.map((city) => ({ city, icon: city.emoji })) }));
+  const singles = byCountry.filter((g) => g.cities.length === 1).flatMap((g) => g.cities.map((city) => ({ city, icon: COUNTRY_NAMES[g.country].flag })));
+  if (singles.length) groups.push({ key: 'other', title: t.value.city.otherCountries, dests: singles });
+  return groups;
+});
 
 const inRect = (x: number, y: number, r: Rect) => x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1;
 const blocked = (x: number, y: number) =>
@@ -366,8 +377,11 @@ function updateWalk(dt: number): void {
     const ny = me.y + (y / length) * 4.2 * dt;
     const bx = me.x;
     const by = me.y;
-    if (!blocked(nx, me.y)) me.x = nx;
-    if (!blocked(me.x, ny)) me.y = ny;
+    // 站的地方變成不能走（宮島漲潮淹到沙灘）就不擋，讓人走得出來
+    const stuck = blocked(me.x, me.y);
+    const inMap = (x: number, y: number) => x >= 0.5 && x <= W - 0.5 && y >= 0.5 && y <= H - 0.5;
+    if (stuck ? inMap(nx, me.y) : !blocked(nx, me.y)) me.x = nx;
+    if (stuck ? inMap(me.x, ny) : !blocked(me.x, ny)) me.y = ny;
     stuckFor = walkTarget !== null && Math.hypot(me.x - bx, me.y - by) < 0.01 ? stuckFor + dt : 0;
     me.facing = Math.abs(x) > Math.abs(y) ? (x > 0 ? 'right' : 'left') : y > 0 ? 'down' : 'up';
     me.walkClock += dt;
@@ -582,7 +596,7 @@ function render(seconds: number): void {
   if (d.night) {
     c.save();
     c.globalCompositeOperation = 'multiply';
-    c.fillStyle = '#5f6a9c';
+    c.fillStyle = city.nightTint ?? '#5f6a9c';
     c.fillRect(0, 0, W * T, H * T);
     c.globalCompositeOperation = 'lighter';
     for (const l of city.lights) {

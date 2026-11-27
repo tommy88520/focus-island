@@ -6,7 +6,7 @@ import type { SoundscapeKind } from 'src/pages/index/composables/synthAmbience';
 
 // 城市的順序 = 座位編號的順序（每個城市 CITY_SEAT_COUNT 位，接在主地圖四四南村 188 號後面）：只能加在最後面，不能調換
 // 也是獨立地圖的 scene id（跟後端 allowedScenes 對好）
-export const CITY_ORDER = ['tainan', 'taichung', 'kaohsiung', 'tamsui', 'sunmoon', 'hualien', 'keelung', 'hsinchu', 'chiayi', 'yilan', 'taitung', 'kenting', 'penghu', 'alishan', 'airport', 'kyoto', 'osaka', 'kobe', 'tokyo'] as const;
+export const CITY_ORDER = ['tainan', 'taichung', 'kaohsiung', 'tamsui', 'sunmoon', 'hualien', 'keelung', 'hsinchu', 'chiayi', 'yilan', 'taitung', 'kenting', 'penghu', 'alishan', 'airport', 'kyoto', 'osaka', 'kobe', 'tokyo', 'nara', 'sapporo', 'hiroshima', 'fukuoka', 'okinawa', 'seoul', 'bangkok', 'sanfrancisco', 'lasvegas', 'losangeles', 'newyork', 'kualalumpur', 'shanghai'] as const;
 export type CityId = (typeof CITY_ORDER)[number];
 export const CITY_SEAT_COUNT = 12;
 
@@ -97,6 +97,18 @@ export interface CityTraffic {
   count: number;
 }
 
+// 國外的國家（機場出境口照這個順序分組）
+export const COUNTRIES = ['jp', 'kr', 'th', 'us', 'my', 'cn'] as const;
+export type Country = (typeof COUNTRIES)[number];
+export const COUNTRY_NAMES: Record<Country, Text2 & { flag: string }> = {
+  jp: { flag: '🇯🇵', 'zh-TW': '日本', 'en-US': 'Japan' },
+  kr: { flag: '🇰🇷', 'zh-TW': '韓國', 'en-US': 'Korea' },
+  th: { flag: '🇹🇭', 'zh-TW': '泰國', 'en-US': 'Thailand' },
+  us: { flag: '🇺🇸', 'zh-TW': '美國', 'en-US': 'USA' },
+  my: { flag: '🇲🇾', 'zh-TW': '馬來西亞', 'en-US': 'Malaysia' },
+  cn: { flag: '🇨🇳', 'zh-TW': '中國', 'en-US': 'China' },
+};
+
 export interface CityDef {
   id: CityId;
   W: number;
@@ -105,10 +117,11 @@ export interface CityDef {
   title: Text2;
   stop: Text2;
   emoji: string;
-  // 從台北車站搭哪條線過去（路線圖上放在哪一排、過場的列車顏色）：hsr 高鐵（預設）、red 捷運紅線、tra 台鐵、airport 機場捷運
-  line?: 'hsr' | 'red' | 'tra' | 'airport' | 'jr';
-  // 哪個國家（預設台灣）：車站面板只列同一國的城市；日本的城市搭 JR，車站多一顆「搭飛機回台灣」
-  country?: 'jp';
+  // 從台北車站搭哪條線過去（路線圖上放在哪一排、過場的列車顏色）：hsr 高鐵（預設）、red 捷運紅線、tra 台鐵、airport 機場捷運、
+  // jr 日本 JR、metro 國外的地鐵／機場快線（只有一個城市的國家，車站只能飛回台灣）、flight 國內線飛機（沖繩、美國城市之間搭飛機）
+  line?: 'hsr' | 'red' | 'tra' | 'airport' | 'jr' | 'metro' | 'flight';
+  // 哪個國家（預設台灣）：車站面板只列同一國的城市，多一顆「搭飛機回台灣」；不同國家之間都從桃園機場轉機
+  country?: Country;
   // 機場的出境口：站到這點旁邊跳出「要飛去哪裡」（列出國外的城市）
   gate?: { x: number; y: number; name: Text2 };
   // 搭車的地方：站到這點旁邊跳出「要去哪裡」；剛到的人站在 arrive
@@ -131,6 +144,8 @@ export interface CityDef {
   labels: CityLabel[];
   walkers: CityWalkLane[];
   traffic: CityTraffic[];
+  // 晚上整張乘上的顏色（預設 #5f6a9c）；霓虹城市（拉斯維加斯）用淺一點的，招牌才亮得起來
+  nightTint?: string;
   // 晚上會亮的燈（世界座標 px）
   lights: { x: number; y: number; r: number; color?: string }[];
   hintDesktop: Text2;
