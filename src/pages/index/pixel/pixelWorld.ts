@@ -279,7 +279,17 @@ export type ShopItemId =
   | 'durian'
   | 'xiaolongbao'
   | 'scallionOilNoodles'
-  | 'porkChopRiceCake';
+  | 'porkChopRiceCake'
+  // 日本第三批（cityItems.ts）
+  | 'goldLeafSoftServe'
+  | 'kaisendon'
+  | 'kanazawaCurry'
+  | 'nikuman'
+  | 'napolitan'
+  | 'sanmaMen'
+  | 'shioRamen'
+  | 'ikuraDon'
+  | 'ikameshi';
 
 export interface ShopItem {
   id: ShopItemId;

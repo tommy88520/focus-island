@@ -35,6 +35,9 @@ import { LOSANGELES } from './losangelesArt';
 import { NEWYORK } from './newyorkArt';
 import { KUALALUMPUR } from './kualalumpurArt';
 import { SHANGHAI } from './shanghaiArt';
+import { KANAZAWA } from './kanazawaArt';
+import { YOKOHAMA } from './yokohamaArt';
+import { HAKODATE } from './hakodateArt';
 
 export const CITIES: Record<CityId, CityDef> = {
   tainan: TAINAN,
@@ -69,4 +72,7 @@ export const CITIES: Record<CityId, CityDef> = {
   newyork: NEWYORK,
   kualalumpur: KUALALUMPUR,
   shanghai: SHANGHAI,
+  kanazawa: KANAZAWA,
+  yokohama: YOKOHAMA,
+  hakodate: HAKODATE,
 };

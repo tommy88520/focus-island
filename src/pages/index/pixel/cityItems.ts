@@ -262,4 +262,25 @@ export const SHANGHAI_ITEMS = {
   porkChopRiceCake: { id: 'porkChopRiceCake', emoji: '🍖', price: 70, name: { 'zh-TW': '排骨年糕', 'en-US': 'Pork chop with rice cakes' } },
 } satisfies Record<string, ShopItem>;
 
-export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS), ...Object.values(YILAN_ITEMS), ...Object.values(TAITUNG_ITEMS), ...Object.values(KENTING_ITEMS), ...Object.values(PENGHU_ITEMS), ...Object.values(ALISHAN_ITEMS), ...Object.values(AIRPORT_ITEMS), ...Object.values(KYOTO_ITEMS), ...Object.values(OSAKA_ITEMS), ...Object.values(KOBE_ITEMS), ...Object.values(TOKYO_ITEMS), ...Object.values(NARA_ITEMS), ...Object.values(SAPPORO_ITEMS), ...Object.values(HIROSHIMA_ITEMS), ...Object.values(FUKUOKA_ITEMS), ...Object.values(OKINAWA_ITEMS), ...Object.values(SEOUL_ITEMS), ...Object.values(BANGKOK_ITEMS), ...Object.values(SANFRANCISCO_ITEMS), ...Object.values(LASVEGAS_ITEMS), ...Object.values(LOSANGELES_ITEMS), ...Object.values(NEWYORK_ITEMS), ...Object.values(KUALALUMPUR_ITEMS), ...Object.values(SHANGHAI_ITEMS)];
+// 金澤（近江町市場、東茶屋街）：金箔霜淇淋、海鮮丼、金澤咖哩
+export const KANAZAWA_ITEMS = {
+  goldLeafSoftServe: { id: 'goldLeafSoftServe', emoji: '🍦', price: 100, name: { 'zh-TW': '金箔霜淇淋', 'en-US': 'Gold-leaf soft serve' } },
+  kaisendon: { id: 'kaisendon', emoji: '🍣', price: 180, name: { 'zh-TW': '近江町海鮮丼', 'en-US': 'Omicho seafood bowl' } },
+  kanazawaCurry: { id: 'kanazawaCurry', emoji: '🍛', price: 90, name: { 'zh-TW': '金澤咖哩（豬排）', 'en-US': 'Kanazawa curry with katsu' } },
+} satisfies Record<string, ShopItem>;
+
+// 橫濱（中華街、港未來）：中華街肉包、拿坡里義大利麵、橫濱三碼麵
+export const YOKOHAMA_ITEMS = {
+  nikuman: { id: 'nikuman', emoji: '🥟', price: 50, name: { 'zh-TW': '中華街肉包', 'en-US': 'Chinatown pork bun' } },
+  napolitan: { id: 'napolitan', emoji: '🍝', price: 110, name: { 'zh-TW': '拿坡里義大利麵', 'en-US': 'Spaghetti Napolitan' } },
+  sanmaMen: { id: 'sanmaMen', emoji: '🍜', price: 80, name: { 'zh-TW': '橫濱三碼麵', 'en-US': 'Sanma-men noodles' } },
+} satisfies Record<string, ShopItem>;
+
+// 函館（朝市、紅磚倉庫）：函館鹽味拉麵、鮭魚卵丼、烏賊飯
+export const HAKODATE_ITEMS = {
+  shioRamen: { id: 'shioRamen', emoji: '🍜', price: 80, name: { 'zh-TW': '函館鹽味拉麵', 'en-US': 'Hakodate shio ramen' } },
+  ikuraDon: { id: 'ikuraDon', emoji: '🍚', price: 160, name: { 'zh-TW': '朝市鮭魚卵丼', 'en-US': 'Morning-market ikura bowl' } },
+  ikameshi: { id: 'ikameshi', emoji: '🦑', price: 70, name: { 'zh-TW': '烏賊飯', 'en-US': 'Ikameshi (rice-stuffed squid)' } },
+} satisfies Record<string, ShopItem>;
+
+export const CITY_ITEMS: ShopItem[] = [...Object.values(TAINAN_ITEMS), ...Object.values(TAICHUNG_ITEMS), ...Object.values(KAOHSIUNG_ITEMS), ...Object.values(TAMSUI_ITEMS), ...Object.values(SUNMOON_ITEMS), ...Object.values(HUALIEN_ITEMS), ...Object.values(KEELUNG_ITEMS), ...Object.values(HSINCHU_ITEMS), ...Object.values(CHIAYI_ITEMS), ...Object.values(YILAN_ITEMS), ...Object.values(TAITUNG_ITEMS), ...Object.values(KENTING_ITEMS), ...Object.values(PENGHU_ITEMS), ...Object.values(ALISHAN_ITEMS), ...Object.values(AIRPORT_ITEMS), ...Object.values(KYOTO_ITEMS), ...Object.values(OSAKA_ITEMS), ...Object.values(KOBE_ITEMS), ...Object.values(TOKYO_ITEMS), ...Object.values(NARA_ITEMS), ...Object.values(SAPPORO_ITEMS), ...Object.values(HIROSHIMA_ITEMS), ...Object.values(FUKUOKA_ITEMS), ...Object.values(OKINAWA_ITEMS), ...Object.values(SEOUL_ITEMS), ...Object.values(BANGKOK_ITEMS), ...Object.values(SANFRANCISCO_ITEMS), ...Object.values(LASVEGAS_ITEMS), ...Object.values(LOSANGELES_ITEMS), ...Object.values(NEWYORK_ITEMS), ...Object.values(KUALALUMPUR_ITEMS), ...Object.values(SHANGHAI_ITEMS), ...Object.values(KANAZAWA_ITEMS), ...Object.values(YOKOHAMA_ITEMS), ...Object.values(HAKODATE_ITEMS)];

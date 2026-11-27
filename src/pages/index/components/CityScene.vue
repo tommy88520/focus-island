@@ -208,6 +208,7 @@ const shop = computed(() => (shopAt.value !== null ? city.shops[shopAt.value] ??
 
 // ── 自己 ──
 const me = { x: city.station.arrive.x, y: city.station.arrive.y, facing: 'down' as 'up' | 'down' | 'left' | 'right', moving: false, walkClock: 0 };
+(window as unknown as { __me?: typeof me }).__me = me; // TEMP
 let stationLock = true;
 let seatedIndex: number | null = null;
 let walkTarget: number | null = null;
@@ -556,7 +557,7 @@ function render(seconds: number): void {
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
   }
-  const scale = cssW >= 900 ? 3 : 2;
+  const scale = ((window as unknown as { __cityScale?: number }).__cityScale) ?? (cssW >= 900 ? 3 : 2); // TEMP
   const follow = (size: number, world: number, at: number) => (world <= size ? (size - world) / 2 : Math.min(0, Math.max(size - world, size / 2 - at)));
   const ox = Math.round(follow(cssW, W * T * scale, me.x * T * scale) * dpr) / dpr;
   // 左上角有一排按鈕：地圖最上緣可以再往下捲一點
@@ -575,7 +576,8 @@ function render(seconds: number): void {
   }
   if (ground) drawLayer(ctx, ground, 0, 0, W * T, H * T);
   const c = ctx;
-  const d: DrawCtx = { seconds, night: isNight() };
+  const forcedNight = (window as unknown as { __cityNight?: boolean }).__cityNight; // TEMP
+  const d: DrawCtx = { seconds, night: forcedNight ?? isNight() };
 
   const items: { y: number; draw: () => void }[] = [];
   for (const p of city.props) items.push({ y: p.y, draw: () => p.draw(c, d) });
