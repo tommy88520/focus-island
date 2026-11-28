@@ -601,6 +601,10 @@ function render(seconds: number): void {
     c.fillStyle = city.nightTint ?? '#5f6a9c';
     c.fillRect(0, 0, W * T, H * T);
     c.globalCompositeOperation = 'lighter';
+    // 會動的燈（船、車）開出地圖時光暈不要畫到地圖外面
+    c.beginPath();
+    c.rect(0, 0, W * T, H * T);
+    c.clip();
     for (const l of city.lights) {
       const g = c.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
       g.addColorStop(0, l.color ?? 'rgba(255, 210, 140, 0.45)');
